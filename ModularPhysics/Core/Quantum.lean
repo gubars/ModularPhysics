@@ -3,6 +3,8 @@ import Mathlib.Analysis.Complex.Basic
 
 namespace ModularPhysics.Core.Quantum
 
+set_option autoImplicit false
+
 /-- A quantum state space (abstract Hilbert space) -/
 class QuantumStateSpace (H : Type _) extends
   NormedAddCommGroup H,
@@ -12,8 +14,14 @@ class QuantumStateSpace (H : Type _) extends
 /-- 2-dimensional complex Hilbert space (qubit) -/
 abbrev Qubit := EuclideanSpace ℂ (Fin 2)
 
+/-- n-dimensional complex Hilbert space -/
+abbrev FiniteDimQuantum (n : ℕ) := EuclideanSpace ℂ (Fin n)
+
 /-- Qubit is a quantum state space -/
 noncomputable instance : QuantumStateSpace Qubit := {}
+
+/-- Finite dimensional systems are quantum state spaces -/
+noncomputable instance (n : ℕ) : QuantumStateSpace (FiniteDimQuantum n) := {}
 
 /-- Pure state (normalized vector) -/
 structure PureState (H : Type _) [QuantumStateSpace H] where
@@ -21,23 +29,23 @@ structure PureState (H : Type _) [QuantumStateSpace H] where
   normalized : ‖vec‖ = 1
 
 /-- Inner product (probability amplitude) -/
-noncomputable def innerProduct {H : Type _} [QuantumStateSpace H] (psi phi : H) : ℂ :=
-  @inner ℂ H _ psi phi
+noncomputable def innerProduct {H : Type _} [QuantumStateSpace H] (ψ φ : H) : ℂ :=
+  @inner ℂ H _ ψ φ
 
 /-- Probability (Born rule) -/
 noncomputable def bornRule {H : Type _} [QuantumStateSpace H]
-    (psi phi : PureState H) : ℝ :=
-  let z := innerProduct psi.vec phi.vec
-  (z.re ^ 2 + z.im ^ 2)
+    (ψ φ : PureState H) : ℝ :=
+  let z := innerProduct ψ.vec φ.vec
+  z.re ^ 2 + z.im ^ 2
 
 /-- Two states are orthogonal -/
-def orthogonal {H : Type _} [QuantumStateSpace H] (psi phi : H) : Prop :=
-  innerProduct psi phi = 0
+def orthogonal {H : Type _} [QuantumStateSpace H] (ψ φ : H) : Prop :=
+  innerProduct ψ φ = 0
 
 /-- Superposition principle -/
 noncomputable def superposition {H : Type _} [QuantumStateSpace H]
-    (alpha beta : ℂ) (psi phi : H) : H :=
-  alpha • psi + beta • phi
+    (α β : ℂ) (ψ φ : H) : H :=
+  α • ψ + β • φ
 
 /-- Computational basis states -/
 axiom ket0 : Qubit
@@ -47,52 +55,52 @@ axiom ket1_normalized : ‖ket1‖ = 1
 axiom ket0_ket1_orthogonal : orthogonal ket0 ket1
 
 /-- Any qubit can be written as superposition of basis states -/
-axiom qubit_decomposition : ∀ (psi : Qubit),
-  ∃ (alpha beta : ℂ), psi = superposition alpha beta ket0 ket1
+axiom qubit_decomposition : ∀ (ψ : Qubit),
+  ∃ (α β : ℂ), ψ = superposition α β ket0 ket1
 
 /-- Tensor product of two quantum systems -/
-axiom TensorProduct (H1 H2 : Type _) [QuantumStateSpace H1] [QuantumStateSpace H2] : Type _
+axiom TensorProduct (H₁ H₂ : Type _) [QuantumStateSpace H₁] [QuantumStateSpace H₂] : Type _
 
 /-- Tensor product is a quantum state space -/
-noncomputable instance {H1 H2 : Type _}
-  [QuantumStateSpace H1] [QuantumStateSpace H2] :
-  QuantumStateSpace (TensorProduct H1 H2) := by
-  sorry
+noncomputable instance {H₁ H₂ : Type _}
+    [QuantumStateSpace H₁] [QuantumStateSpace H₂] :
+    QuantumStateSpace (TensorProduct H₁ H₂) := by sorry
 
 /-- Tensor product operation -/
-axiom tensorProduct {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2] :
-  H1 → H2 → TensorProduct H1 H2
+axiom tensorProduct {H₁ H₂ : Type _} [QuantumStateSpace H₁] [QuantumStateSpace H₂] :
+  H₁ → H₂ → TensorProduct H₁ H₂
 
-notation:100 psi " ⊗ " phi => tensorProduct psi phi
+notation:100 ψ " ⊗ " φ => tensorProduct ψ φ
 
 /-- Density operator for mixed states -/
 axiom DensityOperator (H : Type _) [QuantumStateSpace H] : Type _
+
+/-- Convert pure state to density operator -/
+axiom pureToDensity {H : Type _} [QuantumStateSpace H] : PureState H → DensityOperator H
 
 /-- von Neumann entropy -/
 axiom vonNeumannEntropy {H : Type _} [QuantumStateSpace H] :
   DensityOperator H → ℝ
 
 /-- Entanglement entropy for bipartite systems -/
-axiom entanglementEntropy {H1 H2 : Type _}
-  [QuantumStateSpace H1] [QuantumStateSpace H2] :
-  DensityOperator (TensorProduct H1 H2) → ℝ
+axiom entanglementEntropy {H₁ H₂ : Type _}
+    [QuantumStateSpace H₁] [QuantumStateSpace H₂] :
+    DensityOperator (TensorProduct H₁ H₂) → ℝ
 
 /-- Unitary evolution operator -/
 axiom UnitaryOp (H : Type _) [QuantumStateSpace H] : Type _
 
 /-- Time evolution is unitary -/
-axiom timeEvolution {H : Type _} [QuantumStateSpace H] :
-  ℝ → UnitaryOp H
+axiom timeEvolution {H : Type _} [QuantumStateSpace H] : ℝ → UnitaryOp H
 
 /-- Apply unitary operator -/
-axiom applyUnitary {H : Type _} [QuantumStateSpace H] :
-  UnitaryOp H → H → H
+axiom applyUnitary {H : Type _} [QuantumStateSpace H] : UnitaryOp H → H → H
 
 /-- Orthogonal states have zero probability -/
 theorem orthogonal_zero_prob {H : Type _} [QuantumStateSpace H]
-    (psi phi : PureState H)
-    (h : orthogonal psi.vec phi.vec) :
-    bornRule psi phi = 0 := by
+    (ψ φ : PureState H)
+    (h : orthogonal ψ.vec φ.vec) :
+    bornRule ψ φ = 0 := by
   unfold bornRule orthogonal innerProduct at *
   simp [h]
 

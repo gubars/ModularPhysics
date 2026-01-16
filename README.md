@@ -1,6 +1,6 @@
 # ModularPhysics
 
-Formalization of quantum field theory in Lean 4.
+Modular architecture for physics in Lean 4.
 
 ## Structure
 
