@@ -1,4 +1,5 @@
-import ModularPhysics.Core.SpaceTime
+import ModularPhysics.Core.SpaceTime.Basic
+import ModularPhysics.Core.SpaceTime.Causality
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 

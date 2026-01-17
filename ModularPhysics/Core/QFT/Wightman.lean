@@ -1,6 +1,8 @@
-import ModularPhysics.Core.SpaceTime
+import ModularPhysics.Core.SpaceTime.Basic
+import ModularPhysics.Core.SpaceTime.Causality
+import ModularPhysics.Core.SpaceTime.Metrics
 import ModularPhysics.Core.Quantum
-import ModularPhysics.Core.Symmetries
+import ModularPhysics.Core.Symmetries.Poincare
 
 namespace ModularPhysics.Core.QFT.Wightman
 
@@ -40,18 +42,20 @@ axiom mass_shell (m : ℝ) :
 
 /-- Wightman Axiom W3: Locality (microcausality) -/
 axiom locality {H : Type _} [QuantumStateSpace H]
+  (metric : SpacetimeMetric)  -- ← Add metric parameter
   (phi psi : QuantumFieldOperator H)
   (x y : SpaceTimePoint)
-  (h : Spacelike x y) :
+  (h : Spacelike metric x y) :  -- ← Use metric
   ∀ (state : H),
     fieldAction phi x (fieldAction psi y state) =
     fieldAction psi y (fieldAction phi x state)
 
 /-- Commutator vanishes for spacelike separation -/
 axiom commutator_vanishes {H : Type _} [QuantumStateSpace H]
+  (metric : SpacetimeMetric)  -- ← Add metric parameter
   (phi psi : QuantumFieldOperator H)
   (x y : SpaceTimePoint)
-  (h : Spacelike x y) :
+  (h : Spacelike metric x y) :  -- ← Use metric
   ∀ (state : H),
     fieldAction phi x (fieldAction psi y state) -
     fieldAction psi y (fieldAction phi x state) = 0

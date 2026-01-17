@@ -1,6 +1,7 @@
-import ModularPhysics.Core.SpaceTime
+import ModularPhysics.Core.SpaceTime.Basic
+import ModularPhysics.Core.SpaceTime.Causality
 import ModularPhysics.Core.Quantum
-import ModularPhysics.Core.Symmetries
+import ModularPhysics.Core.Symmetries.Poincare
 
 namespace ModularPhysics.Core.QFT.AQFT
 
@@ -30,9 +31,14 @@ axiom isotony (O₁ O₂ O₃ : Set SpaceTimePoint)
   algebraInclusion O₁ O₃ (h12.trans h23) =
   algebraInclusion O₂ O₃ h23 ∘ algebraInclusion O₁ O₂ h12
 
+/-- Two regions are spacelike separated -/
+axiom SpacelikeSeparated (metric : SpacetimeMetric) (O₁ O₂ : Set SpaceTimePoint) : Prop
+
 /-- AQFT Axiom A2: Locality (Einstein causality) -/
-axiom locality (O₁ O₂ : Set SpaceTimePoint)
-  (h : SpacelikeSeparated O₁ O₂)
+axiom locality
+  (metric : SpacetimeMetric)  -- ← Add metric
+  (O₁ O₂ : Set SpaceTimePoint)
+  (h : SpacelikeSeparated metric O₁ O₂)  -- ← Use metric
   (A : LocalAlgebra O₁) (B : LocalAlgebra O₂)
   (O : Set SpaceTimePoint) (h1 : O₁ ⊆ O) (h2 : O₂ ⊆ O) :
   algebraMul (algebraInclusion O₁ O h1 A) (algebraInclusion O₂ O h2 B) =
@@ -71,8 +77,10 @@ axiom reeh_schlieder_aqft (O : Set SpaceTimePoint) (nonempty : O.Nonempty) :
   True
 
 /-- Split property: nuclearity condition -/
-axiom split_property (O₁ O₂ : Set SpaceTimePoint)
-  (separated : ∃ (O : Set SpaceTimePoint), O₁ ⊆ O ∧ SpacelikeSeparated O O₂) :
+axiom split_property
+  (metric : SpacetimeMetric)  -- ← Add metric
+  (O₁ O₂ : Set SpaceTimePoint)
+  (separated : ∃ (O : Set SpaceTimePoint), O₁ ⊆ O ∧ SpacelikeSeparated metric O O₂) :  -- ← Use metric
   True
 
 /-- Haag's theorem: no interaction picture -/

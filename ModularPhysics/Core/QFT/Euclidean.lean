@@ -1,7 +1,10 @@
-import ModularPhysics.Core.SpaceTime
+import ModularPhysics.Core.SpaceTime.Basic
+import ModularPhysics.Core.SpaceTime.Metrics
 import ModularPhysics.Core.QFT.Wightman
 
 namespace ModularPhysics.Core.QFT.Euclidean
+
+open SpaceTime  -- ← Add this to get SpaceTimePoint
 
 /-- Euclidean spacetime point (τ, x⃗) -/
 abbrev EuclideanPoint := Fin 4 → ℝ
@@ -45,17 +48,17 @@ axiom cluster_property (n m : ℕ)
 
 /-- Wick rotation: i·t → τ (analytic continuation) -/
 axiom wickRotation (n : ℕ) :
-  ((Fin n → SpaceTime.SpaceTimePoint) → ℂ) →
+  ((Fin n → SpaceTimePoint) → ℂ) →  -- ← Remove SpaceTime. prefix
   ((Fin n → EuclideanPoint) → ℝ)
 
 /-- Inverse Wick rotation -/
 axiom inverseWickRotation (n : ℕ) :
   ((Fin n → EuclideanPoint) → ℝ) →
-  ((Fin n → SpaceTime.SpaceTimePoint) → ℂ)
+  ((Fin n → SpaceTimePoint) → ℂ)  -- ← Remove SpaceTime. prefix
 
 /-- Wick rotation theorem: W ↔ S -/
 axiom wick_rotation_theorem (n : ℕ)
-  (W : (Fin n → SpaceTime.SpaceTimePoint) → ℂ) :
+  (W : (Fin n → SpaceTimePoint) → ℂ) :  -- ← Remove SpaceTime. prefix
   inverseWickRotation n (wickRotation n W) = W
 
 /-- Connection to statistical mechanics -/
