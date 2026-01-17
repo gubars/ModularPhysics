@@ -4,19 +4,137 @@ Modular architecture for physics in Lean 4.
 
 ## Structure
 
-Core/
-  SpaceTime.lean       - Minkowski spacetime, Poincaré group
-  Quantum.lean         - Hilbert spaces, operators
-  Symmetries.lean      - Lie groups, representations
-  QFT/
-    Wightman.lean      - Wightman axioms
-    TQFT.lean          - Topological QFT
-    AQFT.lean          - Algebraic QFT
-    EFT.lean           - Effective field theory
-    Euclidean.lean     - Euclidean QFT
+ModularPhysics/Core/
+├── SpaceTime/                      [Minkowski, causality, geodesics, curvature]
+│   ├── Basic.lean
+│   ├── Causality.lean
+│   ├── Minkowski.lean
+│   ├── Metrics.lean
+│   ├── Connections.lean
+│   ├── Curvature.lean
+│   ├── Geodesics.lean
+│   ├── Curves.lean
+│   ├── Hypersurfaces.lean
+│   ├── Conformal.lean
+│   └── Symmetries.lean
+│
+├── Symmetries/                     [Lorentz, Poincaré, discrete]
+│   ├── Lorentz.lean
+│   ├── Poincare.lean
+│   ├── LieAlgebras.lean
+│   ├── Representations.lean
+│   └── Discrete.lean
+│
+├── Quantum/                        [Hilbert space, operators, measurement]
+│   ├── Basic.lean
+│   ├── Operators.lean
+│   ├── Measurement.lean
+│   └── Composite.lean
+│
+├── QuantumInformation/             [Entropy, entanglement, channels]
+│   ├── Entropy.lean
+│   ├── Entanglement.lean
+│   ├── Channels.lean
+│   ├── Correlations.lean
+│   ├── PartialTrace.lean
+│   └── InformationTheorems.lean
+│
+├── ClassicalMechanics/             [Lagrangian, Hamiltonian, phase space]
+│   ├── PhaseSpace.lean
+│   ├── Lagrangian.lean
+│   ├── Hamiltonian.lean
+│   ├── Symmetries.lean
+│   ├── CanonicalTransforms.lean
+│   ├── Constraints.lean
+│   ├── Integrable.lean
+│   ├── HamiltonJacobi.lean
+│   ├── Perturbation.lean
+│   └── Chaos.lean
+│
+├── ClassicalFieldTheory/           [Fields, actions, Maxwell, Yang-Mills]
+│   ├── Fields.lean
+│   ├── Action.lean
+│   ├── EulerLagrange.lean
+│   ├── Noether.lean
+│   ├── EnergyMomentum.lean
+│   ├── Scalar.lean
+│   ├── Electromagnetic.lean
+│   ├── YangMills.lean
+│   └── Solitons.lean
+│
+├── FluidMechanics/                 [Euler, Navier-Stokes, vorticity]
+│   ├── Basic.lean
+│   ├── Conservation.lean
+│   ├── Euler.lean
+│   ├── NavierStokes.lean
+│   ├── Vorticity.lean
+│   └── Compressible.lean
+│
+├── GeneralRelativity/              [Einstein equations, black holes, cosmology]
+│   ├── EinsteinEquations.lean
+│   ├── Schwarzschild.lean
+│   ├── ReissnerNordstrom.lean
+│   ├── Kerr.lean
+│   ├── BlackHoles.lean
+│   ├── Singularities.lean
+│   ├── EnergyConditions.lean
+│   ├── GravitationalWaves.lean
+│   └── Cosmology.lean
+│
+└── QFT/                            [Multiple formulations of QFT]
+    ├── Wightman/                   [Wightman axioms, operator formalism]
+    │   ├── Axioms.lean
+    │   ├── Operators.lean
+    │   ├── WightmanFunctions.lean
+    │   └── Theorems.lean
+    │
+    ├── AQFT/                       [Haag-Kastler, algebraic QFT]
+    │   ├── Axioms.lean
+    │   ├── LocalAlgebras.lean
+    │   ├── Representations.lean
+    │   └── Superselection.lean
+    │
+    ├── PathIntegral/               [Functional integrals]
+    │   ├── FieldConfigurations.lean
+    │   ├── ActionAndMeasure.lean
+    │   ├── PathIntegrals.lean
+    │   ├── FieldRedefinitions.lean
+    │   ├── Symmetries.lean
+    │   ├── Regularization.lean
+    │   ├── Semiclassical.lean
+    │   └── Supergeometry.lean
+    │
+    ├── Euclidean/                  [Wick rotation, OS axioms]
+    │   ├── SchwingerFunctions.lean
+    │   ├── OsterwalderSchrader.lean
+    │   ├── WickRotation.lean
+    │   └── Lattice.lean
+    │
+    ├── TQFT/                       [Topological field theories]
+    │   ├── Axioms.lean
+    │   ├── Bordisms.lean
+    │   ├── ChernSimons.lean
+    │   ├── KnotInvariants.lean
+    │   ├── ModularTensorCategories.lean
+    │   └── QuantumGroups.lean
+    │
+    ├── KontsevichSegal/            [Rigorous path integrals]
+    │   ├── Axioms.lean
+    │   ├── Bordisms.lean
+    │   └── StateSpaces.lean
+    │
+    └── EFT.lean                    [Effective field theory]
 
-Papers/
-  AMPS.lean            - Paper formalizations
+Aggregator files (import entire modules):
+├── SpaceTime.lean
+├── Symmetries.lean
+├── Quantum.lean
+├── QuantumInformation.lean
+├── ClassicalMechanics.lean
+├── ClassicalFieldTheory.lean
+├── FluidMechanics.lean
+├── GeneralRelativity.lean
+└── QuantumFieldTheory.lean
 
 ## Build
 
