@@ -5,7 +5,7 @@ Modular architecture for physics in Lean 4.
 ## Structure
 
 ModularPhysics/Core/
-├── SpaceTime/                      [Minkowski, causality, geodesics, curvature]
+├── SpaceTime/                    [Minkowski, causality, geodesics, curvature]
 │   ├── Basic.lean
 │   ├── Causality.lean
 │   ├── Minkowski.lean
@@ -18,20 +18,20 @@ ModularPhysics/Core/
 │   ├── Conformal.lean
 │   └── Symmetries.lean
 │
-├── Symmetries/                     [Lorentz, Poincaré, discrete]
+├── Symmetries/                   [Lorentz, Poincare, discrete]
 │   ├── Lorentz.lean
 │   ├── Poincare.lean
 │   ├── LieAlgebras.lean
 │   ├── Representations.lean
 │   └── Discrete.lean
 │
-├── Quantum/                        [Hilbert space, operators, measurement]
+├── Quantum/                      [Hilbert space, operators, measurement]
 │   ├── Basic.lean
 │   ├── Operators.lean
 │   ├── Measurement.lean
 │   └── Composite.lean
 │
-├── QuantumInformation/             [Entropy, entanglement, channels]
+├── QuantumInformation/           [Entropy, entanglement, channels]
 │   ├── Entropy.lean
 │   ├── Entanglement.lean
 │   ├── Channels.lean
@@ -39,7 +39,7 @@ ModularPhysics/Core/
 │   ├── PartialTrace.lean
 │   └── InformationTheorems.lean
 │
-├── ClassicalMechanics/             [Lagrangian, Hamiltonian, phase space]
+├── ClassicalMechanics/           [Lagrangian, Hamiltonian, phase space]
 │   ├── PhaseSpace.lean
 │   ├── Lagrangian.lean
 │   ├── Hamiltonian.lean
@@ -51,7 +51,7 @@ ModularPhysics/Core/
 │   ├── Perturbation.lean
 │   └── Chaos.lean
 │
-├── ClassicalFieldTheory/           [Fields, actions, Maxwell, Yang-Mills]
+├── ClassicalFieldTheory/         [Fields, actions, Maxwell, Yang-Mills]
 │   ├── Fields.lean
 │   ├── Action.lean
 │   ├── EulerLagrange.lean
@@ -62,7 +62,7 @@ ModularPhysics/Core/
 │   ├── YangMills.lean
 │   └── Solitons.lean
 │
-├── FluidMechanics/                 [Euler, Navier-Stokes, vorticity]
+├── FluidMechanics/               [Euler, Navier-Stokes, vorticity]
 │   ├── Basic.lean
 │   ├── Conservation.lean
 │   ├── Euler.lean
@@ -70,7 +70,7 @@ ModularPhysics/Core/
 │   ├── Vorticity.lean
 │   └── Compressible.lean
 │
-├── GeneralRelativity/              [Einstein equations, black holes, cosmology]
+├── GeneralRelativity/            [Einstein equations, black holes, cosmology]
 │   ├── EinsteinEquations.lean
 │   ├── Schwarzschild.lean
 │   ├── ReissnerNordstrom.lean
@@ -81,20 +81,20 @@ ModularPhysics/Core/
 │   ├── GravitationalWaves.lean
 │   └── Cosmology.lean
 │
-└── QFT/                            [Multiple formulations of QFT]
-    ├── Wightman/                   [Wightman axioms, operator formalism]
+└── QFT/                          [Multiple formulations of QFT]
+    ├── Wightman/                 [Wightman axioms, operator formalism]
     │   ├── Axioms.lean
     │   ├── Operators.lean
     │   ├── WightmanFunctions.lean
     │   └── Theorems.lean
     │
-    ├── AQFT/                       [Haag-Kastler, algebraic QFT]
+    ├── AQFT/                     [Haag-Kastler, algebraic QFT]
     │   ├── Axioms.lean
     │   ├── LocalAlgebras.lean
     │   ├── Representations.lean
     │   └── Superselection.lean
     │
-    ├── PathIntegral/               [Functional integrals]
+    ├── PathIntegral/             [Functional integrals]
     │   ├── FieldConfigurations.lean
     │   ├── ActionAndMeasure.lean
     │   ├── PathIntegrals.lean
@@ -104,13 +104,28 @@ ModularPhysics/Core/
     │   ├── Semiclassical.lean
     │   └── Supergeometry.lean
     │
-    ├── Euclidean/                  [Wick rotation, OS axioms]
+    ├── Euclidean/                [Wick rotation, OS axioms]
     │   ├── SchwingerFunctions.lean
     │   ├── OsterwalderSchrader.lean
     │   ├── WickRotation.lean
     │   └── Lattice.lean
     │
-    ├── TQFT/                       [Topological field theories]
+    ├── CFT/                      [Conformal field theory]
+    │   ├── Basic.lean
+    │   ├── Bootstrap/            [Conformal bootstrap]
+    │   │   ├── BootstrapEquations.lean
+    │   │   ├── CrossingSymmetry.lean
+    │   │   └── UnitarityBounds.lean
+    │   ├── TwoDimensional/       [2D CFT]
+    │   │   ├── Virasoro.lean
+    │   │   ├── OPE.lean
+    │   │   ├── ConformalBlocks.lean
+    │   │   ├── ModularInvariance.lean
+    │   │   └── Examples.lean
+    │   ├── Bootstrap.lean
+    │   └── TwoDimensional.lean
+    │
+    ├── TQFT/                     [Topological field theories]
     │   ├── Axioms.lean
     │   ├── Bordisms.lean
     │   ├── ChernSimons.lean
@@ -118,14 +133,21 @@ ModularPhysics/Core/
     │   ├── ModularTensorCategories.lean
     │   └── QuantumGroups.lean
     │
-    ├── KontsevichSegal/            [Rigorous path integrals]
+    ├── KontsevichSegal/          [Rigorous path integrals]
     │   ├── Axioms.lean
     │   ├── Bordisms.lean
     │   └── StateSpaces.lean
     │
-    └── EFT.lean                    [Effective field theory]
+    ├── Wightman.lean
+    ├── AQFT.lean
+    ├── PathIntegral.lean
+    ├── Euclidean.lean
+    ├── CFT.lean
+    ├── TQFT.lean
+    ├── KontsevichSegal.lean
+    └── EFT.lean
 
-Aggregator files (import entire modules):
+Top-level aggregator files:
 ├── SpaceTime.lean
 ├── Symmetries.lean
 ├── Quantum.lean
@@ -145,3 +167,4 @@ Requires Lean 4 and Mathlib4.
 ## Status
 
 Work in progress. Core axioms implemented, examples and theorems coming.
+Recent additions include a comprehensive Conformal Field Theory module.
