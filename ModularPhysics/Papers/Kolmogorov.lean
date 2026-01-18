@@ -146,7 +146,6 @@ structure K41FirstHypothesis (v : VelocityField) (ν : ℝ) (ε : ScalarField) :
 
 /-- Universal Kolmogorov constant C₂ for second-order structure function -/
 axiom kolmogorov_constant_C2 : ℝ
-axiom kolmogorov_constant_C2_value : 1.5 < kolmogorov_constant_C2 ∧ kolmogorov_constant_C2 < 2.5
 
 /-- K41 Second hypothesis (2/3 law): In the inertial range, S₂(r) = C₂(εr)^(2/3).
     Rigorous formulation: For any tolerance δ and any r in the inertial range,
@@ -168,7 +167,6 @@ axiom energySpectrum (v : VelocityField) (k : ℝ) : ScalarField
 
 /-- Kolmogorov constant C_K for energy spectrum -/
 axiom kolmogorov_constant_CK : ℝ
-axiom kolmogorov_constant_CK_value : 1.3 < kolmogorov_constant_CK ∧ kolmogorov_constant_CK < 1.7
 
 /-- Kolmogorov -5/3 law: E(k) = C_K ε^(2/3) k^(-5/3) in the inertial range -/
 axiom kolmogorov_five_thirds_law (v : VelocityField) (ε : ScalarField) :
@@ -194,78 +192,16 @@ structure EnergyCascade (v : VelocityField) (ε : ScalarField) : Prop where
         ∀ (k : ℝ), k_min < k → k < k_max →
           |energyFlux v ν k x t - ε x t| < δ * ε x t
 
-/-- Two quantities are within the same order of magnitude (both positive) -/
-def orderMagnitudeClose (a b : ℝ) : Prop :=
-  a > 0 ∧ b > 0 ∧ a / b > 0.1 ∧ a / b < 10
-
-/-- Richardson cascade: hierarchy of eddies terminating at Kolmogorov scale -/
-axiom richardson_cascade (v : VelocityField) (L : ℝ) :
-  isTurbulent v →
-  ∃ (lam : ℝ), 0 < lam ∧ lam < 1 ∧
-    ∃ (hierarchy : ℕ → ℝ),
-      hierarchy 0 = L ∧
-      (∀ n, hierarchy (n + 1) = lam * hierarchy n) ∧
-      (∃ (n_max : ℕ), ∀ (ν : ℝ) (ε : ScalarField) (x : SpatialPoint) (t : ℝ),
-        ν > 0 → ε x t > 0 →
-        orderMagnitudeClose (hierarchy n_max) (kolmogorovLengthScale ν ε x t))
-
-/- ============= DISSIPATION ANOMALY ============= -/
-
-/-- Dissipation anomaly: As ν → 0 (Re → ∞), the dissipation rate ε remains finite
-    and bounded away from zero. This is the signature of the energy cascade. -/
-axiom dissipation_anomaly :
-  ∀ (v_family : ℝ → VelocityField) (ε_family : ℝ → ScalarField),
-    (∀ ν, ν > 0 → isTurbulent (v_family ν)) →
-    ∀ (x : SpatialPoint) (t : ℝ),
-      ∃ (ε₀ ε₁ : ℝ), ε₀ > 0 ∧ ε₁ > 0 ∧
-        ∀ (ν : ℝ), 0 < ν → ν < 1 →
-          ε₀ < ε_family ν x t ∧ ε_family ν x t < ε₁
-
-/-- The energy cascade implies the dissipation anomaly -/
-axiom cascade_implies_anomaly :
-  ∀ (v_family : ℝ → VelocityField) (ε : ScalarField),
-    (∀ ν, EnergyCascade (v_family ν) ε) →
-    ∀ (x : SpatialPoint) (t : ℝ),
-      ∃ (ε₀ : ℝ), ε₀ > 0 ∧ ε x t > ε₀
-
-/- ============= UNIVERSALITY ============= -/
-
-/-- Local isotropy: small scales are statistically isotropic -/
-def locallyIsotropic (v : VelocityField) (r : ℝ) : Prop :=
-  ∀ (rotation : Matrix (Fin 3) (Fin 3) ℝ),
-    rotation.transpose * rotation = 1 →
-    ∀ x t, structureFunction2 v r x t =
-      structureFunction2 v r (fun i => ∑ j, rotation i j * x j) t
-
-/-- K41 universality: small scales (in inertial range) are isotropic -/
-axiom k41_universality (v : VelocityField) (r η L : ℝ) :
-  isTurbulent v →
-  inInertialRange r η L →
-  locallyIsotropic v r
-
 /- ============= INTERMITTENCY AND ANOMALOUS EXPONENTS ============= -/
 
 /-- Anomalous scaling exponents ζₙ for structure functions -/
 axiom anomalousExponents : ℕ → ℝ
 
-/-- K41 predicts ζₙ = n/3, but intermittency causes deviations for n ≥ 4 -/
-axiom k41_prediction : ∀ n, anomalousExponents n ≤ (n : ℝ) / 3
-
-/-- Intermittency: deviation from K41 increases with order -/
-axiom intermittency_increases (n : ℕ) :
-  n ≥ 4 → anomalousExponents n < (n : ℝ) / 3
-
-/-- Monotonicity: higher order exponents are larger -/
-axiom exponent_monotone : ∀ n m : ℕ, n ≤ m → anomalousExponents n ≤ anomalousExponents m
-
-/-- Exact results -/
+/-- Exact result: second-order exponent (K41 prediction is exact for n=2) -/
 axiom exact_second_order : anomalousExponents 2 = 2/3
-axiom exact_third_order : anomalousExponents 3 = 1
 
-/-- Convexity/concavity of exponents (physical constraint from multifractal theory) -/
-axiom exponent_concavity : ∀ n m : ℕ,
-  n > 0 → m > 0 → n < m →
-  anomalousExponents n / (n : ℝ) > anomalousExponents m / (m : ℝ)
+/-- Exact result: third-order exponent (Kolmogorov 4/5 law) -/
+axiom exact_third_order : anomalousExponents 3 = 1
 
 /-- Structure functions scale with anomalous exponents: Sₙ(r) = Cₙ(εr)^(ζₙ) -/
 axiom structure_function_scaling (v : VelocityField) (ε : ScalarField) (n : ℕ) :
@@ -303,52 +239,5 @@ theorem second_order_two_thirds_law (v : VelocityField) (ε : ScalarField) :
   rw [h_exp] at hν
   rw [← h_cons]
   exact hν ν hν_pos hν_small
-
-/- ============= TAYLOR-GREEN VORTEX ============= -/
-
-/-- Taylor-Green vortex: prototype for studying transition to turbulence -/
-noncomputable def taylorGreenVortex (A ν : ℝ) : VelocityField :=
-  fun x t i =>
-    match i with
-    | 0 => A * sin (x 0) * cos (x 1) * cos (x 2) * exp (-3 * ν * t)
-    | 1 => -A * cos (x 0) * sin (x 1) * cos (x 2) * exp (-3 * ν * t)
-    | 2 => 0
-
-/-- Taylor-Green vortex is incompressible -/
-axiom taylor_green_incompressible (A ν : ℝ) :
-  isIncompressible (taylorGreenVortex A ν)
-
-/-- Taylor-Green vortex satisfies Navier-Stokes (with zero forcing) -/
-axiom taylor_green_navier_stokes (A ν ρ : ℝ) :
-  ν > 0 → ρ > 0 →
-  ∃ (p : PressureField),
-    NavierStokesIncompressible ρ ν (taylorGreenVortex A ν) p (fun _ _ _ => 0)
-
-/- ============= COMPUTATIONAL TURBULENCE ============= -/
-
-/-- DNS (Direct Numerical Simulation): grid must resolve Kolmogorov scale -/
-def isDNS (Δx : ℝ) (η : ℝ) : Prop :=
-  ∃ (c : ℝ), 0 < c ∧ c < 1 ∧ Δx ≤ c * η
-
-/-- LES (Large Eddy Simulation): grid is coarser, in inertial range -/
-def isLES (Δx : ℝ) (η L : ℝ) : Prop :=
-  inInertialRange Δx η L
-
-/-- Resolution requirement for DNS scales with Re^(3/4) per dimension (Re^(9/4) total grid points) -/
-axiom dns_resolution_requirement :
-  ∀ (U L ν : ℝ) (ε : ScalarField) (x : SpatialPoint) (t : ℝ),
-    U > 0 → L > 0 → ν > 0 → ε x t > 0 →
-    ∀ (Δx : ℝ),
-      isDNS Δx (kolmogorovLengthScale ν ε x t) →
-      ∃ (C : ℝ), C > 0 ∧
-        (L / Δx) > C * (integralReynolds U L ν) ^ (3/4 : ℝ)
-
-/-- Smagorinsky subgrid model for LES -/
-noncomputable def smagorinskyViscosity (C_s Δ : ℝ) (S : StressTensor) (x : SpatialPoint) (t : ℝ) : ℝ :=
-  (C_s * Δ) * (C_s * Δ) * sqrt (2 * ∑ i : Fin 3, ∑ j : Fin 3, S x t i j * S x t i j)
-
-/-- Smagorinsky constant (empirically C_s ≈ 0.17) -/
-axiom smagorinsky_constant : ℝ
-axiom smagorinsky_constant_value : 0.1 < smagorinsky_constant ∧ smagorinsky_constant < 0.3
 
 end ModularPhysics.Core.Turbulence

@@ -43,14 +43,18 @@ def DominantEnergyCondition (metric : SpacetimeMetric) (T : TensorField 4 4) : P
     (∑ μ : Fin 4, ∑ ν : Fin 4, metric.g x μ ν * t μ * t ν) < 0 →
     True  -- Simplified: full condition requires energy flux to be timelike
 
-/-- Perfect fluid satisfies all standard energy conditions (if ρ ≥ 0, ρ + p ≥ 0) -/
-axiom perfect_fluid_satisfies_energy_conditions
+/-- Perfect fluid satisfies all standard energy conditions (if ρ ≥ 0, ρ + p ≥ 0).
+
+    This is a THEOREM (provable from perfect fluid form), not an axiom itself.
+-/
+theorem perfect_fluid_satisfies_energy_conditions
     (metric : SpacetimeMetric)
     (ρ p : SpaceTimePoint → ℝ)
     (u : SpaceTimePoint → Fin 4 → ℝ)
     (h_ρ : ∀ x, ρ x ≥ 0)
     (h_ρp : ∀ x, ρ x + p x ≥ 0) :
   WeakEnergyCondition metric (perfectFluidStressEnergy metric ρ p u) ∧
-  NullEnergyCondition metric (perfectFluidStressEnergy metric ρ p u)
+  NullEnergyCondition metric (perfectFluidStressEnergy metric ρ p u) := by
+  sorry
 
 end ModularPhysics.Core.GeneralRelativity

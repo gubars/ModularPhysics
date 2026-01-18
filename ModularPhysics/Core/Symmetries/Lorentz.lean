@@ -21,10 +21,10 @@ noncomputable instance : Group LorentzTransform where
   mul := lorentzCompose
   one := LorentzTransform.id
   inv := lorentzInverse
-  mul_assoc := by sorry
-  one_mul := by sorry
-  mul_one := by sorry
-  inv_mul_cancel := by sorry
+  mul_assoc := by sorry  -- Matrix multiplication associativity
+  one_mul := by sorry  -- Identity is left unit
+  mul_one := by sorry  -- Identity is right unit
+  inv_mul_cancel := by sorry  -- Requires proper inverse definition
 
 /-- Lorentz transformation preserves causal structure -/
 theorem lorentz_preserves_timelike (Λ : LorentzTransform) (x y : SpaceTimePoint) :

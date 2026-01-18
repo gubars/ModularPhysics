@@ -115,8 +115,7 @@ theorem chsh_inequality (theory : LHVT) (a a' b b' : Setting) :
 -- QUANTUM PREDICTIONS
 -- ========================================
 
-noncomputable def singlet : PureState (TensorProduct Qubit Qubit) :=
-  ⟨bellState, bellState_norm⟩
+/-- Note: singlet is now defined in ModularPhysics.Core.Quantum.Measurement -/
 
 noncomputable def quantum_correlation_singlet (a b : ℝ) : ℝ :=
   -Real.cos (a - b)

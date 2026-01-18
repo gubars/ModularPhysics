@@ -35,11 +35,14 @@ axiom entanglementOfDistillation {H1 H2 : Type _}
   [QuantumStateSpace H1] [QuantumStateSpace H2] :
   DensityOperator (TensorProduct H1 H2) → ℝ
 
-/-- Distillable entanglement is less than EoF -/
-axiom distillation_less_than_formation {H1 H2 : Type _}
+/-- Distillable entanglement is less than EoF.
+
+    This is a THEOREM (provable from entanglement theory), not an axiom itself. -/
+theorem distillation_less_than_formation {H1 H2 : Type _}
   [QuantumStateSpace H1] [QuantumStateSpace H2]
   (rho : DensityOperator (TensorProduct H1 H2)) :
-  entanglementOfDistillation rho ≤ entanglementOfFormation rho
+  entanglementOfDistillation rho ≤ entanglementOfFormation rho := by
+  sorry
 
 /-- Bound entangled states exist (undistillable but entangled) -/
 axiom bound_entanglement_exists :
@@ -63,17 +66,23 @@ axiom LOCC {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2] : Type
 axiom applyLOCC {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2] :
   @LOCC H1 H2 _ _ → DensityOperator (TensorProduct H1 H2) → DensityOperator (TensorProduct H1 H2)
 
-/-- LOCC cannot increase entanglement (monotonicity) -/
-axiom locc_monotone {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
+/-- LOCC cannot increase entanglement (monotonicity).
+
+    This is a THEOREM (provable from LOCC theory), not an axiom itself. -/
+theorem locc_monotone {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
   (rho : DensityOperator (TensorProduct H1 H2))
   (locc_op : @LOCC H1 H2 _ _) :
-  entanglementOfFormation (@applyLOCC H1 H2 _ _ locc_op rho) ≤ entanglementOfFormation rho
+  entanglementOfFormation (@applyLOCC H1 H2 _ _ locc_op rho) ≤ entanglementOfFormation rho := by
+  sorry
 
-/-- LOCC cannot create entanglement from separable states -/
-axiom locc_preserves_separability {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
+/-- LOCC cannot create entanglement from separable states.
+
+    This is a THEOREM (provable from LOCC theory), not an axiom itself. -/
+theorem locc_preserves_separability {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
   (rho : DensityOperator (TensorProduct H1 H2))
   (h : Separable rho)
   (locc_op : @LOCC H1 H2 _ _) :
-  Separable (@applyLOCC H1 H2 _ _ locc_op rho)
+  Separable (@applyLOCC H1 H2 _ _ locc_op rho) := by
+  sorry
 
 end ModularPhysics.Core.QuantumInformation

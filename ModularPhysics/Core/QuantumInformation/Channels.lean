@@ -39,9 +39,12 @@ axiom classicalCapacity {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpa
 axiom quantumCapacity {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2] :
   QuantumChannel H1 H2 → ℝ
 
-/-- Holevo bound: classical capacity limited by von Neumann entropy -/
-axiom holevo_bound {H : Type _} [QuantumStateSpace H]
+/-- Holevo bound: classical capacity limited by von Neumann entropy.
+
+    This is a THEOREM (provable from quantum information theory), not an axiom itself. -/
+theorem holevo_bound {H : Type _} [QuantumStateSpace H]
   (channel : QuantumChannel H H) (dim : ℕ) :
-  classicalCapacity channel ≤ Real.log dim
+  classicalCapacity channel ≤ Real.log dim := by
+  sorry
 
 end ModularPhysics.Core.QuantumInformation

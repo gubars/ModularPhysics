@@ -47,10 +47,13 @@ axiom efe_from_variational_principle (metric : SpacetimeMetric) (T : TensorField
 
 /-- Contracted Bianchi identity implies energy-momentum conservation:
     ∇_μ G^μν = 0  ⟹  ∇_μ T^μν = 0
+
+    This is a THEOREM (follows from contracted Bianchi identity), not an axiom itself.
 -/
-axiom bianchi_implies_conservation (metric : SpacetimeMetric) (T : TensorField 4 4)
+theorem bianchi_implies_conservation (metric : SpacetimeMetric) (T : TensorField 4 4)
     (h : satisfiesEFE metric T)
     (x : SpaceTimePoint) (nu : Fin 4) :
-  ∑ mu, covariantDerivative metric (fun y => T y mu nu) mu x = 0
+  ∑ mu, covariantDerivative metric (fun y => T y mu nu) mu x = 0 := by
+  sorry
 
 end ModularPhysics.Core.GeneralRelativity

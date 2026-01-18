@@ -14,9 +14,12 @@ noncomputable axiom jonesPolynomial : Knot → Polynomial ℂ
 /-- Knot invariant from TQFT via expectation value -/
 noncomputable axiom knotInvariantFromTQFT (Z : TQFTType 3) (K : Knot) : Polynomial ℂ
 
-/-- Jones polynomial from SU(2) Chern-Simons at k=2 -/
-axiom jones_from_chernSimons (K : Knot) :
-  jonesPolynomial K = knotInvariantFromTQFT (chernSimonsTheory SU2 SU2_is_LieGroup 2) K
+/-- Jones polynomial from SU(2) Chern-Simons at k=2.
+
+    This is a THEOREM (Witten 1989), not an axiom itself. -/
+theorem jones_from_chernSimons (K : Knot) :
+  jonesPolynomial K = knotInvariantFromTQFT (chernSimonsTheory SU2 SU2_is_LieGroup 2) K := by
+  sorry
 
 /-- HOMFLY polynomial type (two-variable polynomial) -/
 axiom HOMFLYPoly : Type
@@ -33,8 +36,11 @@ axiom khovanovHomology : Knot → GradedVectorSpace
 /-- Euler characteristic -/
 noncomputable axiom eulerCharacteristic : GradedVectorSpace → Polynomial ℂ
 
-/-- Khovanov's theorem: χ(Kh(K)) = Jones(K) -/
-axiom khovanov_euler_equals_jones (K : Knot) :
-  eulerCharacteristic (khovanovHomology K) = jonesPolynomial K
+/-- Khovanov's theorem: χ(Kh(K)) = Jones(K).
+
+    This is a THEOREM (Khovanov 2000), not an axiom itself. -/
+theorem khovanov_euler_equals_jones (K : Knot) :
+  eulerCharacteristic (khovanovHomology K) = jonesPolynomial K := by
+  sorry
 
 end ModularPhysics.Core.QFT.TQFT

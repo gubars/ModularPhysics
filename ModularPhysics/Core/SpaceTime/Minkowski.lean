@@ -10,7 +10,13 @@ def minkowskiMetric : SpacetimeMetric where
     if μ = ν then
       if μ = 0 then -1 else 1
     else 0
-  symmetric := by sorry
+  symmetric := by
+    intro x μ ν
+    by_cases h1 : μ = ν
+    · simp [h1]
+    · by_cases h2 : ν = μ
+      · simp [h2]
+      · simp [h1, Ne.symm h1]
   nondegenerate := by intro _; trivial
 
 /-- Minkowski inner product (constant across spacetime) -/
@@ -43,15 +49,46 @@ theorem interval_symm (x y : SpaceTimePoint) :
 /-- Proper time along a path in Minkowski spacetime -/
 axiom properTime : (ℝ → SpaceTimePoint) → ℝ → ℝ → ℝ
 
-/- ============= LORENTZ TRANSFORMATIONS ============= -/
+/- ============= LORENTZ TRANSFORMATIONS (GENERAL DIMENSION) ============= -/
 
-/-- Lorentz transformation: preserves Minkowski metric -/
+/-- Minkowski inner product in d dimensions with signature (-,+,+,...,+) -/
+noncomputable def minkowskiInnerProductGen {d : ℕ} [NeZero d] (v w : Fin d → ℝ) : ℝ :=
+  -(v 0 * w 0) + ∑ i : Fin d, if i = 0 then 0 else v i * w i
+
+/-- General Lorentz transformation in d dimensions: preserves Minkowski metric -/
+structure LorentzTransformGen (d : ℕ) [NeZero d] where
+  matrix : Fin d → Fin d → ℝ
+  preserves_metric : ∀ x y : Fin d → ℝ,
+    minkowskiInnerProductGen x y = minkowskiInnerProductGen
+      (fun μ => ∑ ν, matrix μ ν * x ν)
+      (fun μ => ∑ ν, matrix μ ν * y ν)
+
+/-- Apply general Lorentz transformation -/
+def LorentzTransformGen.apply {d : ℕ} [NeZero d]
+  (Λ : LorentzTransformGen d) (x : Fin d → ℝ) : Fin d → ℝ :=
+  fun μ => ∑ ν, Λ.matrix μ ν * x ν
+
+/-- Identity Lorentz transformation in d dimensions -/
+noncomputable def LorentzTransformGen.id (d : ℕ) [NeZero d] : LorentzTransformGen d where
+  matrix := fun μ ν => if μ = ν then 1 else 0
+  preserves_metric := by sorry
+
+/- ============= 4D LORENTZ TRANSFORMATIONS (BACKWARD COMPATIBILITY) ============= -/
+
+/-- Lorentz transformation in 4D (backward compatible) -/
 structure LorentzTransform where
   matrix : Fin 4 → Fin 4 → ℝ
   preserves_metric : ∀ x y : SpaceTimePoint,
     minkowskiInnerProduct x y = minkowskiInnerProduct
       (fun μ => ∑ ν, matrix μ ν * x ν)
       (fun μ => ∑ ν, matrix μ ν * y ν)
+
+/-- Extensionality for Lorentz transformations -/
+@[ext]
+theorem LorentzTransform.ext {Λ₁ Λ₂ : LorentzTransform}
+  (h : Λ₁.matrix = Λ₂.matrix) : Λ₁ = Λ₂ := by
+  cases Λ₁; cases Λ₂
+  congr
 
 /-- Apply Lorentz transformation to spacetime point -/
 def LorentzTransform.apply (Λ : LorentzTransform) (x : SpaceTimePoint) : SpaceTimePoint :=
@@ -61,6 +98,11 @@ def LorentzTransform.apply (Λ : LorentzTransform) (x : SpaceTimePoint) : SpaceT
 noncomputable def LorentzTransform.id : LorentzTransform where
   matrix := fun μ ν => if μ = ν then 1 else 0
   preserves_metric := by sorry
+
+/-- Convert 4D Lorentz transform to general form -/
+def LorentzTransform.toGen (Λ : LorentzTransform) : LorentzTransformGen 4 where
+  matrix := Λ.matrix
+  preserves_metric := by sorry  -- Bridge between 4D and general definitions
 
 /-- Lorentz transformation preserves intervals -/
 theorem lorentz_preserves_interval (Λ : LorentzTransform) (x y : SpaceTimePoint) :

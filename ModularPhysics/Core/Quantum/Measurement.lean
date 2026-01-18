@@ -16,6 +16,10 @@ def orthogonal {H : Type _} [QuantumStateSpace H] (ψ φ : H) : Prop :=
 /-- Orthogonal basis states -/
 axiom ket0_ket1_orthogonal : orthogonal ket0 ket1
 
+/-- Singlet state (Bell state as a pure state) -/
+noncomputable def singlet : PureState (TensorProduct Qubit Qubit) :=
+  ⟨bellState, bellState_norm⟩
+
 /-- Orthogonal states have zero probability -/
 theorem orthogonal_zero_prob {H : Type _} [QuantumStateSpace H]
     (ψ φ : PureState H)

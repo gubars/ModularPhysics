@@ -60,12 +60,6 @@ axiom I_late_interior (bh : BlackHole) : ℝ
 -- FUNDAMENTAL QUANTUM INFORMATION AXIOMS
 -- ========================================
 
-/-- **Entropy Non-negativity**: von Neumann entropy S(ρ) = -Tr(ρ log ρ) ≥ 0
-
-    This is a fundamental mathematical property of von Neumann entropy. -/
-axiom entropy_nonneg (bh : BlackHole) :
-  S_global bh ≥ 0 ∧ S_early bh ≥ 0 ∧ S_late bh ≥ 0 ∧ S_interior bh ≥ 0
-
 /-- **Mutual Information Definition**: I(A:B) = S(A) + S(B) - S(AB)
 
     This is the standard definition of mutual information in quantum information theory. -/
@@ -74,34 +68,6 @@ axiom mutual_info_def_EL (bh : BlackHole) :
 
 axiom mutual_info_def_LI (bh : BlackHole) :
   I_late_interior bh = S_late bh + S_interior bh - S_late_interior bh
-
-/-- **Mutual Information Non-negativity**: I(A:B) ≥ 0
-
-    This follows from strong subadditivity. It's a fundamental property that
-    mutual information is always non-negative. -/
-axiom mutual_info_nonneg (bh : BlackHole) :
-  I_early_late bh ≥ 0 ∧ I_late_interior bh ≥ 0
-
-/-- **Strong Subadditivity (SSA)**: S(ABC) + S(B) ≤ S(AB) + S(BC)
-
-    This is the most important inequality in quantum information theory.
-    Proven by Lieb & Ruskai (1973). It's equivalent to the statement that
-    conditional mutual information is non-negative.
-
-    For our tripartite system E ⊗ L ⊗ I:
-    S(ELI) + S(L) ≤ S(EL) + S(LI) -/
-axiom strong_subadditivity (bh : BlackHole) :
-  S_global bh + S_late bh ≤ S_early_late bh + S_late_interior bh
-
-/-- **Subadditivity**: S(AB) ≤ S(A) + S(B)
-
-    Joint entropy is at most the sum of individual entropies.
-    This follows from strong subadditivity by taking one system to be trivial. -/
-axiom subadditivity_EL (bh : BlackHole) :
-  S_early_late bh ≤ S_early bh + S_late bh
-
-axiom subadditivity_LI (bh : BlackHole) :
-  S_late_interior bh ≤ S_late bh + S_interior bh
 
 /-- **Schmidt Decomposition** (E | LI partition)
 
@@ -120,13 +86,6 @@ axiom schmidt_decomposition (bh : BlackHole) (h_pure : S_global bh = 0) :
     S(EL) = S(I) -/
 axiom schmidt_decomposition_EL_I (bh : BlackHole) (h_pure : S_global bh = 0) :
   S_early_late bh = S_interior bh
-
-/-- **Araki-Lieb Triangle Inequality**: |S(A) - S(B)| ≤ S(AB)
-
-    This is a fundamental inequality for entanglement entropy.
-    Proven by Araki & Lieb (1970). -/
-axiom araki_lieb (bh : BlackHole) :
-  |S_early bh - S_late bh| ≤ S_early_late bh
 
 /-- **Monogamy of Entanglement** (Fundamental Quantum Constraint)
 
@@ -172,21 +131,6 @@ axiom late_entropy_positive (bh : BlackHole) (h_old : is_old bh) :
     Black holes form, evaporate via Hawking radiation, and eventually
     live longer than their Page time. This is a reasonable physical assumption. -/
 axiom old_black_holes_exist : ∃ bh : BlackHole, is_old bh
-
-/-- **Page Curve Behavior** (Empirical Prediction)
-
-    After the Page time, the entropy of the emitted radiation begins to decrease,
-    following the "Page curve". This is a prediction from information-theoretic
-    arguments about black hole evaporation (Page 1993).
-
-    Before Page time: S(radiation) grows linearly with time
-    After Page time: S(radiation) decreases as the black hole shrinks -/
-axiom page_curve_behavior (bh1 bh2 : BlackHole)
-    (h1 : ¬is_old bh1)
-    (h2 : is_old bh2)
-    (h_same : bh1.mass = bh2.mass)
-    (h_older : bh2.age > bh1.age) :
-  S_early bh2 < bekenstein_hawking_entropy bh2 / 2
 
 -- ========================================
 -- THE THREE POSTULATES (Being Tested)

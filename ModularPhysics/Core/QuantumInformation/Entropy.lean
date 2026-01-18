@@ -39,11 +39,14 @@ axiom entropy_subadditive {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateS
   vonNeumannEntropy rho ≤
   vonNeumannEntropy (partialTrace2 rho) + vonNeumannEntropy (partialTrace1 rho)
 
-/-- Araki-Lieb triangle inequality for entropy -/
-axiom araki_lieb {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
+/-- Araki-Lieb triangle inequality for entropy.
+
+    This is a THEOREM (Araki-Lieb 1970), not an axiom itself. -/
+theorem araki_lieb {H1 H2 : Type _} [QuantumStateSpace H1] [QuantumStateSpace H2]
   (rho : DensityOperator (TensorProduct H1 H2)) :
   |vonNeumannEntropy (partialTrace2 rho) - vonNeumannEntropy (partialTrace1 rho)| ≤
-  vonNeumannEntropy rho
+  vonNeumannEntropy rho := by
+  sorry
 
 /-- Conditional entropy -/
 axiom conditionalEntropy {H1 H2 : Type _}
@@ -58,9 +61,12 @@ axiom relativeEntropy {H : Type _} [QuantumStateSpace H] :
 axiom relative_entropy_nonneg {H : Type _} [QuantumStateSpace H] (rho sigma : DensityOperator H) :
   relativeEntropy rho sigma ≥ 0
 
-/-- Klein's inequality: D(ρ||σ) = 0 iff ρ = σ -/
-axiom klein_inequality {H : Type _} [QuantumStateSpace H] (rho sigma : DensityOperator H) :
-  relativeEntropy rho sigma = 0 ↔ rho = sigma
+/-- Klein's inequality: D(ρ||σ) = 0 iff ρ = σ.
+
+    This is a THEOREM (provable from operator theory), not an axiom itself. -/
+theorem klein_inequality {H : Type _} [QuantumStateSpace H] (rho sigma : DensityOperator H) :
+  relativeEntropy rho sigma = 0 ↔ rho = sigma := by
+  sorry
 
 /-- Purity (Tr[ρ²]) -/
 axiom purity {H : Type _} [QuantumStateSpace H] : DensityOperator H → ℝ

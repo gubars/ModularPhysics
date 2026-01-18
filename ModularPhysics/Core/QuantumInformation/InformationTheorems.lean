@@ -5,30 +5,42 @@ namespace ModularPhysics.Core.QuantumInformation
 
 open Quantum QuantumInformation
 
-/-- Strong subadditivity (SSA) -/
-axiom strong_subadditivity {HA HB HC : Type _}
+/-- Strong subadditivity (SSA).
+
+    This is a THEOREM (Lieb-Ruskai 1973), not an axiom itself. -/
+theorem strong_subadditivity {HA HB HC : Type _}
   [QuantumStateSpace HA] [QuantumStateSpace HB] [QuantumStateSpace HC]
   (S_ABC S_AB S_BC S_B : ℝ) :
-  S_ABC + S_B ≤ S_AB + S_BC
+  S_ABC + S_B ≤ S_AB + S_BC := by
+  sorry
 
 /-- Reference ancilla state -/
 axiom ancilla {H : Type _} [QuantumStateSpace H] : H
 
-/-- No-cloning theorem -/
-axiom no_cloning {H : Type _} [QuantumStateSpace H] :
+/-- No-cloning theorem (Wootters-Zurek 1982, Dieks 1982).
+
+    This is a THEOREM (provable from linearity of quantum mechanics), not an axiom itself. -/
+theorem no_cloning {H : Type _} [QuantumStateSpace H] :
   ¬∃ (cloning : TensorProduct H H → TensorProduct H H),
-    ∀ (psi : H), cloning (tensorProduct psi ancilla) = tensorProduct psi psi
+    ∀ (psi : H), cloning (tensorProduct psi ancilla) = tensorProduct psi psi := by
+  sorry
 
-/-- No-deleting theorem -/
-axiom no_deleting {H : Type _} [QuantumStateSpace H] :
+/-- No-deleting theorem (Pati-Braunstein 2000).
+
+    This is a THEOREM (provable from unitarity), not an axiom itself. -/
+theorem no_deleting {H : Type _} [QuantumStateSpace H] :
   ¬∃ (deleting : TensorProduct H H → H),
-    ∀ (psi : H), deleting (tensorProduct psi psi) = psi
+    ∀ (psi : H), deleting (tensorProduct psi psi) = psi := by
+  sorry
 
-/-- No-broadcasting theorem -/
-axiom no_broadcasting {H : Type _} [QuantumStateSpace H] :
+/-- No-broadcasting theorem (Barnum et al. 1996).
+
+    This is a THEOREM (provable from quantum mechanics), not an axiom itself. -/
+theorem no_broadcasting {H : Type _} [QuantumStateSpace H] :
   ¬∃ (broadcast : H → TensorProduct H H),
     ∀ (psi phi : H), orthogonal psi phi →
-      broadcast psi = tensorProduct psi psi
+      broadcast psi = tensorProduct psi psi := by
+  sorry
 
 /-- Quantum teleportation -/
 axiom teleportation {H : Type _} [QuantumStateSpace H] :
