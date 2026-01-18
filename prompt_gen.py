@@ -10,9 +10,7 @@ except ImportError:
     HAS_CLIPBOARD = False
 
 # ================= CONFIGURATION =================
-# Default extensions to look for
 EXTENSIONS = {".lean"}
-# Folders to ignore
 IGNORE_DIRS = {".git", "build", "lake-packages", ".lake", "__pycache__", ".DS_Store"}
 # =================================================
 
@@ -28,11 +26,11 @@ class LeanContextApp:
         self.paned_window = ttk.PanedWindow(root, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        # --- LEFT FRAME (Inputs & File List) ---
+        # --- LEFT FRAME ---
         self.left_frame = ttk.Frame(self.paned_window, width=400)
         self.paned_window.add(self.left_frame, weight=1)
 
-        # 1. Inputs Area
+        # Inputs
         input_group = ttk.LabelFrame(self.left_frame, text="Search Criteria", padding=10)
         input_group.pack(fill=tk.X, pady=5)
 
@@ -47,18 +45,16 @@ class LeanContextApp:
         self.btn_scan = ttk.Button(input_group, text="🔍 Scan Directory", command=self.scan_files)
         self.btn_scan.pack(fill=tk.X)
 
-        # 2. Results List Area
+        # Results List (Treeview for Mac support)
         list_group = ttk.LabelFrame(self.left_frame, text="Found Files (Cmd+Click to Multi-Select)", padding=10)
         list_group.pack(fill=tk.BOTH, expand=True, pady=5)
 
         self.listbox_frame = ttk.Frame(list_group)
         self.listbox_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Scrollbar
         self.scrollbar = ttk.Scrollbar(self.listbox_frame)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # === CHANGED: Using Treeview instead of Listbox for better Mac support ===
         self.tree = ttk.Treeview(
             self.listbox_frame, 
             selectmode="extended", 
@@ -77,7 +73,7 @@ class LeanContextApp:
         self.btn_generate = ttk.Button(self.left_frame, text="➡️ Generate Prompt from Selection", command=self.generate_prompt)
         self.btn_generate.pack(fill=tk.X, pady=10)
 
-        # --- RIGHT FRAME (Output) ---
+        # --- RIGHT FRAME ---
         self.right_frame = ttk.Frame(self.paned_window, width=600)
         self.paned_window.add(self.right_frame, weight=2)
 
@@ -96,7 +92,6 @@ class LeanContextApp:
         self.btn_copy = ttk.Button(bottom_bar, text="📋 Copy to Clipboard", command=self.copy_to_clipboard)
         self.btn_copy.pack(side=tk.RIGHT)
 
-        # Store data mapping: item_id -> full_path
         self.item_map = {} 
 
     # ================= LOGIC =================
@@ -142,14 +137,11 @@ class LeanContextApp:
                     
                     matched_files.append((rel_path, full_path))
 
-        # Populate Treeview
         matched_files.sort()
         for rel_path, full_path in matched_files:
-            # Insert item into tree
             item_id = self.tree.insert("", tk.END, text=rel_path)
             self.item_map[item_id] = (rel_path, full_path)
         
-        # Select all by default
         self.select_all()
 
         self.root.config(cursor="")
@@ -164,7 +156,6 @@ class LeanContextApp:
         self.tree.selection_set()
 
     def generate_prompt(self):
-        # Get selected item IDs from Treeview
         selected_items = self.tree.selection()
         
         if not selected_items:
@@ -192,10 +183,20 @@ class LeanContextApp:
         self.lbl_stats.config(text=f"Tokens: ~{est_tokens} | Chars: {total_chars}")
 
     def copy_to_clipboard(self):
+        """Copies text and gives visual feedback on the button instead of a popup."""
         text = self.text_output.get("1.0", tk.END)
+        
         if HAS_CLIPBOARD:
             pyperclip.copy(text)
-            messagebox.showinfo("Copied", "Prompt copied to clipboard!")
+            
+            # Save original text
+            original_text = "📋 Copy to Clipboard"
+            
+            # Change button text to indicate success
+            self.btn_copy.config(text="✅ Copied!")
+            
+            # Change it back after 1.5 seconds (1500 milliseconds)
+            self.root.after(1500, lambda: self.btn_copy.config(text=original_text))
         else:
             messagebox.showerror("Error", "pyperclip module not found. \nPlease run 'pip install pyperclip'")
 
