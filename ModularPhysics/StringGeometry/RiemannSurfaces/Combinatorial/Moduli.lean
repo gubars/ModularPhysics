@@ -112,20 +112,16 @@ structure WeilPeterssonForm (g n : ℕ) where
   /-- ω_WP is Kähler -/
   kahler : True
 
-/-- Wolpert's formula: ω_WP in Fenchel-Nielsen coordinates -/
-theorem wolpert_formula (g n : ℕ) :
-    True := trivial  -- ω_WP = Σ dℓᵢ ∧ dτᵢ (lengths and twists)
-
-/-- The Weil-Petersson volume form -/
-noncomputable def wpVolumeForm (g n : ℕ) : True := trivial
+/-! Wolpert's formula: In Fenchel-Nielsen coordinates (ℓᵢ, τᵢ) for lengths
+and twists around 3g-3+n curves, the Weil-Petersson symplectic form is
+ω_WP = Σᵢ dℓᵢ ∧ dτᵢ. -/
 
 /-- The Weil-Petersson volume of M_{g,n} -/
 noncomputable def wpVolume (g n : ℕ) : ℝ := sorry
 
-/-- Mirzakhani's recursion for WP volumes -/
-theorem mirzakhani_recursion (g n : ℕ) :
-    True := trivial
-    -- V_{g,n}(L₁,...,Lₙ) satisfies explicit recursion
+/-! Mirzakhani's recursion: The Weil-Petersson volumes V_{g,n}(L₁,...,Lₙ)
+with boundary lengths Lᵢ satisfy an explicit recursion relating
+V_{g,n} to volumes of lower complexity. -/
 
 /-!
 ## Kontsevich's Intersection Theory
@@ -150,18 +146,12 @@ theorem intersection_dimension_constraint (g n : ℕ) (exponents : List ℕ)
     (intersectionNumber g exponents ≠ 0) →
     exponents.sum = 3 * g - 3 + n := sorry
 
-/-- String equation: ⟨τ₀ τ_{d₁} ⋯ τ_{dₙ}⟩ = Σᵢ ⟨τ_{d₁} ⋯ τ_{dᵢ-1} ⋯ τ_{dₙ}⟩ -/
-theorem string_equation (g : ℕ) (exponents : List ℕ) :
-    True := trivial
+/-! The string and dilaton equations are constraints on intersection numbers:
+- String: ⟨τ₀ τ_{d₁} ⋯ τ_{dₙ}⟩ = Σᵢ ⟨τ_{d₁} ⋯ τ_{dᵢ-1} ⋯ τ_{dₙ}⟩
+- Dilaton: ⟨τ₁ τ_{d₁} ⋯ τ_{dₙ}⟩ = (2g - 2 + n) ⟨τ_{d₁} ⋯ τ_{dₙ}⟩
 
-/-- Dilaton equation: ⟨τ₁ τ_{d₁} ⋯ τ_{dₙ}⟩ = (2g - 2 + n) ⟨τ_{d₁} ⋯ τ_{dₙ}⟩ -/
-theorem dilaton_equation (g n : ℕ) (exponents : List ℕ) :
-    True := trivial
-
-/-- Kontsevich's formula: intersection numbers from ribbon graphs -/
-theorem kontsevich_formula (g : ℕ) (exponents : List ℕ) :
-    True := trivial
-    -- ⟨τ_{d₁} ⋯ τ_{dₙ}⟩_g = Σ_Γ contribution(Γ)
+Kontsevich's formula expresses intersection numbers as sums over
+ribbon graphs: ⟨τ_{d₁} ⋯ τ_{dₙ}⟩_g = Σ_Γ contribution(Γ). -/
 
 /-!
 ## Matrix Models and Witten Conjecture
@@ -176,14 +166,9 @@ noncomputable def freeEnergy : (ℕ → ℝ) → ℝ := sorry
 /-- The partition function Z = exp(F) -/
 noncomputable def partitionFunction : (ℕ → ℝ) → ℝ := fun t => Real.exp (freeEnergy t)
 
-/-- Witten-Kontsevich theorem: Z satisfies the KdV hierarchy -/
-theorem witten_kontsevich :
-    True := trivial  -- ∂²Z/∂t₀² = (∂²F/∂t₀²)² + (1/12) ∂⁴F/∂t₀⁴ + ...
-
-/-- Kontsevich's matrix integral formula for Z -/
-theorem kontsevich_matrix_integral :
-    True := trivial
-    -- Z = ∫ exp(tr(-Λ³/6 + ΛM²/2)) dM (formal Gaussian integral)
+/-! The Witten-Kontsevich theorem: The partition function Z = exp(F) satisfies
+the KdV hierarchy. Kontsevich proved this using matrix integrals:
+Z = ∫ exp(tr(-Λ³/6 + ΛM²/2)) dM (as a formal Gaussian integral). -/
 
 /-!
 ## Integration over Moduli Space
@@ -203,13 +188,9 @@ structure ModuliForm (g n : ℕ) (degree : ℕ) where
 noncomputable def integrateModuli {g n : ℕ}
     (ω : ModuliForm g n (6 * g - 6 + 2 * n)) : ℝ := sorry
 
-/-- Integration reduces to sum over ribbon graph cells -/
-theorem integration_cell_decomposition {g n : ℕ}
-    (ω : ModuliForm g n (6 * g - 6 + 2 * n))
-    (τ : TopologicalType)
-    (_ : DecoratedTeichmullerSpace' τ) :
-    True := trivial
-    -- ∫_{M_{g,n}} ω = Σ_Γ ∫_{cell(Γ)} ω
+/-! Integration over M_{g,n} reduces to a sum over ribbon graph cells:
+∫_{M_{g,n}} ω = Σ_Γ ∫_{cell(Γ)} ω, where the cell(Γ) is the subset of
+moduli space corresponding to graphs with combinatorial type Γ. -/
 
 /-- The measure on M_{g,n} from ribbon graphs -/
 structure RibbonGraphMeasure (g n : ℕ) where

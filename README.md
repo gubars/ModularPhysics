@@ -2,7 +2,24 @@
 
 Modular physics formalization in Lean 4 with Mathlib.
 
-The project emphasizes axiomatic structure over computational content. Each subfield is self-contained with explicit dependencies. QFT is organized by formulation (Wightman, AQFT, path integral, etc.) rather than by application, reflecting the fact that different approaches have different mathematical foundations and domains of validity.
+## Philosophy
+
+This project has two distinct components with different methodological approaches:
+
+### Core/ — Physics with Axioms
+
+The `Core/` module aims to formalize physical theories (quantum mechanics, QFT, general relativity, etc.) using **new axioms** that capture physical principles not derivable from pure mathematics. Currently in early stages with basic structures sketched out.
+
+### StringGeometry/ — Rigorous Formalization (No New Axioms)
+
+The `StringGeometry/` module is a project of **rigorous mathematical formalization** that does **not introduce any new axioms**. All definitions and theorems build purely on Mathlib's foundations. Incomplete proofs use `sorry` rather than introducing axioms.
+
+Currently developing basic definitions for:
+- Riemann surfaces (basic definitions, some helper lemmas)
+- Supermanifolds (Grassmann algebras, Berezinian structure)
+- Super Riemann surfaces (early stages)
+
+Many sorrys remain to be eliminated.
 
 ## Structure
 
@@ -198,4 +215,7 @@ Requires Lean 4.27+ and Mathlib4.
 
 ## Status
 
-Core structures and axioms implemented. Proofs use `sorry` where full formalization is pending.
+**Both components are work in progress.**
+
+- **Core/**: Axiomatic structure established for major physical theories. Proofs use `sorry` where full formalization is pending.
+- **StringGeometry/**: Mathematical foundations under active development. Sorrys are being systematically eliminated.

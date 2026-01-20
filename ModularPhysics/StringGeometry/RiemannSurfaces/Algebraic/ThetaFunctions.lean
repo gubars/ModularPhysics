@@ -247,14 +247,11 @@ structure ThetaDivisorAnalytic (g : ℕ) (Ω : SiegelHg g) where
   /-- Defined by θ = 0 -/
   isZeroSet : points = { z | riemannTheta g z Ω = 0 }
 
-/-- Θ is an effective divisor of degree 1 (principal polarization) -/
-theorem theta_divisor_degree (g : ℕ) (Ω : SiegelHg g) :
-    True := trivial
+/-! The theta divisor Θ is an effective divisor whose linear equivalence class
+defines the principal polarization on the Jacobian.
 
-/-- Riemann's theorem: Θ = W_{g-1} + κ where κ is the Riemann constant -/
-theorem riemann_theta_divisor (CRS : RiemannSurfaces.CompactRiemannSurface)
-    (J : Jacobian' CRS) :
-    True := trivial  -- Θ is translate of image of Σ^{g-1}
+Riemann's theorem: Θ = W_{g-1} + κ where W_{g-1} is the image of the
+(g-1)-th symmetric power under Abel-Jacobi and κ is the Riemann constant. -/
 
 /-- The Riemann constant κ ∈ J.
     Defined as κ = Σⱼ ∫_{p₀}^{wⱼ} ω where {wⱼ} are Weierstrass points. -/

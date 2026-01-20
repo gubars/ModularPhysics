@@ -205,10 +205,14 @@ theorem abel_theorem' (CRS : RiemannSurfaces.CompactRiemannSurface)
     IsPrincipal D ↔ abelJacobiMap CRS J D hD = sorry := by  -- 0 in J
   sorry
 
-/-- Corollary: Pic⁰(Σ) ≅ J(Σ) -/
+/-- Corollary: Pic⁰(Σ) ≅ J(Σ).
+    The degree-0 Picard group (divisors mod principal) is isomorphic to the Jacobian.
+    This follows from Abel's theorem. -/
 theorem pic0_isomorphic_jacobian (CRS : RiemannSurfaces.CompactRiemannSurface)
     (J : Jacobian' CRS) :
-    True := trivial  -- Div⁰/Prin ≅ J
+    ∃ (φ : { D : Divisor CRS.toRiemannSurface // D.degree = 0 } → J.points),
+      Function.Bijective φ := by
+  sorry
 
 /-!
 ## Jacobi Inversion Theorem
@@ -236,10 +240,8 @@ theorem jacobi_inversion (CRS : RiemannSurfaces.CompactRiemannSurface)
     Function.Surjective (abelJacobiSymPower CRS J basepoint) := by
   sorry
 
-/-- Generic fiber of Σ^(g) → J is a single point -/
-theorem jacobi_inversion_generically_injective (CRS : RiemannSurfaces.CompactRiemannSurface)
-    (J : Jacobian' CRS) :
-    True := trivial  -- For generic ξ ∈ J, the fiber is a single point
+/-! The generic fiber of the Abel-Jacobi map Σ^(g) → J is a single point,
+meaning the map is birational onto its image. -/
 
 /-!
 ## Riemann's Theorem on Theta Divisor
@@ -257,15 +259,11 @@ structure ThetaDivisor (CRS : RiemannSurfaces.CompactRiemannSurface)
   /-- Irreducible (for g ≥ 1) -/
   irreducible : True
 
-/-- Riemann's theorem: Θ is the image of W_{g-1} = AJ(Σ^(g-1)) -/
-theorem riemann_theta_theorem (CRS : RiemannSurfaces.CompactRiemannSurface)
-    (J : Jacobian' CRS) :
-    True := trivial
+/-! Riemann's theorem states that the theta divisor Θ ⊂ J is the image
+W_{g-1} = AJ(Σ^{g-1}) of the (g-1)-th symmetric power under the Abel-Jacobi map.
 
-/-- Multiplicity formula for theta divisor -/
-theorem theta_multiplicity (CRS : RiemannSurfaces.CompactRiemannSurface)
-    (J : Jacobian' CRS) (ξ : J.points) :
-    True := trivial  -- mult_ξ(Θ) = h⁰(D_ξ) where D_ξ is the corresponding divisor class
+The multiplicity of Θ at a point ξ ∈ J equals h⁰(D_ξ) where D_ξ is the
+divisor class corresponding to ξ. -/
 
 /-!
 ## Torelli Theorem

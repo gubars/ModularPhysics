@@ -1,6 +1,7 @@
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.GradedRings
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.Berezinian
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.OddDerivations
+import ModularPhysics.StringGeometry.Supermanifolds.Helpers.SchurComplement
 
 /-!
 # Supermanifold Helper Lemmas
@@ -12,6 +13,7 @@ This module collects foundational lemmas for supermanifold theory:
 * `GradedRings` - Lemmas for ℤ/2-graded structures and Koszul signs
 * `Berezinian` - Superdeterminant (Berezinian) properties
 * `OddDerivations` - Odd derivations and the key identity D_θ² = ∂/∂z
+* `SchurComplement` - Schur complement identities for block matrices
 
 ## Key results for eliminating sorrys
 

@@ -1,6 +1,8 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Harmonic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.GreenFunction
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Moduli
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.HarmonicHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.GreenHelpers
 
 /-!
 # Analytic Theory of Riemann Surfaces

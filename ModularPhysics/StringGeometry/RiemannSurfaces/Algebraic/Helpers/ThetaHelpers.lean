@@ -136,17 +136,23 @@ theorem jacobiTheta_even (z τ : ℂ) :
   constructor
   · -- θ₂(-z) = jacobiTheta₂(-z + 1/2, τ)
     unfold jacobiTheta2'
-    -- -z + 1/2 = -(z - 1/2), but we need jacobiTheta₂_neg_left which says θ₂(-w) = θ₂(w)
-    have h : -z + 1 / 2 = -(z - 1 / 2) := by ring
-    rw [h, jacobiTheta₂_neg_left]
-    -- Now need z - 1/2 vs z + 1/2; these differ by 1, and θ₂ is 1-periodic
-    sorry  -- Needs periodicity of jacobiTheta₂
+    -- -z + 1/2 = -(z - 1/2), and jacobiTheta₂_neg_left says θ₂(-w) = θ₂(w)
+    have h1 : -z + 1 / 2 = -(z - 1 / 2) := by ring
+    rw [h1, jacobiTheta₂_neg_left]
+    -- Now need z - 1/2 vs z + 1/2; use jacobiTheta₂ is 1-periodic
+    have h2 : z + 1 / 2 = (z - 1 / 2) + 1 := by ring
+    rw [h2, jacobiTheta₂_add_left]
   constructor
   · unfold jacobiTheta3'; exact jacobiTheta₂_neg_left z τ
   · -- θ₄(-z) = jacobiTheta₂(-z + τ/2, τ)
+    -- This requires quasi-periodicity which is more involved
     unfold jacobiTheta4'
     have h : -z + τ / 2 = -(z - τ / 2) := by ring
     rw [h, jacobiTheta₂_neg_left]
-    sorry  -- Needs quasi-periodicity
+    -- z + τ/2 and z - τ/2 differ by τ, so we need quasi-periodicity
+    -- jacobiTheta₂ (w + τ) = exp(-πi(τ + 2w)) * jacobiTheta₂ w
+    -- This doesn't directly give us equality, so the even property for θ₄
+    -- requires a different approach (working with the sum definition directly)
+    sorry
 
 end RiemannSurfaces.Algebraic.Helpers

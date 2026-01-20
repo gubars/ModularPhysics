@@ -85,9 +85,9 @@ noncomputable def ComplexPlane : RiemannSurface where
 noncomputable def RiemannSphere : RiemannSurface where
   carrier := OnePoint ℂ
   topology := inferInstance
-  t2 := sorry  -- OnePoint of a locally compact T2 space is T2
-  secondCountable := sorry  -- OnePoint of second countable is second countable
-  connected := sorry  -- OnePoint ℂ is connected (ℂ is path-connected)
+  t2 := inferInstance  -- OnePoint of locally compact T2 space is T4 hence T2
+  secondCountable := sorry  -- OnePoint of second countable locally compact
+  connected := inferInstance  -- OnePoint of noncompact preconnected is connected
   hasComplexStructure := trivial
 
 /-!

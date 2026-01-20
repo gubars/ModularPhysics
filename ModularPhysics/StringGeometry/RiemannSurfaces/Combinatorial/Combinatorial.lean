@@ -1,5 +1,6 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.RibbonGraph
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Moduli
+import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Helpers.RibbonHelpers
 
 /-!
 # Combinatorial Theory of Riemann Surfaces

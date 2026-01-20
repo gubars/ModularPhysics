@@ -220,10 +220,9 @@ structure ProjectednessObstruction (g : ℕ) where
   /-- M is projected iff ω = 0 -/
   projected_iff_zero : True
 
-/-- The obstruction comes from the extension class -/
-theorem obstruction_from_extension (g : ℕ) :
-    True := trivial
-    -- The exact sequence 0 → Sym²E → J²/J³ → E → 0 defines the obstruction
+/-! The obstruction to projectedness comes from the extension class in the
+exact sequence 0 → Sym²E → J²/J³ → E → 0, where E is the Hodge bundle and
+J is the nilpotent ideal sheaf. -/
 
 /-!
 ## The Donagi-Witten Theorem
@@ -242,18 +241,14 @@ theorem supermoduli_not_projected (g : ℕ) (_ : g ≥ 5)
     ¬ isProjected M.body := by
   sorry  -- Donagi-Witten theorem
 
-/-- The obstruction class is nonzero for g ≥ 5 -/
-theorem obstruction_nonzero (g : ℕ) (_ : g ≥ 5)
-    (_ : ProjectednessObstruction g) :
-    True := by  -- The obstruction class ω ≠ 0
-  trivial  -- Full proof requires cohomology computation
+/-! The obstruction class is nonzero for g ≥ 5, which is the key result
+of Donagi-Witten. The proof requires detailed cohomology computations
+involving the Hodge bundle on moduli space.
 
-/-- For g ≤ 4, the status is different -/
-theorem low_genus_cases :
-    True := trivial
-    -- g = 0, 1: trivial cases
-    -- g = 2: 𝔐_2 is projected (Deligne's theorem)
-    -- g = 3, 4: partially understood
+For low genus:
+- g = 0, 1: Trivial cases (no moduli)
+- g = 2: 𝔐_2 is projected (Deligne's theorem)
+- g = 3, 4: Partially understood -/
 
 /-- The Hodge bundle and its role in the obstruction -/
 structure HodgeBundle (g : ℕ) where
@@ -264,10 +259,8 @@ structure HodgeBundle (g : ℕ) where
   /-- Rank is g -/
   rank : ℕ := g
 
-/-- The key geometric input for Donagi-Witten -/
-theorem hodge_bundle_extension (g : ℕ) (hg : g ≥ 5) :
-    True := trivial
-    -- There exist nontrivial extensions related to the Hodge bundle
+/-! The key geometric input for Donagi-Witten is that there exist
+nontrivial extensions related to the Hodge bundle for g ≥ 5. -/
 
 /-!
 ## Implications for String Theory
@@ -310,9 +303,9 @@ structure SuperModuliIntegration (g : ℕ) where
 noncomputable def scatteringAmplitude (g n : ℕ)
     (vertexOperators : Fin n → True) : ℂ := sorry
 
-/-- Amplitude factorizes correctly on the boundary of 𝔐̄_{g,n} -/
-theorem amplitude_factorization (g n : ℕ) :
-    True := trivial
+/-! The amplitude factorizes correctly on the boundary of 𝔐̄_{g,n},
+corresponding to degeneration into lower-genus surfaces. This is
+essential for unitarity of the S-matrix. -/
 
 /-!
 ## Detailed Obstruction Theory
@@ -344,10 +337,8 @@ structure ObstructionCohomology (g : ℕ) where
   /-- Dimension can be computed from Riemann-Roch on M_g -/
   dimensionFormula : True
 
-/-- The key lemma: H¹(M_g, Sym²E) ≠ 0 for g ≥ 5 -/
-theorem obstruction_cohomology_nonzero (g : ℕ) (hg : g ≥ 5) :
-    True := trivial
-    -- Proof uses degeneration to boundary of M̄_g and induction
+/-! The key lemma is that H¹(M_g, Sym²E) ≠ 0 for g ≥ 5.
+The proof uses degeneration to the boundary of M̄_g and induction on genus. -/
 
 /-- First-order neighborhoods and jets -/
 structure FirstOrderNeighborhood where
@@ -383,10 +374,8 @@ theorem projected_iff_split (M : Type*) [TopologicalSpace M] :
     isProjected M ↔ True := by  -- Extension 0 → Sym²E → J/J³ → E → 0 splits
   sorry
 
-/-- Equivalent characterization via deformations -/
-theorem projected_iff_deformations_split (g : ℕ) :
-    True := trivial
-    -- Every infinitesimal deformation extends to global splitting
+/-! An equivalent characterization: a supermanifold is projected iff every
+infinitesimal deformation extends to a global splitting. -/
 
 /-- The moduli of splittings when they exist -/
 structure SplittingModuli (g : ℕ) (hproj : True) where

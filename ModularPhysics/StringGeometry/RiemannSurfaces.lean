@@ -1,1 +1,7 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli
+import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli.VectorBundles
+import ModularPhysics.StringGeometry.RiemannSurfaces.Helpers.Helpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Algebraic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Analytic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Combinatorial

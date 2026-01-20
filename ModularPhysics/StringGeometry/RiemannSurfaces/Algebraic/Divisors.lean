@@ -162,7 +162,66 @@ noncomputable def degree (D : Divisor RS) : ℤ :=
     Proof requires careful handling of finite support and sums. -/
 theorem degree_add (D₁ D₂ : Divisor RS) :
     (D₁ + D₂).degree = D₁.degree + D₂.degree := by
-  sorry  -- Requires manipulation of Finset sums over union of supports
+  classical
+  unfold degree
+  -- The key is that we can extend sums to a common superset
+  -- Let S₁ = supp(D₁), S₂ = supp(D₂), S = supp(D₁ + D₂)
+  -- We have S ⊆ S₁ ∪ S₂ (by construction in add)
+  -- For p ∉ S₁: D₁.coeff p = 0, so sum over S₁ ∪ S₂ = sum over S₁
+  -- Similarly for D₂
+
+  -- Strategy: show that summing over any superset that contains all supports gives same result
+  let S := (D₁ + D₂).finiteSupport.toFinset
+  let S₁ := D₁.finiteSupport.toFinset
+  let S₂ := D₂.finiteSupport.toFinset
+  let U := S₁ ∪ S₂
+
+  -- D₁ + D₂ coefficients vanish outside S₁ ∪ S₂
+  have hS_sub : S ⊆ U := by
+    intro p hp
+    rw [Set.Finite.mem_toFinset] at hp
+    rw [Finset.mem_union, Set.Finite.mem_toFinset, Set.Finite.mem_toFinset]
+    simp only [Set.mem_setOf_eq] at hp ⊢
+    by_contra h
+    push_neg at h
+    obtain ⟨h1, h2⟩ := h
+    have hcoeff : (D₁ + D₂).coeff p = D₁.coeff p + D₂.coeff p := rfl
+    rw [hcoeff, h1, h2, add_zero] at hp
+    exact hp rfl
+
+  -- Sum over S equals sum over U for (D₁ + D₂)
+  have hsum_eq : S.sum (fun p => (D₁ + D₂).coeff p) =
+                  U.sum (fun p => (D₁ + D₂).coeff p) := by
+    apply Finset.sum_subset hS_sub
+    intro p hpU hpS
+    rw [Set.Finite.mem_toFinset, Set.mem_setOf_eq, not_not] at hpS
+    exact hpS
+
+  -- Sum over U splits as sum of D₁.coeff + D₂.coeff
+  have hsplit : U.sum (fun p => (D₁ + D₂).coeff p) =
+                U.sum (fun p => D₁.coeff p) + U.sum (fun p => D₂.coeff p) := by
+    rw [← Finset.sum_add_distrib]
+    apply Finset.sum_congr rfl
+    intro p _
+    rfl
+
+  -- Sum of D₁ over U equals sum over S₁
+  have hD₁_eq : U.sum (fun p => D₁.coeff p) = S₁.sum (fun p => D₁.coeff p) := by
+    symm
+    apply Finset.sum_subset (s₁ := S₁) (s₂ := U) Finset.subset_union_left
+    intro p _ hp
+    rw [Set.Finite.mem_toFinset, Set.mem_setOf_eq, not_not] at hp
+    exact hp
+
+  -- Sum of D₂ over U equals sum over S₂
+  have hD₂_eq : U.sum (fun p => D₂.coeff p) = S₂.sum (fun p => D₂.coeff p) := by
+    symm
+    apply Finset.sum_subset (s₁ := S₂) (s₂ := U) Finset.subset_union_right
+    intro p _ hp
+    rw [Set.Finite.mem_toFinset, Set.mem_setOf_eq, not_not] at hp
+    exact hp
+
+  rw [hsum_eq, hsplit, hD₁_eq, hD₂_eq]
 
 /-- Degree of negation -/
 theorem degree_neg (D : Divisor RS) :
@@ -265,6 +324,37 @@ structure MeromorphicFunction (RS : RiemannSurface) where
   /-- Meromorphic (holomorphic except for poles) -/
   meromorphic : True
 
+namespace MeromorphicFunction
+
+variable {RS : RiemannSurface}
+
+/-- The constant function 1 -/
+def one : MeromorphicFunction RS where
+  f := fun _ => Sum.inl 1
+  meromorphic := trivial
+
+/-- Reciprocal of a meromorphic function (exchanges zeros and poles) -/
+noncomputable def inv (g : MeromorphicFunction RS) : MeromorphicFunction RS where
+  f := fun p => match g.f p with
+    | Sum.inl z => if z = 0 then Sum.inr () else Sum.inl z⁻¹
+    | Sum.inr () => Sum.inl 0
+  meromorphic := trivial
+
+/-- Product of meromorphic functions -/
+noncomputable def mul (g h : MeromorphicFunction RS) : MeromorphicFunction RS where
+  f := fun p => match g.f p, h.f p with
+    | Sum.inl z₁, Sum.inl z₂ => Sum.inl (z₁ * z₂)
+    | Sum.inl z, Sum.inr () => if z = 0 then Sum.inl 0 else Sum.inr ()  -- 0 · ∞ = 0, else ∞
+    | Sum.inr (), Sum.inl z => if z = 0 then Sum.inl 0 else Sum.inr ()
+    | Sum.inr (), Sum.inr () => Sum.inr ()  -- ∞ · ∞ = ∞
+  meromorphic := trivial
+
+instance : One (MeromorphicFunction RS) := ⟨MeromorphicFunction.one⟩
+noncomputable instance : Inv (MeromorphicFunction RS) := ⟨MeromorphicFunction.inv⟩
+noncomputable instance : Mul (MeromorphicFunction RS) := ⟨MeromorphicFunction.mul⟩
+
+end MeromorphicFunction
+
 /-- Order of a meromorphic function at a point (positive for zeros, negative for poles).
     This is a placeholder - proper definition requires local power series expansion. -/
 noncomputable def orderAt {RS : RiemannSurface} (_ : MeromorphicFunction RS) (_ : RS.carrier) : ℤ :=
@@ -274,6 +364,21 @@ noncomputable def orderAt {RS : RiemannSurface} (_ : MeromorphicFunction RS) (_ 
 theorem orderFiniteSupport {RS : RiemannSurface} (f : MeromorphicFunction RS) :
     Set.Finite { p | orderAt f p ≠ 0 } := by
   sorry  -- Follows from identity theorem for holomorphic functions
+
+/-- The constant function 1 has order 0 everywhere -/
+theorem orderAt_one {RS : RiemannSurface} (p : RS.carrier) :
+    orderAt (1 : MeromorphicFunction RS) p = 0 := by
+  sorry  -- 1 has no zeros or poles
+
+/-- Order of inverse: ord_p(1/f) = -ord_p(f) -/
+theorem orderAt_inv {RS : RiemannSurface} (f : MeromorphicFunction RS) (p : RS.carrier) :
+    orderAt f⁻¹ p = -orderAt f p := by
+  sorry  -- Reciprocal swaps zeros and poles
+
+/-- Order of product: ord_p(fg) = ord_p(f) + ord_p(g) -/
+theorem orderAt_mul {RS : RiemannSurface} (f g : MeromorphicFunction RS) (p : RS.carrier) :
+    orderAt (f * g) p = orderAt f p + orderAt g p := by
+  sorry  -- Orders add under multiplication
 
 /-- The divisor of a meromorphic function -/
 noncomputable def divisorOf {RS : RiemannSurface} (f : MeromorphicFunction RS) :
@@ -306,17 +411,31 @@ def LinearlyEquivalent {RS : RiemannSurface} (D₁ D₂ : Divisor RS) : Prop :=
 
 /-- The zero divisor is principal (divisor of constant 1) -/
 theorem zero_isPrincipal {RS : RiemannSurface} : IsPrincipal (0 : Divisor RS) := by
-  sorry  -- 0 = div(1) where 1 is the constant function
+  use 1  -- The constant function 1
+  ext p
+  simp only [divisorOf, orderAt_one]
+  rfl
 
 /-- Negation of a principal divisor is principal -/
 theorem neg_isPrincipal {RS : RiemannSurface} {D : Divisor RS}
-    (_ : IsPrincipal D) : IsPrincipal (-D) := by
-  sorry  -- -div(f) = div(1/f)
+    (hD : IsPrincipal D) : IsPrincipal (-D) := by
+  obtain ⟨f, hf⟩ := hD
+  use f⁻¹
+  ext p
+  simp only [divisorOf, Neg.neg, Divisor.neg, orderAt_inv]
+  rw [← hf]
+  rfl
 
 /-- Sum of principal divisors is principal -/
 theorem add_isPrincipal {RS : RiemannSurface} {D₁ D₂ : Divisor RS}
-    (_ : IsPrincipal D₁) (_ : IsPrincipal D₂) : IsPrincipal (D₁ + D₂) := by
-  sorry  -- div(f) + div(g) = div(fg)
+    (hD₁ : IsPrincipal D₁) (hD₂ : IsPrincipal D₂) : IsPrincipal (D₁ + D₂) := by
+  obtain ⟨f, hf⟩ := hD₁
+  obtain ⟨g, hg⟩ := hD₂
+  use f * g
+  ext p
+  simp only [divisorOf, orderAt_mul]
+  rw [← hf, ← hg]
+  rfl
 
 /-- Linear equivalence is an equivalence relation -/
 theorem linearlyEquivalent_equivalence (RS : RiemannSurface) :

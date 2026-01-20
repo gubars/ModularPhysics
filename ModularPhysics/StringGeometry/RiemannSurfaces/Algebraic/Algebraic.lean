@@ -2,6 +2,7 @@ import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Divisors
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.AbelJacobi
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.ThetaFunctions
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Moduli
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.ThetaHelpers
 
 /-!
 # Algebraic Theory of Riemann Surfaces

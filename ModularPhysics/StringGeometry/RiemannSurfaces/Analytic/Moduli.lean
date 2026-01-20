@@ -259,9 +259,7 @@ structure SiegelUpperHalfSpaceAnalytic (g : ℕ) where
 noncomputable def periodMapAnalytic (g : ℕ) (T : TeichmullerSpaceAnalytic g) :
     T.points → SiegelUpperHalfSpaceAnalytic g := sorry
 
-/-- Period map is holomorphic -/
-theorem period_map_holomorphic (g : ℕ) (T : TeichmullerSpaceAnalytic g) :
-    True := trivial
+/-! The period map is holomorphic (and in fact an immersion). -/
 
 /-- Torelli: period map is injective -/
 theorem torelli_analytic (g : ℕ) (T : TeichmullerSpaceAnalytic g) :

@@ -138,7 +138,7 @@ def IsHomogeneous (v : V.carrier) : Prop :=
   v ∈ V.even ∨ v ∈ V.odd
 
 /-- The parity of a homogeneous element (noncomputable due to classical logic) -/
-noncomputable def parityOf (v : V.carrier) (hv : v ∈ V.even ∨ v ∈ V.odd) : Parity :=
+noncomputable def parityOf (v : V.carrier) (_hv : v ∈ V.even ∨ v ∈ V.odd) : Parity :=
   @dite _ (v ∈ V.even) (Classical.propDecidable _) (fun _ => Parity.even) (fun _ => Parity.odd)
 
 /-- Dimension of a super vector space as (p|q) -/
@@ -335,29 +335,20 @@ theorem diag_sum_mul_comm {α : Type*} [Fintype α] [DecidableEq α]
   simp only [Matrix.trace] at h
   exact h
 
-/-- The supertrace vanishes on supercommutators.
+/-! ### Supertrace Cyclicity
 
-    Mathematical proof: For block matrix M = [A B; C D], the supertrace is
-    str(M) = tr(A) - tr(D). For the commutator [M,N] = MN - NM:
-    - The (1,1) block of MN is A₁A₂ + B₁C₂
-    - The (1,1) block of NM is A₂A₁ + B₂C₁
-    - The (2,2) block of MN is C₁B₂ + D₁D₂
-    - The (2,2) block of NM is C₂B₁ + D₂D₁
+For true supermatrices M = [A₁ B₁; C₁ D₁] and N = [A₂ B₂; C₂ D₂] where:
+- A, D have Grassmann-even entries (commuting)
+- B, C have Grassmann-odd entries (anticommuting)
 
-    By trace cyclicity tr(XY) = tr(YX):
-    - tr(A₁A₂) = tr(A₂A₁), tr(D₁D₂) = tr(D₂D₁)
-    - tr(B₁C₂) = tr(C₂B₁), tr(C₁B₂) = tr(B₂C₁)
+The supertrace is cyclic: str(MN) = str(NM), so str([M,N]) = 0.
 
-    So str(MN) - str(NM) = [tr(A₁A₂) + tr(B₁C₂) - tr(C₁B₂) - tr(D₁D₂)]
-                         - [tr(A₂A₁) + tr(B₂C₁) - tr(C₂B₁) - tr(D₂D₁)]
-                        = 0 by the above identities. -/
-theorem supertrace_supercommutator {n m : ℕ}
-    (M N : Matrix (Fin n ⊕ Fin m) (Fin n ⊕ Fin m) ℝ) :
-    supertrace (M * N - N * M) = 0 := by
-  rw [supertrace_sub]
-  -- The proof requires block decomposition and trace cyclicity on each block
-  -- This is a standard result in superalgebra theory
-  sorry
+The Grassmann anticommutation is essential - for ordinary matrices the cross terms
+give str(MN) - str(NM) = 2*(tr(B₁C₂) - tr(C₁B₂)) ≠ 0 in general.
+
+See `Helpers.Berezinian.supertrace_commutator` for the formal proof
+using the `GrassmannTraceProperty` hypothesis.
+-/
 
 /-- Superdeterminant (Berezinian) for an even invertible supermatrix
     For M = [A B; C D], Ber(M) = det(A - BD⁻¹C) / det(D) -/
@@ -369,14 +360,7 @@ noncomputable def berezinian {n m : ℕ}
     (hD : D.det ≠ 0) : ℝ :=
   (A - B * D⁻¹ * C).det / D.det
 
-/-- The Berezinian is multiplicative -/
-theorem berezinian_mul {n m : ℕ}
-    (A₁ A₂ : Matrix (Fin n) (Fin n) ℝ)
-    (B₁ B₂ : Matrix (Fin n) (Fin m) ℝ)
-    (C₁ C₂ : Matrix (Fin m) (Fin n) ℝ)
-    (D₁ D₂ : Matrix (Fin m) (Fin m) ℝ)
-    (hD₁ : D₁.det ≠ 0) (hD₂ : D₂.det ≠ 0) :
-    True := by  -- Placeholder for actual multiplicativity
-  trivial
+/-! Berezinian multiplicativity is stated in `Helpers.Berezinian.berezinian_mul`
+with the proper supermatrix formulation. -/
 
 end Supermanifolds
