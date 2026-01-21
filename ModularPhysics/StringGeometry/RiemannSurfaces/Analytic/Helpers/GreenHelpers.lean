@@ -1,4 +1,5 @@
 import Mathlib.Analysis.Complex.Basic
+import Mathlib.Analysis.Complex.Norm
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Topology.MetricSpace.Basic
@@ -51,7 +52,7 @@ G_D(z, w) = -(1/2π) log|z - w| + (1/2π) log|1 - w̄z| for the unit disk.
 -/
 
 /-- Reflection of w across the unit circle -/
-noncomputable def reflection (w : ℂ) (hw : w ≠ 0) : ℂ :=
+noncomputable def reflection (w : ℂ) (_ : w ≠ 0) : ℂ :=
   1 / (starRingEnd ℂ w)
 
 /-- Reflection maps interior to exterior -/
@@ -73,20 +74,48 @@ noncomputable def diskCorrection (w z : ℂ) : ℝ :=
 noncomputable def diskGreenDef (w z : ℂ) : ℝ :=
   fundamentalSol w z + diskCorrection w z
 
-/-- At boundary |z| = 1: log|z - w| = log|1 - w̄z| + log|w|.
-    This implies G_D = 0 on boundary (for |z| = 1). -/
+/-- Key identity: |z - w|² = |1 - w̄z|² when |z| = 1.
+    Proof: Both expand to 1 - zw̄ - wz̄ + |w|² using |z|² = 1. -/
+theorem norm_sub_sq_eq_norm_one_sub_conj_mul_sq (w z : ℂ) (hz : ‖z‖ = 1) :
+    ‖z - w‖^2 = ‖1 - (starRingEnd ℂ) w * z‖^2 := by
+  -- Convert to normSq which is easier to compute with
+  rw [← Complex.normSq_eq_norm_sq, ← Complex.normSq_eq_norm_sq]
+  -- Key fact: |z|² = 1
+  have hz2 : Complex.normSq z = 1 := by
+    rw [Complex.normSq_eq_norm_sq, hz, one_pow]
+  -- Expand |z - w|² = |z|² + |w|² - 2*(z * conj w).re
+  rw [Complex.normSq_sub, hz2]
+  -- Expand |1 - w̄z|² = 1 + |w̄z|² - 2*((1 : ℂ) * conj(conj w * z)).re
+  rw [Complex.normSq_sub, Complex.normSq_one]
+  -- |w̄z|² = |w̄|² · |z|² = |w|² · 1 = |w|²
+  rw [Complex.normSq_mul, Complex.normSq_conj, hz2, mul_one]
+  -- Simplify: conj(conj w * z) = conj(conj w) * conj z = w * conj z
+  -- And (z * conj w).re = (w * conj z).re
+  simp only [map_mul, RingHomCompTriple.comp_apply, one_mul]
+  -- Now the goal is about real parts being equal
+  -- (z * conj w).re = (w * conj z).re
+  have h : (z * (starRingEnd ℂ) w).re = (w * (starRingEnd ℂ) z).re := by
+    simp only [Complex.mul_re, Complex.conj_re, Complex.conj_im]
+    ring
+  -- RingHom.id ℂ w = w
+  simp only [RingHom.id_apply]
+  linarith
+
+/-- At boundary |z| = 1: |z - w| = |1 - w̄z|. -/
 theorem boundary_identity (w z : ℂ) (hz : ‖z‖ = 1) :
-    ‖z - w‖ = ‖1 - (starRingEnd ℂ) w * z‖ / ‖z‖⁻¹ := by
-  rw [hz, inv_one, div_one]
-  -- |z - w| = |z||1 - w̄z/z| = |1 - w̄z| when |z| = 1
-  sorry
+    ‖z - w‖ = ‖1 - (starRingEnd ℂ) w * z‖ := by
+  have h := norm_sub_sq_eq_norm_one_sub_conj_mul_sq w z hz
+  have h1 : ‖z - w‖ ≥ 0 := norm_nonneg _
+  have h2 : ‖1 - (starRingEnd ℂ) w * z‖ ≥ 0 := norm_nonneg _
+  exact sq_eq_sq₀ h1 h2 |>.mp h
 
 /-- Disk Green's function vanishes on boundary -/
-theorem diskGreen_vanishes_boundary (w z : ℂ) (hwlt : ‖w‖ < 1) (hz : ‖z‖ = 1) :
+theorem diskGreen_vanishes_boundary (w z : ℂ) (_ : ‖w‖ < 1) (hz : ‖z‖ = 1) :
     diskGreenDef w z = 0 := by
   unfold diskGreenDef fundamentalSol diskCorrection
-  -- Need: log|z - w| = log|1 - w̄z| when |z| = 1
-  sorry
+  -- Use boundary_identity: |z - w| = |1 - w̄z| when |z| = 1
+  rw [boundary_identity w z hz]
+  ring
 
 /-!
 ## Poisson Kernel
@@ -99,7 +128,7 @@ noncomputable def poissonKernelDef (z ζ : ℂ) : ℝ :=
   (1 - ‖z‖^2) / ‖ζ - z‖^2
 
 /-- Poisson kernel is positive inside the disk -/
-theorem poissonKernel_pos (z ζ : ℂ) (hz : ‖z‖ < 1) (hζ : ‖ζ‖ = 1) (hne : z ≠ ζ) :
+theorem poissonKernel_pos (z ζ : ℂ) (hz : ‖z‖ < 1) (_ : ‖ζ‖ = 1) (hne : z ≠ ζ) :
     poissonKernelDef z ζ > 0 := by
   unfold poissonKernelDef
   apply div_pos
@@ -114,11 +143,11 @@ theorem poissonKernel_pos (z ζ : ℂ) (hz : ‖z‖ < 1) (hζ : ‖ζ‖ = 1) (
     exact sub_ne_zero.mpr (Ne.symm hne)
 
 /-- Poisson kernel integrates to 1 over the boundary -/
-theorem poissonKernel_integral_one (z : ℂ) (hz : ‖z‖ < 1) :
+theorem poissonKernel_integral_one (z : ℂ) (_ : ‖z‖ < 1) :
     True := trivial  -- (1/2π) ∫_{|ζ|=1} P(z, ζ) |dζ| = 1
 
 /-- Poisson kernel is the normal derivative of Green's function -/
-theorem poissonKernel_from_green (z w : ℂ) (hz : ‖z‖ < 1) (hw : ‖w‖ = 1) :
+theorem poissonKernel_from_green (z w : ℂ) (_ : ‖z‖ < 1) (_ : ‖w‖ = 1) :
     True := trivial  -- P(z, w) = -∂G_D/∂n_w
 
 /-!

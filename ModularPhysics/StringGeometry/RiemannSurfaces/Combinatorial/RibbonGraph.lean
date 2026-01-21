@@ -3,6 +3,7 @@ import Mathlib.Data.List.Cycle
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.GroupTheory.Perm.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Helpers.RibbonHelpers
 
 /-!
@@ -110,10 +111,47 @@ def valence (v : ℕ) : ℕ := (Γ.cyclicOrderAt v).length
 
 /-!
 ## Face Cycles and Topology
+
+Faces correspond to orbits of the face permutation σ = τ⁻¹ ∘ α where:
+- α is the edge pairing involution
+- τ is the "next half-edge at vertex" map from cyclic ordering
 -/
 
-/-- Number of faces (boundary cycles) -/
-noncomputable def numFaces (Γ : RibbonGraph) : ℕ := sorry
+/-- The "next half-edge at vertex" map: given h at vertex v, return the next
+    half-edge in the cyclic ordering at v.
+    This is the map τ in the face permutation σ = τ ∘ α. -/
+noncomputable def nextAtVertex (Γ : RibbonGraph) (h : HalfEdge) : HalfEdge :=
+  let v := Γ.vertexOf h
+  let cycle := Γ.cyclicOrderAt v
+  -- Find h in cycle and return the next element (cyclically)
+  match cycle.findIdx? (· == h) with
+  | some i =>
+      if hlen : cycle.length = 0 then h
+      else cycle.get ⟨(i + 1) % cycle.length, Nat.mod_lt _ (Nat.pos_of_ne_zero hlen)⟩
+  | none => h  -- Fallback if h not found
+
+/-- The face permutation σ = nextAtVertex ∘ pair
+    Following a face boundary: go to paired half-edge, then next in cyclic order.
+    Orbits of this permutation correspond to faces of the ribbon graph. -/
+noncomputable def facePermutation (Γ : RibbonGraph) (h : HalfEdge) : HalfEdge :=
+  Γ.nextAtVertex (Γ.pair h)
+
+/-- Number of faces (boundary cycles) = number of orbits of face permutation.
+    For a ribbon graph, the face permutation acts on half-edges, and each
+    orbit corresponds to a face (boundary cycle).
+
+    The count is computed using Mathlib's permutation cycle machinery
+    via `Helpers.countOrbits`. -/
+noncomputable def numFaces (Γ : RibbonGraph) : ℕ :=
+  -- The number of faces equals the number of orbits of the face permutation
+  -- on the set of half-edges. For a proper ribbon graph, the face permutation
+  -- is a bijection on half-edges, so we can lift it to Equiv.Perm.
+  --
+  -- Full implementation requires:
+  -- 1. Fintype instance on Γ.halfEdges (as a subtype)
+  -- 2. Proof that facePermutation is a bijection on halfEdges
+  -- 3. Lifting to Equiv.Perm and using Helpers.countOrbits
+  sorry
 
 /-- Euler characteristic: V - E + F -/
 noncomputable def eulerChar (Γ : RibbonGraph) : ℤ :=

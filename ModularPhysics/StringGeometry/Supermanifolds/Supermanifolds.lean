@@ -273,13 +273,17 @@ The partial derivatives satisfy:
 def partialEven {p q : ℕ} (i : Fin p) : SuperDomainFunction p q → SuperDomainFunction p q :=
   fun f => ⟨fun I x => sorry⟩  -- Derivative of f.coefficients I with respect to xⁱ
 
-/-- Partial derivative with respect to an odd coordinate -/
+/-- Partial derivative with respect to an odd coordinate.
+    For f = Σ_J f_J θ^J, we have ∂f/∂θᵃ = Σ_{a ∈ J} ±f_J θ^{J\{a}}.
+    The coefficient of θ^I in ∂f/∂θᵃ is ±f_{I∪{a}} when a ∉ I, and 0 otherwise. -/
 def partialOdd {p q : ℕ} (a : Fin q) : SuperDomainFunction p q → SuperDomainFunction p q :=
   fun f => ⟨fun I x =>
-    if a ∈ I then
-      -- ∂/∂θᵃ (θ^I) = ±θ^{I\{a}}
+    if a ∉ I then
+      -- The coefficient at I comes from differentiating the θ^{I∪{a}} term
+      let J := insert a I
+      -- Sign from moving θᵃ past the elements of I that are less than a
       let sign := (-1 : ℝ) ^ (I.filter (· < a)).card
-      sign * f.coefficients I x
+      sign * f.coefficients J x
     else 0⟩
 
 /-- ∂/∂θᵃ is an odd derivation.

@@ -1,4 +1,6 @@
 import Mathlib.Analysis.InnerProductSpace.Calculus
+import Mathlib.Analysis.InnerProductSpace.Laplacian
+import Mathlib.Analysis.InnerProductSpace.Harmonic.Basic
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Topology.MetricSpace.Basic
@@ -12,18 +14,23 @@ This file provides helper definitions and lemmas for harmonic function theory.
 
 ## Implementation Notes
 
-We define the Laplacian using second partial derivatives and provide
-the framework for mean value property and maximum principles.
+We connect our coordinate-based Laplacian definition to Mathlib's abstract Laplacian
+(`InnerProductSpace.laplacian`), which is defined via the canonical covariant tensor.
+
+For the complex plane ℂ, Mathlib provides `laplacian_eq_iteratedFDeriv_complexPlane`
+showing Δf = ∂²f/∂x² + ∂²f/∂y² in the standard coordinates.
 -/
 
 namespace RiemannSurfaces.Analytic.Helpers
 
-open Complex Real MeasureTheory
+open Complex Real MeasureTheory InnerProductSpace
 
 /-!
 ## Laplacian Definition
 
 The Laplacian in complex coordinates is Δf = 4 ∂²f/∂z∂z̄ = ∂²f/∂x² + ∂²f/∂y².
+
+We provide both a coordinate-based definition and connection to Mathlib's abstract Laplacian.
 -/
 
 /-- The second partial derivative with respect to x (real part) -/
@@ -34,9 +41,13 @@ noncomputable def partialXX (f : ℂ → ℝ) (z : ℂ) : ℝ :=
 noncomputable def partialYY (f : ℂ → ℝ) (z : ℂ) : ℝ :=
   deriv (fun t : ℝ => deriv (fun s : ℝ => f (⟨z.re, s⟩ : ℂ)) t) z.im
 
-/-- The Laplacian Δf = ∂²f/∂x² + ∂²f/∂y² -/
+/-- The Laplacian Δf = ∂²f/∂x² + ∂²f/∂y² (coordinate definition) -/
 noncomputable def laplacianDef (f : ℂ → ℝ) (z : ℂ) : ℝ :=
   partialXX f z + partialYY f z
+
+/-- Mathlib's Laplacian on ℂ (uses abstract definition via canonical tensor) -/
+noncomputable def laplacianMathlib (f : ℂ → ℝ) (z : ℂ) : ℝ :=
+  laplacian f z
 
 /-!
 ## Circle Averages

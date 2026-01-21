@@ -50,13 +50,15 @@ noncomputable def jacobiTheta3' (z τ : ℂ) : ℂ :=
 noncomputable def jacobiTheta1' (z τ : ℂ) : ℂ :=
   -I * exp (π * I * (τ / 4 + z)) * jacobiTheta₂ (z + (τ + 1) / 2) τ
 
-/-- Jacobi θ₂(z, τ) = θ₃(z + 1/2, τ) -/
-noncomputable def jacobiTheta2' (z τ : ℂ) : ℂ :=
+/-- Jacobi θ₄(z, τ) = θ₃(z + 1/2, τ)
+    θ₄(z) = Σ (-1)^n q^(n²) e^(2πinz) = θ₃(z + 1/2) since e^(πin) = (-1)^n -/
+noncomputable def jacobiTheta4' (z τ : ℂ) : ℂ :=
   jacobiTheta₂ (z + 1 / 2) τ
 
-/-- Jacobi θ₄(z, τ) = θ₃(z + τ/2, τ) -/
-noncomputable def jacobiTheta4' (z τ : ℂ) : ℂ :=
-  jacobiTheta₂ (z + τ / 2) τ
+/-- Jacobi θ₂(z, τ) = q^(1/4) e^(πiz) θ₃(z + τ/2, τ)
+    where q = e^(πiτ). This is the standard relation between θ₂ and θ₃. -/
+noncomputable def jacobiTheta2' (z τ : ℂ) : ℂ :=
+  exp (π * I * τ / 4 + π * I * z) * jacobiTheta₂ (z + τ / 2) τ
 
 /-!
 ## Higher Genus Theta Functions
@@ -128,31 +130,39 @@ theorem jacobiTheta1_odd (z τ : ℂ) :
     jacobiTheta1' (-z) τ = -jacobiTheta1' z τ := by
   sorry  -- Follows from the definition
 
-/-- θ₂, θ₃, θ₄ are even in z -/
+/-- θ₃ is even in z (direct from Mathlib) -/
+theorem jacobiTheta3_even (z τ : ℂ) :
+    jacobiTheta3' (-z) τ = jacobiTheta3' z τ := by
+  unfold jacobiTheta3'
+  exact jacobiTheta₂_neg_left z τ
+
+/-- θ₄ is even in z: θ₄(-z) = θ₄(z).
+    Proof: θ₄(z) = θ₃(z + 1/2), and θ₃ is even, so
+    θ₄(-z) = θ₃(-z + 1/2) = θ₃(-(z - 1/2)) = θ₃(z - 1/2)
+    Using 1-periodicity: θ₃(z - 1/2) = θ₃(z - 1/2 + 1) = θ₃(z + 1/2) = θ₄(z) -/
+theorem jacobiTheta4_even (z τ : ℂ) :
+    jacobiTheta4' (-z) τ = jacobiTheta4' z τ := by
+  unfold jacobiTheta4'
+  -- -z + 1/2 = -(z - 1/2)
+  have h1 : -z + 1 / 2 = -(z - 1 / 2) := by ring
+  rw [h1, jacobiTheta₂_neg_left]
+  -- Now need z - 1/2 vs z + 1/2; use jacobiTheta₂ is 1-periodic
+  have h2 : z + 1 / 2 = (z - 1 / 2) + 1 := by ring
+  rw [h2, jacobiTheta₂_add_left]
+
+/-- θ₂ is even in z: θ₂(-z) = θ₂(z).
+    With the definition θ₂(z) = exp(πiτ/4 + πiz) · θ₃(z + τ/2):
+    θ₂(-z) = exp(πiτ/4 - πiz) · θ₃(-z + τ/2)
+           = exp(πiτ/4 - πiz) · θ₃(z - τ/2)  [θ₃ even]
+    Comparing to θ₂(z) = exp(πiτ/4 + πiz) · θ₃(z + τ/2), we use quasi-periodicity. -/
+theorem jacobiTheta2_even (z τ : ℂ) :
+    jacobiTheta2' (-z) τ = jacobiTheta2' z τ := by
+  sorry  -- Requires careful calculation with quasi-periodicity
+
+/-- Combined evenness statement for θ₃ and θ₄ -/
 theorem jacobiTheta_even (z τ : ℂ) :
-    jacobiTheta2' (-z) τ = jacobiTheta2' z τ ∧
     jacobiTheta3' (-z) τ = jacobiTheta3' z τ ∧
     jacobiTheta4' (-z) τ = jacobiTheta4' z τ := by
-  constructor
-  · -- θ₂(-z) = jacobiTheta₂(-z + 1/2, τ)
-    unfold jacobiTheta2'
-    -- -z + 1/2 = -(z - 1/2), and jacobiTheta₂_neg_left says θ₂(-w) = θ₂(w)
-    have h1 : -z + 1 / 2 = -(z - 1 / 2) := by ring
-    rw [h1, jacobiTheta₂_neg_left]
-    -- Now need z - 1/2 vs z + 1/2; use jacobiTheta₂ is 1-periodic
-    have h2 : z + 1 / 2 = (z - 1 / 2) + 1 := by ring
-    rw [h2, jacobiTheta₂_add_left]
-  constructor
-  · unfold jacobiTheta3'; exact jacobiTheta₂_neg_left z τ
-  · -- θ₄(-z) = jacobiTheta₂(-z + τ/2, τ)
-    -- This requires quasi-periodicity which is more involved
-    unfold jacobiTheta4'
-    have h : -z + τ / 2 = -(z - τ / 2) := by ring
-    rw [h, jacobiTheta₂_neg_left]
-    -- z + τ/2 and z - τ/2 differ by τ, so we need quasi-periodicity
-    -- jacobiTheta₂ (w + τ) = exp(-πi(τ + 2w)) * jacobiTheta₂ w
-    -- This doesn't directly give us equality, so the even property for θ₄
-    -- requires a different approach (working with the sum definition directly)
-    sorry
+  exact ⟨jacobiTheta3_even z τ, jacobiTheta4_even z τ⟩
 
 end RiemannSurfaces.Algebraic.Helpers

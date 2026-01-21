@@ -90,14 +90,20 @@ noncomputable def diskGreen (w : ℂ) (_ : ‖w‖ < 1) (z : ℂ) : ℝ :=
    (1 / (2 * Real.pi)) * Real.log ‖1 - (starRingEnd ℂ) w * z‖
 
 /-- Disk Green's function vanishes on the boundary -/
-theorem diskGreen_boundary (w : ℂ) (hw : ‖w‖ < 1) (z : ℂ) (hz : ‖z‖ = 1) :
-    diskGreen w hw z = 0 := by
-  sorry
+theorem diskGreen_boundary (w : ℂ) (_ : ‖w‖ < 1) (z : ℂ) (hz : ‖z‖ = 1) :
+    diskGreen w ‹_› z = 0 := by
+  unfold diskGreen
+  -- Use Helpers.boundary_identity: |z - w| = |1 - w̄z| when |z| = 1
+  rw [Helpers.boundary_identity w z hz]
+  ring
 
 /-- Disk Green's function is symmetric: G(z, w) = G(w, z) -/
-theorem diskGreen_symmetric (w₁ w₂ : ℂ) (hw₁ : ‖w₁‖ < 1) (hw₂ : ‖w₂‖ < 1) :
-    diskGreen w₁ hw₁ w₂ = diskGreen w₂ hw₂ w₁ := by
-  sorry
+theorem diskGreen_symmetric (w₁ w₂ : ℂ) (_ : ‖w₁‖ < 1) (_ : ‖w₂‖ < 1) :
+    diskGreen w₁ ‹_› w₂ = diskGreen w₂ ‹_› w₁ := by
+  unfold diskGreen
+  -- Use norm_sub_rev and norm_one_sub_conj_mul_symm
+  rw [norm_sub_rev]
+  rw [Helpers.norm_one_sub_conj_mul_symm]
 
 /-!
 ## Poisson Kernel and Dirichlet Problem
@@ -113,7 +119,13 @@ noncomputable def poissonKernel (z : ℂ) (hz : ‖z‖ < 1) (ζ : ℂ) (hζ : �
 /-- Poisson kernel is positive -/
 theorem poissonKernel_pos (z : ℂ) (hz : ‖z‖ < 1) (ζ : ℂ) (hζ : ‖ζ‖ = 1) :
     poissonKernel z hz ζ hζ > 0 := by
-  sorry
+  unfold poissonKernel
+  -- Need z ≠ ζ to use the helper. If z = ζ, then |z| = |ζ| = 1 contradicts |z| < 1
+  have hne : z ≠ ζ := by
+    intro heq
+    rw [heq, hζ] at hz
+    exact absurd hz (lt_irrefl 1)
+  exact Helpers.poissonKernel_pos z ζ hz hζ hne
 
 /-- Poisson integral solves Dirichlet problem -/
 noncomputable def poissonIntegral (f : ℂ → ℝ) (z : ℂ) (hz : ‖z‖ < 1) : ℝ :=

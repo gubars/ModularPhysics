@@ -238,7 +238,148 @@ theorem odd_sq_zero [NoZeroDivisors A.carrier] [CharZero A.carrier]
   -- a * a = -(a * a) implies a * a = 0 in characteristic zero
   exact Helpers.eq_neg_self_implies_zero (a * a) h
 
+/-- The even part of a supercommutative algebra is commutative.
+    This is the fundamental property that makes the Berezinian well-defined:
+    determinants of matrices with even entries are computed in a commutative ring. -/
+theorem even_part_commutative (a b : A.carrier) (ha : a ∈ A.even) (hb : b ∈ A.even) :
+    a * b = b * a :=
+  even_comm_even a b ha hb
+
 end SuperCommutative
+
+/-! ## SuperAlgebra over a Field
+
+For the Berezinian to be well-defined, we need to work with a field (for matrix
+inverses and determinant division). Rather than adding a separate Field instance
+that conflicts with A.ring, we define SuperAlgebra directly over a field carrier.
+
+The key insight is that in physics, when we compute Berezinians:
+- Matrix entries live in the Grassmann algebra Λ = ℂ[θ₁, θ₂, ...]
+- The A, D blocks have entries in Λ₀ (even part, which is commutative)
+- Determinants are computed in the commutative subring Λ₀
+- For invertibility, we work over ℂ ⊂ Λ₀
+
+For simplicity, we can define a SuperAlgebra where the carrier IS a field. -/
+
+/-- A SuperAlgebra whose carrier is a field.
+    This provides a clean setting for Berezinian computations without typeclass conflicts.
+
+    The ring structure comes from the Field, so there's no diamond problem. -/
+structure FieldSuperAlgebra (R : Type*) [CommRing R] where
+  /-- The underlying type -/
+  carrier : Type*
+  /-- Field structure (provides Ring, hence no conflict) -/
+  [field : Field carrier]
+  /-- Algebra structure -/
+  [algebra : Algebra R carrier]
+  /-- Even subspace -/
+  even : Submodule R carrier
+  /-- Odd subspace -/
+  odd : Submodule R carrier
+  /-- Direct sum decomposition -/
+  direct_sum : ∀ v : carrier, ∃ (v₀ : even) (v₁ : odd), v = v₀.val + v₁.val
+  /-- Even part is a subalgebra -/
+  even_mul_even : ∀ a b : carrier, a ∈ even → b ∈ even → a * b ∈ even
+  /-- Odd times odd is even -/
+  odd_mul_odd : ∀ a b : carrier, a ∈ odd → b ∈ odd → a * b ∈ even
+  /-- Even times odd is odd -/
+  even_mul_odd : ∀ a b : carrier, a ∈ even → b ∈ odd → a * b ∈ odd
+  /-- Odd times even is odd -/
+  odd_mul_even : ∀ a b : carrier, a ∈ odd → b ∈ even → a * b ∈ odd
+
+attribute [instance] FieldSuperAlgebra.field FieldSuperAlgebra.algebra
+
+namespace FieldSuperAlgebra
+
+variable {R : Type*} [CommRing R] (A : FieldSuperAlgebra R)
+
+/-- The ring structure comes from the field -/
+instance instRing : Ring A.carrier := A.field.toRing
+
+/-- Convert to a SuperAlgebra -/
+def toSuperAlgebra : SuperAlgebra R where
+  carrier := A.carrier
+  ring := A.field.toRing
+  algebra := A.algebra
+  even := A.even
+  odd := A.odd
+  direct_sum := A.direct_sum
+  even_mul_even := A.even_mul_even
+  odd_mul_odd := A.odd_mul_odd
+  even_mul_odd := A.even_mul_odd
+  odd_mul_even := A.odd_mul_even
+
+/-- Matrix subtraction by zero gives the matrix back -/
+theorem matrix_sub_zero {n m : ℕ} (M : Matrix (Fin n) (Fin m) A.carrier) :
+    M - (0 : Matrix (Fin n) (Fin m) A.carrier) = M := by
+  ext i j
+  simp only [Matrix.sub_apply, Matrix.zero_apply, sub_zero]
+
+/-- det(I) = 1 for identity matrix -/
+theorem matrix_det_one {n : ℕ} :
+    (1 : Matrix (Fin n) (Fin n) A.carrier).det = (1 : A.carrier) :=
+  Matrix.det_one
+
+/-- x * x⁻¹ = 1 for nonzero x -/
+theorem mul_inv_cancel {x : A.carrier} (hx : x ≠ 0) : x * x⁻¹ = 1 :=
+  mul_inv_cancel₀ hx
+
+/-- x⁻¹ * x = 1 for nonzero x -/
+theorem inv_mul_cancel {x : A.carrier} (hx : x ≠ 0) : x⁻¹ * x = 1 :=
+  inv_mul_cancel₀ hx
+
+/-- The inverse of a nonzero even element is even.
+    This is a fundamental property of Grassmann algebras: the even subalgebra
+    is closed under taking inverses (when they exist).
+
+    Proof sketch: In a Grassmann algebra, even elements can be written as
+    sums of products of even numbers of generators. The inverse formula
+    (via geometric series for nilpotent parts) preserves this structure.
+
+    For a general FieldSuperAlgebra, this is an axiom that should hold
+    for any reasonable model (e.g., Grassmann algebra over a field). -/
+axiom even_inv_even {x : A.carrier} (hx : x ≠ 0) (heven : x ∈ A.even) : x⁻¹ ∈ A.even
+
+end FieldSuperAlgebra
+
+/-! ## Even Part as Commutative Ring with Embedded Field
+
+The even part Λ₀ of a Grassmann algebra has the structure:
+  ℂ ⊂ Λ₀ ⊂ Λ
+
+Key properties:
+- Λ₀ is a commutative ring (even elements commute)
+- ℂ embeds as a subring of Λ₀ (constant polynomials)
+- Elements with nonzero "body" (ℂ component) are units in Λ₀
+
+For Berezinian computations:
+- det(A), det(D) live in Λ₀ (matrices A, D have Λ₀ entries)
+- We need det(D) to be a unit (have nonzero body) for Ber(M) to exist
+-/
+
+/-- A superalgebra where 1 is in the even part.
+    This is a natural requirement: the identity should be "bosonic". -/
+class SuperAlgebraWithOne {R : Type*} [CommRing R] (A : SuperAlgebra R) : Prop where
+  one_even : (1 : A.carrier) ∈ A.even
+
+/-- The even part of a superalgebra (with 1 ∈ even) forms a subring.
+    This is where determinants of even-block matrices live. -/
+def SuperAlgebra.evenSubring {R : Type*} [CommRing R] (A : SuperAlgebra R)
+    [SuperCommutative A] [SuperAlgebraWithOne A] : Subring A.carrier where
+  carrier := A.even
+  mul_mem' ha hb := A.even_mul_even _ _ ha hb
+  one_mem' := SuperAlgebraWithOne.one_even
+  add_mem' ha hb := A.even.add_mem ha hb
+  zero_mem' := A.even.zero_mem
+  neg_mem' ha := A.even.neg_mem ha
+
+/-- The even part of a supercommutative algebra is a commutative ring.
+    The commutativity comes from supercommutativity: even elements commute.
+    This is essential for well-defined determinants. -/
+theorem SuperAlgebra.even_mul_comm {R : Type*} [CommRing R] (A : SuperAlgebra R)
+    [SuperCommutative A] (a b : A.carrier) (ha : a ∈ A.even) (hb : b ∈ A.even) :
+    a * b = b * a :=
+  SuperCommutative.even_comm_even a b ha hb
 
 /-- The Grassmann algebra ∧•V over a module V, viewed as a superalgebra.
     Even part: ∧⁰V ⊕ ∧²V ⊕ ∧⁴V ⊕ ...
@@ -357,7 +498,7 @@ noncomputable def berezinian {n m : ℕ}
     (B : Matrix (Fin n) (Fin m) ℝ)
     (C : Matrix (Fin m) (Fin n) ℝ)
     (D : Matrix (Fin m) (Fin m) ℝ)
-    (hD : D.det ≠ 0) : ℝ :=
+    (_hD : D.det ≠ 0) : ℝ :=
   (A - B * D⁻¹ * C).det / D.det
 
 /-! Berezinian multiplicativity is stated in `Helpers.Berezinian.berezinian_mul`

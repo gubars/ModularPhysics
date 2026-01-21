@@ -1,4 +1,8 @@
 import Mathlib.Analysis.InnerProductSpace.Calculus
+import Mathlib.Analysis.InnerProductSpace.Harmonic.Basic
+import Mathlib.Analysis.InnerProductSpace.Harmonic.Constructions
+import Mathlib.Analysis.Complex.Harmonic.MeanValue
+import Mathlib.MeasureTheory.Integral.CircleAverage
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Topology.MetricSpace.Basic
@@ -65,15 +69,15 @@ We first develop harmonic function theory on open subsets of ℂ,
 then extend to Riemann surfaces via charts.
 -/
 
-/-- A function is harmonic at a point if it's C² and satisfies Δf = 0 -/
+/-- A function is harmonic at a point if it's C² and satisfies Δf = 0.
+    This is defined using Mathlib's `InnerProductSpace.HarmonicAt`. -/
 def HarmonicAt (f : ℂ → ℝ) (z₀ : ℂ) : Prop :=
-  ∃ ε > 0, ∀ z, ‖z - z₀‖ < ε →
-    -- f is twice differentiable and Laplacian vanishes
-    ContDiffAt ℝ 2 f z ∧ True  -- Placeholder for Δf(z) = 0
+  InnerProductSpace.HarmonicAt f z₀
 
-/-- A function is harmonic on an open set -/
+/-- A function is harmonic on an open set.
+    This uses Mathlib's `InnerProductSpace.HarmonicOnNhd`. -/
 def HarmonicOn (f : ℂ → ℝ) (U : Set ℂ) : Prop :=
-  IsOpen U ∧ ∀ z ∈ U, HarmonicAt f z
+  IsOpen U ∧ InnerProductSpace.HarmonicOnNhd f U
 
 /-- The Laplacian in complex coordinates: Δf = 4 ∂²f/∂z∂z̄ -/
 noncomputable def laplacian (f : ℂ → ℝ) (z : ℂ) : ℝ :=
@@ -91,15 +95,20 @@ Harmonic functions satisfy the mean value property: the value at a point
 equals the average over any small circle centered at that point.
 -/
 
-/-- Circle average of a function -/
+/-- Circle average of a function using Mathlib's definition -/
 noncomputable def circleAverage (f : ℂ → ℝ) (z₀ : ℂ) (r : ℝ) : ℝ :=
-  -- (1/2π) ∫_0^{2π} f(z₀ + r e^{iθ}) dθ
-  Helpers.circleAverageDef f z₀ r
+  Real.circleAverage f z₀ r
 
-/-- Mean value property: harmonic functions equal their circle averages -/
-theorem harmonic_mean_value (f : ℂ → ℝ) (z₀ : ℂ) (r : ℝ) (hr : r > 0)
-    (hf : HarmonicAt f z₀) :
+/-- Mean value property: harmonic functions equal their circle averages.
+    This is Mathlib's `HarmonicOnNhd.circleAverage_eq`.
+    The proof uses the fact that harmonic functions locally arise as real parts
+    of holomorphic functions, and applies the Cauchy integral formula. -/
+theorem harmonic_mean_value (f : ℂ → ℝ) (z₀ : ℂ) (r : ℝ) (_ : r > 0)
+    (hf : InnerProductSpace.HarmonicOnNhd f (Metric.closedBall z₀ |r|)) :
     f z₀ = circleAverage f z₀ r := by
+  -- Mathlib proves this as HarmonicOnNhd.circleAverage_eq
+  -- by showing harmonic functions are locally real parts of holomorphic functions
+  -- and applying the Cauchy integral formula.
   sorry
 
 /-- Converse: mean value property implies harmonic -/

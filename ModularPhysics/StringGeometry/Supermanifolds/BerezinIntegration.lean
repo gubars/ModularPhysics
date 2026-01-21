@@ -76,19 +76,38 @@ structure SuperJacobian (p q : ℕ) where
   /-- ∂θ'ᵃ/∂θᵇ: odd-odd block (q×q), the "fermionic Jacobian" -/
   dθ'_dθ : Matrix (Fin q) (Fin q) (SmoothFunction p)
 
-/-- Evaluate the super-Jacobian at a point x in the body -/
+/-- A ℂ-valued block matrix for Jacobian evaluation (not a full supermatrix over a superalgebra).
+    This is used for evaluating super-Jacobians at specific points where the odd coordinates
+    are set to zero, giving a ℂ-valued matrix. -/
+structure JacobianMatrix (p q : ℕ) where
+  /-- Even-even block (p×p) -/
+  A : Matrix (Fin p) (Fin p) ℂ
+  /-- Even-odd block (p×q) -/
+  B : Matrix (Fin p) (Fin q) ℂ
+  /-- Odd-even block (q×p) -/
+  C : Matrix (Fin q) (Fin p) ℂ
+  /-- Odd-odd block (q×q) -/
+  D : Matrix (Fin q) (Fin q) ℂ
+
+/-- Evaluate the super-Jacobian at a point x in the body.
+    This gives a ℂ-valued matrix (evaluating at θ=0). -/
 def SuperJacobian.evalAt {p q : ℕ} (J : SuperJacobian p q) (x : Fin p → ℝ) :
-    SuperMatrix p q :=
+    JacobianMatrix p q :=
   ⟨Matrix.of (fun i j => J.dx'_dx i j x),
    Matrix.of (fun i a => J.dx'_dθ i a x),
    Matrix.of (fun a j => J.dθ'_dx a j x),
    Matrix.of (fun a b => J.dθ'_dθ a b x)⟩
 
+/-- The Berezinian of a ℂ-valued Jacobian matrix: det(A - BD⁻¹C) / det(D) -/
+noncomputable def JacobianMatrix.berezinian {p q : ℕ} (M : JacobianMatrix p q)
+    (hD : M.D.det ≠ 0) : ℂ :=
+  (M.A - M.B * M.D⁻¹ * M.C).det * (M.D.det)⁻¹
+
 /-- The Berezinian of a super-Jacobian at a point, assuming the odd-odd block is invertible.
-    Returns ℂ since the underlying SuperMatrix uses complex numbers. -/
+    Returns ℂ since the underlying JacobianMatrix uses complex numbers. -/
 noncomputable def SuperJacobian.berezinianAt {p q : ℕ} (J : SuperJacobian p q)
     (x : Fin p → ℝ) (hD : (J.evalAt x).D.det ≠ 0) : ℂ :=
-  berezinian' (J.evalAt x) hD
+  JacobianMatrix.berezinian (J.evalAt x) hD
 
 /-!
 ## Integral Forms on Super Domains
@@ -270,17 +289,17 @@ def oddCoordinate {p q : ℕ} (a : Fin q) : SuperDomainFunction p q :=
 
     More precisely: ∂/∂θᵃ lowers the θ-degree by 1, so if f has top component
     in θ¹...θ^q, then ∂f/∂θᵃ has no top component. -/
-theorem berezin_integration_by_parts_odd {p q : ℕ} (a : Fin q) (hq : 0 < q)
+theorem berezin_integration_by_parts_odd {p q : ℕ} (a : Fin q) (_ : 0 < q)
     (f : SuperDomainFunction p q) :
     berezinIntegralOdd (partialOdd a f) = fun _ => 0 := by
   unfold berezinIntegralOdd partialOdd
   funext x
   simp only
-  -- The key: a ∈ Finset.univ always, so we're in the `if a ∈ I then ...` branch
-  -- But then we extract f.coefficients Finset.univ, not the derivative
-  -- Actually, the derivative removes θᵃ, so we'd need I ∪ {a} = univ with a ∉ I
-  -- But if I = univ then a ∈ I, contradiction
-  sorry
+  -- With the corrected partialOdd: coefficient at I is nonzero only when a ∉ I
+  -- For I = Finset.univ, we have a ∈ Finset.univ (since a : Fin q)
+  -- So the condition "a ∉ Finset.univ" is false, giving 0
+  have ha : a ∈ Finset.univ := Finset.mem_univ a
+  simp only [Finset.mem_univ, not_true_eq_false, ↓reduceIte]
 
 /-!
 ## Global Integration on Supermanifolds
@@ -380,7 +399,32 @@ theorem berezin_lift_factor {p q : ℕ} (f : SmoothFunction p) (g : SuperDomainF
   funext x
   -- The key: (lift f) has only the ∅ component, so multiplying by it
   -- scales each component of g by f(x), including the top component
-  sorry
+  -- (fg)_K = Σ_{I ∪ J = K, I ∩ J = ∅} sign(I,J) f_I g_J
+  -- Since f_I = 0 for I ≠ ∅, only the term I = ∅, J = K contributes
+  -- sign(∅, K) = 1, so (fg)_K = f(x) * g_K(x)
+  simp only [SuperDomainFunction.reorderSign]
+  -- Sum over I: only I = ∅ contributes (since f_I = 0 for I ≠ ∅)
+  rw [Finset.sum_eq_single ∅]
+  · -- Main term: I = ∅
+    rw [Finset.sum_eq_single Finset.univ]
+    · -- J = Finset.univ: sign(∅, univ) = (-1)^0 = 1
+      simp only [Finset.empty_union, Finset.empty_inter, and_true, ite_true]
+      -- ∅ ×ˢ Finset.univ has no pairs where second < first (since ∅ is empty)
+      simp only [Finset.empty_product, Finset.filter_empty, Finset.card_empty,
+                 pow_zero, Int.cast_one, one_mul]
+    · -- Other J ≠ univ
+      intro J _ hJ
+      simp only [Finset.empty_union, Finset.empty_inter, and_true]
+      simp only [hJ, ite_false]
+    · intro h; exact absurd (Finset.mem_univ _) h
+  · -- Other I ≠ ∅: coefficient is 0
+    intro I _ hI
+    simp only [hI, ite_false]
+    -- All terms have 0 * ... = 0
+    apply Finset.sum_eq_zero
+    intro J _
+    split_ifs <;> ring
+  · intro h; exact absurd (Finset.mem_univ _) h
 
 /-- Existence of partition of unity on a supermanifold.
 

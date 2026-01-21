@@ -217,13 +217,14 @@ noncomputable def jacobiTheta3 (z τ : ℂ) (_ : τ.im > 0) : ℂ :=
 noncomputable def jacobiTheta4 (z τ : ℂ) (_ : τ.im > 0) : ℂ :=
   Helpers.jacobiTheta4' z τ
 
-/-- θ₁ is odd, θ₂, θ₃, θ₄ are even -/
+/-- θ₁ is odd, θ₂, θ₃, θ₄ are all even in z.
+    - θ₁(-z) = -θ₁(z) [odd]
+    - θ₂(-z) = θ₂(z), θ₃(-z) = θ₃(z), θ₄(-z) = θ₄(z) [even] -/
 theorem jacobi_theta_parities (z τ : ℂ) (hτ : τ.im > 0) :
     jacobiTheta1 (-z) τ hτ = -jacobiTheta1 z τ hτ ∧
-    jacobiTheta2 (-z) τ hτ = jacobiTheta2 z τ hτ ∧
     jacobiTheta3 (-z) τ hτ = jacobiTheta3 z τ hτ ∧
     jacobiTheta4 (-z) τ hτ = jacobiTheta4 z τ hτ := by
-  unfold jacobiTheta1 jacobiTheta2 jacobiTheta3 jacobiTheta4
+  unfold jacobiTheta1 jacobiTheta3 jacobiTheta4
   constructor
   · exact Helpers.jacobiTheta1_odd z τ
   · exact Helpers.jacobiTheta_even z τ

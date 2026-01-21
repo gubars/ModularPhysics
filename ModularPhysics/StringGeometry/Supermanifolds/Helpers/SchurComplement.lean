@@ -42,14 +42,14 @@ variable {n m : ℕ}
 ## Schur Complement Definitions
 -/
 
-/-- The Schur complement with respect to the D block: A - BD⁻¹C -/
-noncomputable def schurComplementD (A : Matrix (Fin n) (Fin n) ℂ)
+/-- The Schur complement with respect to the D block: A - BD⁻¹C (for ℂ-valued matrices) -/
+noncomputable def complexSchurD (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) : Matrix (Fin n) (Fin n) ℂ :=
   A - B * D⁻¹ * C
 
-/-- The Schur complement with respect to the A block: D - CA⁻¹B -/
-noncomputable def schurComplementA (A : Matrix (Fin n) (Fin n) ℂ)
+/-- The Schur complement with respect to the A block: D - CA⁻¹B (for ℂ-valued matrices) -/
+noncomputable def complexSchurA (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) : Matrix (Fin m) (Fin m) ℂ :=
   D - C * A⁻¹ * B
@@ -82,7 +82,7 @@ noncomputable def blockDiagSchur (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) :
     Matrix (Fin n ⊕ Fin m) (Fin n ⊕ Fin m) ℂ :=
-  Matrix.fromBlocks (schurComplementD A B C D) 0 0 D
+  Matrix.fromBlocks (complexSchurD A B C D) 0 0 D
 
 /-!
 ## Determinant Formulas
@@ -115,28 +115,28 @@ theorem det_blockDiag (A : Matrix (Fin n) (Fin n) ℂ)
 theorem det_fromBlocks_schurD (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) (hD : D.det ≠ 0) :
-    (Matrix.fromBlocks A B C D).det = D.det * (schurComplementD A B C D).det := by
+    (Matrix.fromBlocks A B C D).det = D.det * (complexSchurD A B C D).det := by
   -- Use Mathlib's det_fromBlocks₂₂ which requires Invertible D
   haveI : Invertible D.det := invertibleOfNonzero hD
   haveI : Invertible D := Matrix.invertibleOfDetInvertible D
   rw [Matrix.det_fromBlocks₂₂]
   -- Need to show: A - B * ⅟D * C = A - B * D⁻¹ * C
   congr 1
-  unfold schurComplementD
+  unfold complexSchurD
   rw [Matrix.invOf_eq_nonsing_inv]
 
 /-- Alternative formula: det([A B; C D]) = det(A) · det(D - CA⁻¹B) when A is invertible -/
 theorem det_fromBlocks_schurA (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) (hA : A.det ≠ 0) :
-    (Matrix.fromBlocks A B C D).det = A.det * (schurComplementA A B C D).det := by
+    (Matrix.fromBlocks A B C D).det = A.det * (complexSchurA A B C D).det := by
   -- Use Mathlib's det_fromBlocks₁₁ which requires Invertible A
   haveI : Invertible A.det := invertibleOfNonzero hA
   haveI : Invertible A := Matrix.invertibleOfDetInvertible A
   rw [Matrix.det_fromBlocks₁₁]
   -- Need to show: D - C * ⅟A * B = D - C * A⁻¹ * B
   congr 1
-  unfold schurComplementA
+  unfold complexSchurA
   rw [Matrix.invOf_eq_nonsing_inv]
 
 /-!
@@ -152,7 +152,7 @@ This is crucial for showing the two Berezinian formulas agree.
 theorem schur_det_identity (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (C : Matrix (Fin m) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) (hA : A.det ≠ 0) (hD : D.det ≠ 0) :
-    A.det * (schurComplementA A B C D).det = D.det * (schurComplementD A B C D).det := by
+    A.det * (complexSchurA A B C D).det = D.det * (complexSchurD A B C D).det := by
   -- Both sides equal det([A B; C D])
   rw [← det_fromBlocks_schurA A B C D hA, ← det_fromBlocks_schurD A B C D hD]
 
@@ -166,9 +166,9 @@ theorem schur_det_identity (A : Matrix (Fin n) (Fin n) ℂ)
     Grassmann algebra formulation where B, C anticommute with odd elements. -/
 theorem berezinian_identity_diagonal (A : Matrix (Fin n) (Fin n) ℂ)
     (D : Matrix (Fin m) (Fin m) ℂ) (_hA : A.det ≠ 0) (_hD : D.det ≠ 0) :
-    (schurComplementD A 0 0 D).det / D.det = A.det / (schurComplementA A 0 0 D).det := by
+    (complexSchurD A 0 0 D).det / D.det = A.det / (complexSchurA A 0 0 D).det := by
   -- When B = C = 0, both Schur complements simplify to the diagonal blocks
-  simp only [schurComplementD, schurComplementA, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+  simp only [complexSchurD, complexSchurA, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
   -- Goal: A.det / D.det = A.det / D.det
 
 /-!
@@ -202,20 +202,20 @@ theorem schur_of_product
 -/
 
 /-- Schur complement when B = 0 -/
-theorem schurComplementD_B_zero (A : Matrix (Fin n) (Fin n) ℂ)
+theorem complexSchurD_B_zero (A : Matrix (Fin n) (Fin n) ℂ)
     (C : Matrix (Fin m) (Fin n) ℂ) (D : Matrix (Fin m) (Fin m) ℂ) :
-    schurComplementD A 0 C D = A := by
-  simp only [schurComplementD, Matrix.zero_mul, sub_zero]
+    complexSchurD A 0 C D = A := by
+  simp only [complexSchurD, Matrix.zero_mul, sub_zero]
 
 /-- Schur complement when C = 0 -/
-theorem schurComplementD_C_zero (A : Matrix (Fin n) (Fin n) ℂ)
+theorem complexSchurD_C_zero (A : Matrix (Fin n) (Fin n) ℂ)
     (B : Matrix (Fin n) (Fin m) ℂ) (D : Matrix (Fin m) (Fin m) ℂ) :
-    schurComplementD A B 0 D = A := by
-  simp only [schurComplementD, Matrix.mul_zero, sub_zero]
+    complexSchurD A B 0 D = A := by
+  simp only [complexSchurD, Matrix.mul_zero, sub_zero]
 
 /-- Schur complement of identity is identity -/
-theorem schurComplementD_id :
-    schurComplementD (1 : Matrix (Fin n) (Fin n) ℂ) 0 0 (1 : Matrix (Fin m) (Fin m) ℂ) = 1 := by
-  simp only [schurComplementD, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+theorem complexSchurD_id :
+    complexSchurD (1 : Matrix (Fin n) (Fin n) ℂ) 0 0 (1 : Matrix (Fin m) (Fin m) ℂ) = 1 := by
+  simp only [complexSchurD, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
 
 end Supermanifolds.Helpers
