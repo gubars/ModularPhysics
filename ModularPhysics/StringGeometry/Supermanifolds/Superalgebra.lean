@@ -247,100 +247,616 @@ theorem even_part_commutative (a b : A.carrier) (ha : a ∈ A.even) (hb : b ∈ 
 
 end SuperCommutative
 
-/-! ## SuperAlgebra over a Field
+/-! ## Grassmann Algebra (Supercommutative Algebra with Nilpotency)
 
-For the Berezinian to be well-defined, we need to work with a field (for matrix
-inverses and determinant division). Rather than adding a separate Field instance
-that conflicts with A.ring, we define SuperAlgebra directly over a field carrier.
+A Grassmann algebra Λ over a field k with n generators θ₁, ..., θₙ is:
+  Λ = k[θ₁, ..., θₙ] / (θᵢθⱼ + θⱼθᵢ, θᵢ²)
 
-The key insight is that in physics, when we compute Berezinians:
-- Matrix entries live in the Grassmann algebra Λ = ℂ[θ₁, θ₂, ...]
-- The A, D blocks have entries in Λ₀ (even part, which is commutative)
-- Determinants are computed in the commutative subring Λ₀
-- For invertibility, we work over ℂ ⊂ Λ₀
+**Algebraic Structure:**
+```
+k ⊂ Λ₀ ⊂ Λ
+```
+where:
+- **k** is the base field (e.g., ℂ) - this IS a field
+- **Λ₀** is the even part - a commutative ring (NOT a field!) containing k
+- **Λ** is the full Grassmann algebra - a supercommutative ring
 
-For simplicity, we can define a SuperAlgebra where the carrier IS a field. -/
+Key properties:
+- Λ = Λ₀ ⊕ Λ₁ where Λ₀ is even and Λ₁ is odd
+- Λ₀ contains k as a subalgebra (the "body" or "constant" part)
+- Λ₀ also contains nilpotent elements like θ₁θ₂, θ₁θ₂θ₃θ₄, etc.
+- Odd elements anticommute: θᵢθⱼ = -θⱼθᵢ
+- θᵢ² = 0 for all generators
+- Any product of more than n odd elements is zero (automatic nilpotency)
 
-/-- A SuperAlgebra whose carrier is a field.
-    This provides a clean setting for Berezinian computations without typeclass conflicts.
+**Invertibility in Λ₀:**
+An element x ∈ Λ₀ can be written as x = c + n where:
+- c ∈ k is the "body" (constant part)
+- n is nilpotent (n^N = 0 for some N)
 
-    The ring structure comes from the Field, so there's no diamond problem. -/
-structure FieldSuperAlgebra (R : Type*) [CommRing R] where
-  /-- The underlying type -/
+x is invertible iff c ≠ 0. The inverse is computed via geometric series:
+  x⁻¹ = c⁻¹ · (1 - n/c + (n/c)² - ...) (finite sum since n is nilpotent)
+
+**Important**: Λ is NOT a field. Elements like θ₁θ₂ are nonzero but not invertible
+(they have zero body). The even part Λ₀ is also NOT a field.
+
+For the Berezinian:
+- Matrix entries live in Λ
+- A, D blocks have entries in Λ₀ (even, commutative)
+- B, C blocks have entries in Λ₁ (odd, anticommuting)
+- Determinants are computed in Λ₀
+- det(A), det(D) must be units in Λ₀ (have nonzero body in k) -/
+
+/-! ## Grassmann Algebra Structure
+
+A Grassmann algebra Λ over a field k has the structure:
+  k ⊂ Λ₀ ⊂ Λ
+
+The key feature is the **body map** `body : Λ → k` which extracts the constant term.
+For x = c + n where c ∈ k and n is nilpotent:
+- body(x) = c
+- x is invertible ⟺ body(x) ≠ 0 in k
+
+Example: θ₁θ₂ is nonzero in Λ but body(θ₁θ₂) = 0, so it's NOT invertible.
+
+This structure correctly models invertibility without the false assumption
+that Λ is a field.
+-/
+
+/-- A Grassmann algebra over a base field k.
+
+    This is the mathematically correct structure for supermatrix theory.
+    Unlike `FieldSuperAlgebra`, this does NOT assume the carrier is a field.
+
+    Key components:
+    - `baseField`: The field k (e.g., ℂ) embedded in the even part
+    - `body`: The projection Λ → k extracting the constant term
+    - Invertibility is determined by `body x ≠ 0`, not `x ≠ 0`
+
+    Example: For Λ = ℂ[θ₁, θ₂]:
+    - body(3 + 2θ₁θ₂) = 3 ∈ ℂ, so 3 + 2θ₁θ₂ is invertible
+    - body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible (even though θ₁θ₂ ≠ 0) -/
+structure GrassmannAlgebra (k : Type*) [Field k] where
+  /-- The full Grassmann algebra Λ -/
   carrier : Type*
-  /-- Field structure (provides Ring, hence no conflict) -/
-  [field : Field carrier]
-  /-- Algebra structure -/
-  [algebra : Algebra R carrier]
-  /-- Even subspace -/
-  even : Submodule R carrier
-  /-- Odd subspace -/
-  odd : Submodule R carrier
-  /-- Direct sum decomposition -/
+  /-- Ring structure on carrier (NOT a field!) -/
+  [ring : CommRing carrier]
+  /-- k embeds into Λ -/
+  [algebra : Algebra k carrier]
+  /-- Even subspace Λ₀ -/
+  even : Submodule k carrier
+  /-- Odd subspace Λ₁ -/
+  odd : Submodule k carrier
+  /-- The body map: projection to the constant (k) part.
+      For x = c + n where c ∈ k and n is nilpotent, body(x) = c. -/
+  body : carrier → k
+  /-- body is a k-algebra homomorphism -/
+  body_algebraMap : ∀ c : k, body (algebraMap k carrier c) = c
+  body_add : ∀ x y, body (x + y) = body x + body y
+  body_mul : ∀ x y, body (x * y) = body x * body y
+  body_one : body 1 = 1
+  /-- Nilpotent part: x - body(x) is nilpotent -/
+  nilpotent_part : ∀ x : carrier, ∃ N : ℕ, (x - algebraMap k carrier (body x))^(N + 1) = 0
+  /-- Grading properties -/
   direct_sum : ∀ v : carrier, ∃ (v₀ : even) (v₁ : odd), v = v₀.val + v₁.val
-  /-- Even part is a subalgebra -/
   even_mul_even : ∀ a b : carrier, a ∈ even → b ∈ even → a * b ∈ even
-  /-- Odd times odd is even -/
   odd_mul_odd : ∀ a b : carrier, a ∈ odd → b ∈ odd → a * b ∈ even
-  /-- Even times odd is odd -/
   even_mul_odd : ∀ a b : carrier, a ∈ even → b ∈ odd → a * b ∈ odd
-  /-- Odd times even is odd -/
   odd_mul_even : ∀ a b : carrier, a ∈ odd → b ∈ even → a * b ∈ odd
+  /-- Odd elements have zero body -/
+  body_odd_zero : ∀ x : carrier, x ∈ odd → body x = 0
 
-attribute [instance] FieldSuperAlgebra.field FieldSuperAlgebra.algebra
+attribute [instance] GrassmannAlgebra.ring GrassmannAlgebra.algebra
 
-namespace FieldSuperAlgebra
+namespace GrassmannAlgebra
 
-variable {R : Type*} [CommRing R] (A : FieldSuperAlgebra R)
+variable {k : Type*} [Field k] (Λ : GrassmannAlgebra k)
 
-/-- The ring structure comes from the field -/
-instance instRing : Ring A.carrier := A.field.toRing
+/-- Invertible elements have inverses (existence) -/
+private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
+    ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1 := by
+  -- The proof constructs the inverse via geometric series:
+  -- Let c = body(x) ≠ 0, n = x - c (nilpotent with n^(N+1) = 0)
+  -- Then x = c(1 + n/c) and x⁻¹ = c⁻¹ · Σₖ₌₀ᴺ (-n/c)ᵏ
+  let c := Λ.body x
+  have hc : c ≠ 0 := hx
+  -- Get the nilpotency bound for n = x - c
+  obtain ⟨N, hnil⟩ := Λ.nilpotent_part x
+  -- Define n = x - c (nilpotent part)
+  let n := x - algebraMap k Λ.carrier c
+  have hn_nil : n^(N + 1) = 0 := hnil
+  let c_inv := c⁻¹
+  -- Key identity: x = algebraMap c + n
+  have hx_decomp : x = algebraMap k Λ.carrier c + n := by
+    simp only [n]
+    ring
+  -- Define r = c⁻¹ • n (the "ratio" n/c as a scalar action)
+  let r := c_inv • n
+  -- The geometric series: s = Σₖ₌₀ᴺ (-r)ᵏ = Σₖ₌₀ᴺ (-1)ᵏ * (c⁻¹)ᵏ • nᵏ
+  let s := ∑ i ∈ Finset.range (N + 1), ((-1 : k)^i * c_inv^i) • n^i
+  -- The inverse is y = c⁻¹ • s
+  let y := c_inv • s
+  use y
+  -- Key: (1 + r) * s = 1 + (-r)^{N+1} using geometric series identity
+  -- Since r = c⁻¹ • n, we have (-r)^{N+1} involves n^{N+1} = 0
+  have h_geom : (1 + r) * s = 1 - ((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1) := by
+    -- Expand (1 + r) * s = s + r * s
+    rw [add_mul, one_mul]
+    simp only [s, r, Finset.mul_sum]
+    -- r * term_i = c⁻¹ • n * ((-1)^i * c⁻ⁱ) • n^i = ((-1)^i * c⁻⁽ⁱ⁺¹⁾) • n^{i+1}
+    have h_r_term : ∀ i, c_inv • n * (((-1 : k)^i * c_inv^i) • n^i) =
+        ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) := by
+      intro i
+      rw [smul_mul_smul_comm]
+      congr 1
+      · rw [pow_succ c_inv i]; ring
+      · rw [pow_succ n i]; ring
+    conv_lhs =>
+      arg 2
+      arg 2
+      ext i
+      rw [h_r_term]
+    -- Now: s + r*s = Σ_{i=0}^N (-1)^i c⁻ⁱ • n^i + Σ_{i=0}^N (-1)^i c⁻⁽ⁱ⁺¹⁾ • n^{i+1}
+    -- These sums telescope: term i of second sum cancels with term (i+1) of first sum
+    -- since (-1)^i * c⁻⁽ⁱ⁺¹⁾ + (-1)^{i+1} * c⁻⁽ⁱ⁺¹⁾ = 0
 
-/-- Convert to a SuperAlgebra -/
-def toSuperAlgebra : SuperAlgebra R where
-  carrier := A.carrier
-  ring := A.field.toRing
-  algebra := A.algebra
-  even := A.even
-  odd := A.odd
-  direct_sum := A.direct_sum
-  even_mul_even := A.even_mul_even
-  odd_mul_odd := A.odd_mul_odd
-  even_mul_odd := A.even_mul_odd
-  odd_mul_even := A.odd_mul_even
+    -- Split first sum: term 0 + rest
+    rw [Finset.sum_range_succ' (fun i => ((-1 : k)^i * c_inv^i) • n^i)]
+    simp only [pow_zero, one_mul, one_smul]
+    -- First sum = 1 + Σ_{i=0}^{N-1} ((-1)^{i+1} * c⁻⁽ⁱ⁺¹⁾) • n^{i+1}
+    -- = 1 + Σ_{j=1}^N ((-1)^j * c⁻ʲ) • n^j  (where j = i+1)
 
-/-- Matrix subtraction by zero gives the matrix back -/
-theorem matrix_sub_zero {n m : ℕ} (M : Matrix (Fin n) (Fin m) A.carrier) :
-    M - (0 : Matrix (Fin n) (Fin m) A.carrier) = M := by
-  ext i j
-  simp only [Matrix.sub_apply, Matrix.zero_apply, sub_zero]
+    -- Split second sum: initial terms + final term
+    rw [Finset.sum_range_succ (fun i => ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))]
+    -- Second sum = Σ_{i=0}^{N-1} ((-1)^i * c⁻⁽ⁱ⁺¹⁾) • n^{i+1} + ((-1)^N * c⁻⁽ᴺ⁺¹⁾) • n^{N+1}
 
-/-- det(I) = 1 for identity matrix -/
-theorem matrix_det_one {n : ℕ} :
-    (1 : Matrix (Fin n) (Fin n) A.carrier).det = (1 : A.carrier) :=
-  Matrix.det_one
+    -- Now pair up: term (i+1) from first with term i from second cancel
+    -- ((-1)^{i+1} * c⁻⁽ⁱ⁺¹⁾) • n^{i+1} + ((-1)^i * c⁻⁽ⁱ⁺¹⁾) • n^{i+1}
+    -- = (((-1)^{i+1} + (-1)^i) * c⁻⁽ⁱ⁺¹⁾) • n^{i+1} = 0
 
-/-- x * x⁻¹ = 1 for nonzero x -/
-theorem mul_inv_cancel {x : A.carrier} (hx : x ≠ 0) : x * x⁻¹ = 1 :=
-  mul_inv_cancel₀ hx
+    have h_cancel : ∀ i, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) +
+        ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) = 0 := by
+      intro i
+      rw [← add_smul]
+      have hcoef : (-1 : k)^(i+1) * c_inv^(i+1) + (-1)^i * c_inv^(i+1) = 0 := by
+        rw [← add_mul, pow_succ]; ring
+      rw [hcoef, zero_smul]
 
-/-- x⁻¹ * x = 1 for nonzero x -/
-theorem inv_mul_cancel {x : A.carrier} (hx : x ≠ 0) : x⁻¹ * x = 1 :=
-  inv_mul_cancel₀ hx
+    -- Pair the sums
+    have h_paired : (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
+        (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1)) = 0 := by
+      rw [← Finset.sum_add_distrib]
+      simp only [h_cancel, Finset.sum_const_zero]
 
-/-- The inverse of a nonzero even element is even.
-    This is a fundamental property of Grassmann algebras: the even subalgebra
-    is closed under taking inverses (when they exist).
+    -- The RHS is 1 - ((-1)^{N+1} * c⁻⁽ᴺ⁺¹⁾) • n^{N+1}
+    -- LHS = 1 + (sum from first) + (sum from second) + final term
+    -- = 1 + 0 + ((-1)^N * c⁻⁽ᴺ⁺¹⁾) • n^{N+1}
+    -- = 1 - ((-1)^{N+1} * c⁻⁽ᴺ⁺¹⁾) • n^{N+1}  since (-1)^N = -(-1)^{N+1}
 
-    Proof sketch: In a Grassmann algebra, even elements can be written as
-    sums of products of even numbers of generators. The inverse formula
-    (via geometric series for nilpotent parts) preserves this structure.
+    have h_neg : ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) =
+        -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by
+      rw [← neg_smul]
+      congr 1
+      rw [pow_succ]; ring
 
-    For a general FieldSuperAlgebra, this is an axiom that should hold
-    for any reasonable model (e.g., Grassmann algebra over a field). -/
-axiom even_inv_even {x : A.carrier} (hx : x ≠ 0) (heven : x ∈ A.even) : x⁻¹ ∈ A.even
+    -- After the splits, we have:
+    -- LHS = (Σ_{i=0}^{N-1} (-1)^{i+1} c⁻⁽ⁱ⁺¹⁾ • n^{i+1} + 1) +
+    --       (Σ_{i=0}^{N-1} (-1)^i c⁻⁽ⁱ⁺¹⁾ • n^{i+1} + (-1)^N c⁻⁽ᴺ⁺¹⁾ • n^{N+1})
+    -- The sums cancel, leaving 1 + (-1)^N c⁻⁽ᴺ⁺¹⁾ • n^{N+1}
+    calc (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) + 1) +
+         (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) +
+          ((-1 : k)^N * c_inv^(N+1)) • n^(N+1))
+      = 1 + ((∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
+         (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))) +
+          ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
+      _ = 1 + 0 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by rw [h_paired]
+      _ = 1 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
+      _ = 1 + -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by rw [h_neg]
+      _ = 1 - ((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1) := by ring
+  have h_nil_term : ((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1) = 0 := by
+    rw [hn_nil, smul_zero]
+  rw [h_nil_term, sub_zero] at h_geom
+  -- Now: x * y = (algebraMap c + n) * (c⁻¹ • s) = c⁻¹ • ((algebraMap c + n) * s)
+  --            = c⁻¹ • (algebraMap c * s + n * s)
+  -- We need to show (algebraMap c + n) * s = c • 1 = algebraMap c
+  -- Note: algebraMap c + n = c • (1 + c⁻¹ • n) = c • (1 + r) when c acts by algebraMap
+  -- From h_geom: (1 + r) * s = 1, so s + r * s = 1
+  have h4 : s + r * s = 1 := by
+    have : (1 + r) * s = 1 * s + r * s := add_mul 1 r s
+    rw [one_mul] at this
+    rw [← this]; exact h_geom
+  constructor
+  · -- x * y = 1
+    calc x * y = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
+      _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
+      _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+      _ = c_inv • (c • s + n * s) := by
+        congr 1
+        rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
+      _ = c_inv • (c • (s + r * s)) := by
+        congr 1
+        -- n = c • r
+        have hn_eq : n = c • r := by
+          simp only [r]
+          rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ hc, one_smul]
+        -- n * s = c • (r * s)
+        have h3 : n * s = c • (r * s) := by rw [hn_eq, smul_mul_assoc]
+        rw [h3, smul_add]
+      _ = c_inv • (c • 1) := by rw [h4]
+      _ = 1 := by rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ hc, one_smul]
+  · -- y * x = 1 (by commutativity of Λ.carrier)
+    rw [mul_comm]
+    calc x * y = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
+      _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
+      _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+      _ = c_inv • (c • s + n * s) := by
+        congr 1
+        rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
+      _ = c_inv • (c • (s + r * s)) := by
+        congr 1
+        have hn_eq : n = c • r := by
+          simp only [r]
+          rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ hc, one_smul]
+        have h3 : n * s = c • (r * s) := by rw [hn_eq, smul_mul_assoc]
+        rw [h3, smul_add]
+      _ = c_inv • (c • 1) := by rw [h4]
+      _ = 1 := by rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ hc, one_smul]
 
-end FieldSuperAlgebra
+/-- Inverse operation on a Grassmann algebra carrier.
+    For x with body(x) ≠ 0, this gives the actual inverse via geometric series.
+    For x with body(x) = 0 (non-invertible), this returns 0 by convention.
+
+    This allows using `x⁻¹` notation and matrix inverse operations. -/
+noncomputable instance instInv : Inv Λ.carrier where
+  inv x := @dite _ (Λ.body x ≠ 0) (Classical.dec _)
+    (fun h => Classical.choose (invertible_has_inverse Λ x h))
+    (fun _ => 0)
+
+/-- x * x⁻¹ = 1 for invertible x -/
+theorem mul_inv_cancel (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
+    x * x⁻¹ = 1 := by
+  have hinv : x⁻¹ = Classical.choose (invertible_has_inverse Λ x hx) := by
+    unfold Inv.inv instInv
+    exact dif_pos hx
+  rw [hinv]
+  exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).1
+
+/-- x⁻¹ * x = 1 for invertible x -/
+theorem inv_mul_cancel (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
+    x⁻¹ * x = 1 := by
+  have hinv : x⁻¹ = Classical.choose (invertible_has_inverse Λ x hx) := by
+    unfold Inv.inv instInv
+    exact dif_pos hx
+  rw [hinv]
+  exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).2
+
+/-- Convert a GrassmannAlgebra to a SuperAlgebra.
+    This forgets the body map and nilpotency structure, keeping only the grading. -/
+def toSuperAlgebra : SuperAlgebra k where
+  carrier := Λ.carrier
+  ring := Λ.ring.toRing
+  algebra := Λ.algebra
+  even := Λ.even
+  odd := Λ.odd
+  direct_sum := Λ.direct_sum
+  even_mul_even := Λ.even_mul_even
+  odd_mul_odd := Λ.odd_mul_odd
+  even_mul_odd := Λ.even_mul_odd
+  odd_mul_even := Λ.odd_mul_even
+
+/-- An element is invertible iff its body is nonzero in k.
+    This is the CORRECT notion of invertibility for Grassmann algebras.
+
+    Example: θ₁θ₂ ≠ 0 in Λ, but body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible.
+    In contrast, 1 + θ₁θ₂ has body(1 + θ₁θ₂) = 1 ≠ 0, so it IS invertible. -/
+def IsInvertible (x : Λ.carrier) : Prop := Λ.body x ≠ 0
+
+/-- 1 is invertible (body(1) = 1 ≠ 0) -/
+theorem one_invertible : Λ.IsInvertible 1 := by
+  unfold IsInvertible
+  rw [Λ.body_one]
+  exact one_ne_zero
+
+/-- Product of invertible elements is invertible -/
+theorem mul_invertible (x y : Λ.carrier)
+    (hx : Λ.IsInvertible x) (hy : Λ.IsInvertible y) :
+    Λ.IsInvertible (x * y) := by
+  unfold IsInvertible at *
+  rw [Λ.body_mul]
+  exact mul_ne_zero hx hy
+
+/-- Scalars from k are invertible iff nonzero in k -/
+theorem scalar_invertible (c : k) :
+    Λ.IsInvertible (algebraMap k Λ.carrier c) ↔ c ≠ 0 := by
+  unfold IsInvertible
+  rw [Λ.body_algebraMap]
+
+/-- The inverse of an invertible element, computed via geometric series.
+    For x = c + n where body(x) = c ≠ 0 and n is nilpotent:
+    x⁻¹ = c⁻¹ · (1 - n/c + (n/c)² - ... ) -/
+noncomputable def inv (x : Λ.carrier) (hx : Λ.IsInvertible x) : Λ.carrier :=
+  -- This would be defined via the geometric series
+  -- For now, we leave it abstract
+  Classical.choose (invertible_has_inverse x hx)
+where
+  /-- Invertible elements have inverses (existence) -/
+  invertible_has_inverse (x : Λ.carrier) (hx : Λ.IsInvertible x) :
+      ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1 :=
+    GrassmannAlgebra.invertible_has_inverse Λ x hx
+
+/-- x * inv(x) = 1 for invertible x -/
+theorem mul_inv (x : Λ.carrier) (hx : Λ.IsInvertible x) :
+    x * Λ.inv x hx = 1 := by
+  exact (Classical.choose_spec (inv.invertible_has_inverse Λ x hx)).1
+
+/-- inv(x) * x = 1 for invertible x -/
+theorem inv_mul (x : Λ.carrier) (hx : Λ.IsInvertible x) :
+    Λ.inv x hx * x = 1 := by
+  exact (Classical.choose_spec (inv.invertible_has_inverse Λ x hx)).2
+
+/-- **Key theorem**: In a Grassmann algebra, `IsUnit x ↔ body(x) ≠ 0`.
+
+    This connects Mathlib's `IsUnit` (existence of inverse) to our
+    `IsInvertible` (body ≠ 0).
+
+    - Forward: If x has an inverse y, then body(x)·body(y) = body(1) = 1,
+      so body(x) ≠ 0.
+    - Backward: If body(x) ≠ 0, construct inverse via geometric series. -/
+theorem isUnit_iff_body_ne_zero (x : Λ.carrier) :
+    IsUnit x ↔ Λ.IsInvertible x := by
+  constructor
+  · -- IsUnit → body ≠ 0
+    intro ⟨u, hu⟩
+    unfold IsInvertible
+    rw [← hu]
+    -- u * u⁻¹ = 1, so body(u) * body(u⁻¹) = 1
+    have h : Λ.body u * Λ.body u.inv = 1 := by
+      have hmul : (u : Λ.carrier) * u.inv = 1 := Units.mul_inv u
+      rw [← Λ.body_mul, hmul]
+      exact Λ.body_one
+    exact left_ne_zero_of_mul_eq_one h
+  · -- body ≠ 0 → IsUnit
+    intro hx
+    exact ⟨⟨x, Λ.inv x hx, Λ.mul_inv x hx, Λ.inv_mul x hx⟩, rfl⟩
+
+/-- 1⁻¹ = 1 in a Grassmann algebra (since body(1) = 1 ≠ 0). -/
+@[simp]
+theorem one_inv : (1 : Λ.carrier)⁻¹ = 1 := by
+  have h1 : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+  have hmul : (1 : Λ.carrier) * (1 : Λ.carrier)⁻¹ = 1 := Λ.mul_inv_cancel 1 h1
+  rw [one_mul] at hmul
+  exact hmul
+
+/-- 1 * 1⁻¹ = 1 in a Grassmann algebra. -/
+@[simp]
+theorem one_mul_one_inv : (1 : Λ.carrier) * (1 : Λ.carrier)⁻¹ = 1 := by
+  have h1 : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+  exact Λ.mul_inv_cancel 1 h1
+
+/-- Determinant invertibility: det(M) is a unit iff body(det(M)) ≠ 0.
+    This is the correct condition for Berezinian to be well-defined. -/
+theorem det_isUnit_iff {n : ℕ} (M : Matrix (Fin n) (Fin n) Λ.carrier) :
+    IsUnit M.det ↔ Λ.body M.det ≠ 0 :=
+  Λ.isUnit_iff_body_ne_zero M.det
+
+/-- The inverse of an invertible even element is even.
+    In a Grassmann algebra, if x ∈ Λ₀ and body(x) ≠ 0, then x⁻¹ ∈ Λ₀.
+
+    Proof idea: Write x = c + n where c = body(x) ∈ k and n is nilpotent even.
+    Then x⁻¹ = c⁻¹ · (1 - n/c + (n/c)² - ...) is a finite sum of even elements. -/
+theorem even_inv_even (x : Λ.carrier) (hx : Λ.IsInvertible x) (heven : x ∈ Λ.even)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (hscalar : ∀ c : k, algebraMap k Λ.carrier c ∈ Λ.even) :
+    Λ.inv x hx ∈ Λ.even := by
+  -- The inverse y satisfies x * y = 1
+  -- We show the constructed inverse is even
+  have hinv_spec := Classical.choose_spec (inv.invertible_has_inverse Λ x hx)
+
+  let c := Λ.body x
+  have hc : c ≠ 0 := hx
+  obtain ⟨N, hnil⟩ := Λ.nilpotent_part x
+  let n := x - algebraMap k Λ.carrier c
+  let c_inv := c⁻¹
+  let s := ∑ i ∈ Finset.range (N + 1), ((-1 : k)^i * c_inv^i) • n^i
+  let z := c_inv • s
+
+  -- z is even: n = x - algebraMap c ∈ even (since x ∈ even, algebraMap c ∈ even)
+  have hn_even : n ∈ Λ.even := Λ.even.sub_mem heven (hscalar c)
+
+  -- nⁱ ∈ even by induction
+  have hn_pow_even : ∀ i, n^i ∈ Λ.even := by
+    intro i
+    induction i with
+    | zero => simp only [pow_zero]; exact h1
+    | succ i ih => rw [pow_succ]; exact Λ.even_mul_even _ _ ih hn_even
+
+  -- s ∈ even (sum of even elements, scaled by scalars)
+  have hs_even : s ∈ Λ.even := by
+    apply Λ.even.sum_mem
+    intro i _
+    rw [Algebra.smul_def]
+    exact Λ.even_mul_even _ _ (hscalar _) (hn_pow_even i)
+
+  -- z = c_inv • s ∈ even
+  have hz_even : z ∈ Λ.even := by
+    simp only [z]
+    rw [Algebra.smul_def]
+    exact Λ.even_mul_even _ _ (hscalar c_inv) hs_even
+
+  -- z is an inverse of x - we prove this directly using the geometric series argument
+  have hz_inv : x * z = 1 ∧ z * x = 1 := by
+    have hx_decomp : x = algebraMap k Λ.carrier c + n := by simp only [n]; ring
+    -- Key identity: (1 + r) * s = 1 where r = c_inv • n
+    let r := c_inv • n
+    have h_geom : (1 + r) * s = 1 := by
+      simp only [s, r, add_mul, one_mul, Finset.mul_sum]
+      have h_r_term : ∀ i, c_inv • n * (((-1 : k)^i * c_inv^i) • n^i) =
+          ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) := by
+        intro i; rw [smul_mul_smul_comm]; congr 1
+        · rw [pow_succ c_inv i]; ring
+        · rw [pow_succ n i]; ring
+      -- Split the combined sum into two sums
+      have h_split : ∀ i, ((-1 : k)^i * c_inv^i) • n^i + c_inv • n * (((-1 : k)^i * c_inv^i) • n^i) =
+          ((-1 : k)^i * c_inv^i) • n^i + ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) := by
+        intro i; rw [h_r_term]
+      rw [Finset.sum_congr rfl (fun i _ => h_split i)]
+      -- Now split the sum of (a + b) into sum of a + sum of b
+      rw [Finset.sum_add_distrib]
+      rw [Finset.sum_range_succ' (fun i => ((-1 : k)^i * c_inv^i) • n^i)]
+      simp only [pow_zero, one_mul, one_smul]
+      rw [Finset.sum_range_succ (fun i => ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))]
+      have h_cancel : ∀ i, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) +
+          ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) = 0 := by
+        intro i; rw [← add_smul]
+        have hcoef : (-1 : k)^(i+1) * c_inv^(i+1) + (-1)^i * c_inv^(i+1) = 0 := by
+          rw [← add_mul, pow_succ]; ring
+        rw [hcoef, zero_smul]
+      have h_paired : (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
+          (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1)) = 0 := by
+        rw [← Finset.sum_add_distrib]
+        simp only [h_cancel, Finset.sum_const_zero]
+      have h_neg : ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) =
+          -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by
+        rw [← neg_smul]; congr 1; rw [pow_succ]; ring
+      have h_nil : n^(N+1) = 0 := hnil
+      calc (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) + 1) +
+           (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) +
+            ((-1 : k)^N * c_inv^(N+1)) • n^(N+1))
+        = 1 + ((∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
+           (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))) +
+            ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
+        _ = 1 + 0 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by rw [h_paired]
+        _ = 1 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
+        _ = 1 + -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by rw [h_neg]
+        _ = 1 - ((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1) := by ring
+        _ = 1 - 0 := by rw [h_nil, smul_zero]
+        _ = 1 := by ring
+    have h4 : s + r * s = 1 := by
+      have heq : (1 + r) * s = 1 * s + r * s := add_mul 1 r s
+      rw [one_mul] at heq
+      rw [← heq]; exact h_geom
+    have hn_eq : n = c • r := by
+      simp only [r]
+      rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ hc, one_smul]
+    have h3 : n * s = c • (r * s) := by rw [hn_eq, smul_mul_assoc]
+    have h_cinv_c : c_inv * c = 1 := inv_mul_cancel₀ hc
+    constructor
+    · -- x * z = 1
+      calc x * z = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
+        _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
+        _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+        _ = c_inv • (c • s + n * s) := by
+          congr 1
+          rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
+        _ = c_inv • (c • s + c • (r * s)) := by rw [h3]
+        _ = c_inv • (c • (s + r * s)) := by rw [← smul_add]
+        _ = c_inv • (c • 1) := by rw [h4]
+        _ = (c_inv * c) • (1 : Λ.carrier) := by rw [← smul_eq_mul, smul_assoc]
+        _ = (1 : k) • (1 : Λ.carrier) := by rw [h_cinv_c]
+        _ = 1 := one_smul k 1
+    · -- z * x = 1 by commutativity
+      rw [mul_comm]
+      calc x * z = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
+        _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
+        _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+        _ = c_inv • (c • s + n * s) := by
+          congr 1
+          rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
+        _ = c_inv • (c • s + c • (r * s)) := by rw [h3]
+        _ = c_inv • (c • (s + r * s)) := by rw [← smul_add]
+        _ = c_inv • (c • 1) := by rw [h4]
+        _ = (c_inv * c) • (1 : Λ.carrier) := by rw [← smul_eq_mul, smul_assoc]
+        _ = (1 : k) • (1 : Λ.carrier) := by rw [h_cinv_c]
+        _ = 1 := one_smul k 1
+
+  -- Actually, we need to show z equals the constructed inverse. But by uniqueness...
+  -- In a ring, if x * y = 1 and y * x = 1 and x * z = 1 and z * x = 1, then y = z
+  -- y = y * 1 = y * (x * z) = (y * x) * z = 1 * z = z
+  have hy_eq_z : Λ.inv x hx = z := by
+    have hy_spec : x * (Λ.inv x hx) = 1 ∧ (Λ.inv x hx) * x = 1 := hinv_spec
+    calc Λ.inv x hx = (Λ.inv x hx) * 1 := (mul_one _).symm
+      _ = (Λ.inv x hx) * (x * z) := by rw [hz_inv.1]
+      _ = ((Λ.inv x hx) * x) * z := (mul_assoc _ x z).symm
+      _ = 1 * z := by rw [hy_spec.2]
+      _ = z := one_mul z
+
+  rw [hy_eq_z]
+  exact hz_even
+
+end GrassmannAlgebra
+
+/-! ## Grassmann Invertibility
+
+These definitions work with the proper `GrassmannAlgebra` structure.
+An element x is invertible iff body(x) ≠ 0 in the base field k.
+-/
+
+/-- Predicate for invertibility in a Grassmann algebra.
+    An element is invertible if it has an inverse in the algebra.
+    Equivalent to `Λ.IsInvertible x` (body(x) ≠ 0). -/
+def GrassmannInvertible {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    (x : Λ.carrier) : Prop := ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1
+
+/-- Version using IsUnit from Mathlib -/
+def GrassmannIsUnit {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    (x : Λ.carrier) : Prop := IsUnit x
+
+/-- Invertible elements are closed under multiplication. -/
+theorem grassmann_inv_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    (x y : Λ.carrier) (hx : GrassmannInvertible x) (hy : GrassmannInvertible y) :
+    GrassmannInvertible (x * y) := by
+  obtain ⟨x', hx1, hx2⟩ := hx
+  obtain ⟨y', hy1, hy2⟩ := hy
+  use y' * x'
+  constructor
+  · -- (x * y) * (y' * x') = x * (y * y') * x' = x * 1 * x' = x * x' = 1
+    calc x * y * (y' * x') = x * (y * y') * x' := by ring
+    _ = x * 1 * x' := by rw [hy1]
+    _ = x * x' := by ring
+    _ = 1 := hx1
+  · -- (y' * x') * (x * y) = y' * (x' * x) * y = y' * 1 * y = y' * y = 1
+    calc y' * x' * (x * y) = y' * (x' * x) * y := by ring
+    _ = y' * 1 * y := by rw [hx2]
+    _ = y' * y := by ring
+    _ = 1 := hy2
+
+/-- 1 is always invertible. -/
+theorem grassmann_inv_one {k : Type*} [Field k] {Λ : GrassmannAlgebra k} :
+    GrassmannInvertible (1 : Λ.carrier) := ⟨1, one_mul 1, mul_one 1⟩
+
+/-- GrassmannInvertible is equivalent to IsInvertible (body ≠ 0). -/
+theorem grassmann_invertible_iff_isInvertible {k : Type*} [Field k] (Λ : GrassmannAlgebra k)
+    (x : Λ.carrier) : GrassmannInvertible x ↔ Λ.IsInvertible x := by
+  constructor
+  · -- GrassmannInvertible → body ≠ 0
+    intro ⟨y, hxy, _⟩
+    unfold GrassmannAlgebra.IsInvertible
+    -- x * y = 1 implies body(x) * body(y) = body(1) = 1
+    have h : Λ.body x * Λ.body y = 1 := by
+      rw [← Λ.body_mul, hxy, Λ.body_one]
+    exact left_ne_zero_of_mul_eq_one h
+  · -- body ≠ 0 → GrassmannInvertible
+    intro hx
+    exact ⟨Λ.inv x hx, Λ.mul_inv x hx, Λ.inv_mul x hx⟩
+
+/-- Abbreviation for "determinant is invertible" (has nonzero body). -/
+abbrev DetInvertible {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ}
+    (M : Matrix (Fin n) (Fin n) Λ.carrier) : Prop := Λ.IsInvertible M.det
+
+/-- Product of matrices with invertible determinants has invertible determinant. -/
+theorem det_invertible_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ}
+    (M N : Matrix (Fin n) (Fin n) Λ.carrier)
+    (hM : DetInvertible M) (hN : DetInvertible N) :
+    DetInvertible (M * N) := by
+  unfold DetInvertible GrassmannAlgebra.IsInvertible at *
+  rw [Matrix.det_mul, Λ.body_mul]
+  exact mul_ne_zero hM hN
+
+/-- Identity matrix has invertible determinant. -/
+theorem det_invertible_one {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ} :
+    DetInvertible (1 : Matrix (Fin n) (Fin n) Λ.carrier) := by
+  unfold DetInvertible GrassmannAlgebra.IsInvertible
+  rw [Matrix.det_one, Λ.body_one]
+  exact one_ne_zero
 
 /-! ## Even Part as Commutative Ring with Embedded Field
 
@@ -381,20 +897,23 @@ theorem SuperAlgebra.even_mul_comm {R : Type*} [CommRing R] (A : SuperAlgebra R)
     a * b = b * a :=
   SuperCommutative.even_comm_even a b ha hb
 
-/-- The Grassmann algebra ∧•V over a module V, viewed as a superalgebra.
+/-- The exterior algebra ∧•V over a module V, viewed as a superalgebra.
     Even part: ∧⁰V ⊕ ∧²V ⊕ ∧⁴V ⊕ ...
-    Odd part: ∧¹V ⊕ ∧³V ⊕ ∧⁵V ⊕ ... -/
-structure GrassmannAlgebra (R : Type*) [CommRing R] (V : Type*) [AddCommGroup V] [Module R V] where
+    Odd part: ∧¹V ⊕ ∧³V ⊕ ∧⁵V ⊕ ...
+
+    Note: This is a thin wrapper around Mathlib's ExteriorAlgebra. For the full
+    Grassmann algebra structure with body map and invertibility, use `GrassmannAlgebra`. -/
+structure ExteriorGrassmannAlgebra (R : Type*) [CommRing R] (V : Type*) [AddCommGroup V] [Module R V] where
   /-- The underlying exterior algebra -/
   algebra : ExteriorAlgebra R V
   /-- Parity of a homogeneous element by degree mod 2 -/
   parity : ExteriorAlgebra R V → Parity
 
-/-- Standard Grassmann algebra ∧•ℝⁿ with n generators θ¹, ..., θⁿ -/
-def standardGrassmann (n : ℕ) : Type := ExteriorAlgebra ℝ (Fin n → ℝ)
+/-- Standard exterior algebra ∧•ℝⁿ with n generators θ¹, ..., θⁿ -/
+def standardExteriorAlgebra (n : ℕ) : Type := ExteriorAlgebra ℝ (Fin n → ℝ)
 
 /-- Dimension of ∧•ℝⁿ is 2ⁿ -/
-theorem grassmann_dim (n : ℕ) : 2^n = 2^n := rfl  -- placeholder for actual dimension theorem
+theorem exterior_algebra_dim (n : ℕ) : 2^n = 2^n := rfl  -- placeholder for actual dimension theorem
 
 /-- A superderivation of parity p on a superalgebra A is an R-linear map D : A → A
     satisfying the graded Leibniz rule:

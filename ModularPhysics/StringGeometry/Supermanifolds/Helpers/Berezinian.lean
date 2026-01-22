@@ -62,7 +62,7 @@ For a proper supermatrix over a Grassmann algebra, there are two equivalent form
 These formulas agree due to the Grassmann structure of B and C.
 -/
 
-/-- Berezinian for a SuperMatrix over a FieldSuperAlgebra.
+/-- Berezinian for a SuperMatrix over a GrassmannAlgebra.
 
     For a supermatrix M = [A B; C D] where:
     - A, D blocks have entries in the even part Λ₀ (commutative)
@@ -76,23 +76,23 @@ These formulas agree due to the Grassmann structure of B and C.
     are invertible via the geometric series: (z + n)⁻¹ = z⁻¹ Σₖ (-z⁻¹n)ᵏ.
 
     **Lean formalization:**
-    We use FieldSuperAlgebra which has a Field structure on the carrier directly,
+    We use GrassmannAlgebra which has a Field structure on the carrier directly,
     avoiding typeclass diamonds. The Field structure provides:
     - CommRing operations (for det)
     - Inv (for matrix/scalar inverses)
-    The grading (even/odd) is tracked by the FieldSuperAlgebra structure. -/
-noncomputable def SuperMatrix.ber {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m)
-    (_hD : M.Dblock.det ≠ 0) : A.carrier :=
+    The grading (even/odd) is tracked by the GrassmannAlgebra structure. -/
+noncomputable def SuperMatrix.ber {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m)
+    (_hD : Λ.IsInvertible M.Dblock.det) : Λ.carrier :=
   (M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock).det * (M.Dblock.det)⁻¹
 
 /-- A-based Berezinian formula: BerAlt(M) = det(A) · det(D - CA⁻¹B)⁻¹
 
     This alternative formula requires A to be invertible instead of D.
     When both A and D are invertible, ber and berAlt agree. -/
-noncomputable def SuperMatrix.berAlt {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m)
-    (_hA : M.Ablock.det ≠ 0) : A.carrier :=
+noncomputable def SuperMatrix.berAlt {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m)
+    (_hA : Λ.IsInvertible M.Ablock.det) : Λ.carrier :=
   M.Ablock.det * (M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock).det⁻¹
 
 /-- The two Berezinian formulas agree when both A and D are invertible.
@@ -103,13 +103,13 @@ noncomputable def SuperMatrix.berAlt {R : Type*} [CommRing R] {A : FieldSuperAlg
 
     Therefore: det(S_D) / det(D) = det(A) / det(S_A)
                ber(M) = berAlt(M) -/
-theorem SuperMatrix.ber_eq_berAlt {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (M : SuperMatrix A n m)
-    (hMA : M.Ablock.det ≠ 0) (hMD : M.Dblock.det ≠ 0)
-    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ A.odd)
-    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ A.odd)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0 : (0 : A.carrier) ∈ A.even) :
+theorem SuperMatrix.ber_eq_berAlt {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (M : SuperMatrix Λ n m)
+    (hMA : Λ.IsInvertible M.Ablock.det) (hMD : Λ.IsInvertible M.Dblock.det)
+    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ Λ.odd)
+    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ Λ.odd)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0 : (0 : Λ.carrier) ∈ Λ.even) :
     M.ber hMD = M.berAlt hMA := by
   -- Goal: det(A - BD⁻¹C) * det(D)⁻¹ = det(A) * det(D - CA⁻¹B)⁻¹
   --
@@ -118,91 +118,151 @@ theorem SuperMatrix.ber_eq_berAlt {R : Type*} [CommRing R] {A : FieldSuperAlgebr
   --
   -- Proof: S_D = A(I - A⁻¹BD⁻¹C), S_A = D(I - D⁻¹CA⁻¹B)
   -- Let X = D⁻¹C, Y = A⁻¹B (both odd by hypotheses).
-  -- Then A⁻¹BD⁻¹C = A⁻¹B * D⁻¹C = YX and D⁻¹CA⁻¹B = D⁻¹C * A⁻¹B = XY.
+  -- Then A⁻¹BD⁻¹C = YX and D⁻¹CA⁻¹B = XY.
   -- By grassmann_det_one_sub_mul_comm: det(I-XY) * det(I-YX) = 1
   -- So det(S_D) * det(S_A) = det(A) * det(I-YX) * det(D) * det(I-XY)
   --                       = det(A) * det(D) * 1 = det(A) * det(D)
-  --
-  -- Then: det(S_D) / det(D) = det(A) * det(D) / (det(D) * det(S_A))
-  --                        = det(A) / det(S_A) = det(A) * det(S_A)⁻¹
   unfold SuperMatrix.ber SuperMatrix.berAlt
-  -- Use grassmann identity with X = D⁻¹C, Y = A⁻¹B
-  -- hGrass : det(I - XY) * det(I - YX) = 1
-  -- where XY = D⁻¹C * A⁻¹B = D⁻¹CA⁻¹B and YX = A⁻¹B * D⁻¹C = A⁻¹BD⁻¹C
-  have hGrass := grassmann_det_one_sub_mul_comm (M.Dblock⁻¹ * M.Cblock) (M.Ablock⁻¹ * M.Bblock)
-                   hDinvC hAinvB h1 h0
-  -- Set up invertibility
-  haveI : Invertible M.Ablock.det := invertibleOfNonzero hMA
-  haveI : Invertible M.Ablock := Matrix.invertibleOfDetInvertible M.Ablock
-  haveI : Invertible M.Dblock.det := invertibleOfNonzero hMD
-  haveI : Invertible M.Dblock := Matrix.invertibleOfDetInvertible M.Dblock
-  -- S_D = A - BD⁻¹C = A(I - A⁻¹BD⁻¹C)
-  -- S_A = D - CA⁻¹B = D(I - D⁻¹CA⁻¹B)
-  -- det(S_D) = det(A) * det(I - A⁻¹BD⁻¹C) = det(A) * det(I - YX)
-  -- det(S_A) = det(D) * det(I - D⁻¹CA⁻¹B) = det(D) * det(I - XY)
-  -- Goal: det(S_D) * det(D)⁻¹ = det(A) * det(S_A)⁻¹
-  -- Equivalently: det(S_D) * det(S_A) = det(A) * det(D)
-  -- Proof: det(A) * det(I-YX) * det(D) * det(I-XY) = det(A) * det(D) * (det(I-XY) * det(I-YX))
-  --      = det(A) * det(D) * 1 = det(A) * det(D)
-  -- Factor out A from S_D
-  have hSD_factor : M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock =
-                    M.Ablock * (1 - M.Ablock⁻¹ * M.Bblock * M.Dblock⁻¹ * M.Cblock) := by
-    have hAAinv : M.Ablock * M.Ablock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Ablock (isUnit_of_invertible _)
-    have hassoc : M.Ablock⁻¹ * (M.Bblock * M.Dblock⁻¹ * M.Cblock) =
-                  M.Ablock⁻¹ * M.Bblock * M.Dblock⁻¹ * M.Cblock := by
-      simp only [Matrix.mul_assoc]
-    calc M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock
-        = M.Ablock * 1 - M.Bblock * M.Dblock⁻¹ * M.Cblock := by rw [Matrix.mul_one]
-      _ = M.Ablock * 1 - M.Ablock * (M.Ablock⁻¹ * (M.Bblock * M.Dblock⁻¹ * M.Cblock)) := by
-          rw [← Matrix.mul_assoc, hAAinv, Matrix.one_mul]
-      _ = M.Ablock * (1 - M.Ablock⁻¹ * (M.Bblock * M.Dblock⁻¹ * M.Cblock)) := by rw [← Matrix.mul_sub]
-      _ = M.Ablock * (1 - M.Ablock⁻¹ * M.Bblock * M.Dblock⁻¹ * M.Cblock) := by rw [hassoc]
-  -- Factor out D from S_A
-  have hSA_factor : M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock =
-                    M.Dblock * (1 - M.Dblock⁻¹ * M.Cblock * M.Ablock⁻¹ * M.Bblock) := by
-    have hDDinv : M.Dblock * M.Dblock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Dblock (isUnit_of_invertible _)
-    have hassoc : M.Dblock⁻¹ * (M.Cblock * M.Ablock⁻¹ * M.Bblock) =
-                  M.Dblock⁻¹ * M.Cblock * M.Ablock⁻¹ * M.Bblock := by
-      simp only [Matrix.mul_assoc]
-    calc M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock
-        = M.Dblock * 1 - M.Cblock * M.Ablock⁻¹ * M.Bblock := by rw [Matrix.mul_one]
-      _ = M.Dblock * 1 - M.Dblock * (M.Dblock⁻¹ * (M.Cblock * M.Ablock⁻¹ * M.Bblock)) := by
-          rw [← Matrix.mul_assoc, hDDinv, Matrix.one_mul]
-      _ = M.Dblock * (1 - M.Dblock⁻¹ * (M.Cblock * M.Ablock⁻¹ * M.Bblock)) := by rw [← Matrix.mul_sub]
-      _ = M.Dblock * (1 - M.Dblock⁻¹ * M.Cblock * M.Ablock⁻¹ * M.Bblock) := by rw [hassoc]
-  -- Rewrite in terms of X = D⁻¹C, Y = A⁻¹B
-  -- A⁻¹BD⁻¹C = A⁻¹B * D⁻¹C = YX (need associativity)
-  have hYX : M.Ablock⁻¹ * M.Bblock * M.Dblock⁻¹ * M.Cblock =
-             (M.Ablock⁻¹ * M.Bblock) * (M.Dblock⁻¹ * M.Cblock) := by
-    rw [Matrix.mul_assoc, Matrix.mul_assoc]
-  -- D⁻¹CA⁻¹B = D⁻¹C * A⁻¹B = XY
-  have hXY : M.Dblock⁻¹ * M.Cblock * M.Ablock⁻¹ * M.Bblock =
-             (M.Dblock⁻¹ * M.Cblock) * (M.Ablock⁻¹ * M.Bblock) := by
-    rw [Matrix.mul_assoc, Matrix.mul_assoc]
-  rw [hSD_factor, hSA_factor, Matrix.det_mul, Matrix.det_mul, hYX, hXY]
-  -- Goal: det(A) * det(I - YX) * det(D)⁻¹ = det(A) * (det(D) * det(I - XY))⁻¹
-  -- Use hGrass: det(I - XY) * det(I - YX) = 1
-  -- So det(I - XY)⁻¹ = det(I - YX)
-  have hDetIXY_inv : (1 - (M.Dblock⁻¹ * M.Cblock) * (M.Ablock⁻¹ * M.Bblock)).det⁻¹ =
-                     (1 - (M.Ablock⁻¹ * M.Bblock) * (M.Dblock⁻¹ * M.Cblock)).det := by
-    -- hGrass : det(I_m - XY) * det(I_n - YX) = 1
-    -- where X = D⁻¹C : m×n, Y = A⁻¹B : n×m
-    -- So XY : m×m and YX : n×n
-    -- Need: det(I_m - XY)⁻¹ = det(I_n - YX)
-    -- From a * b = 1, we get a⁻¹ = b (when a ≠ 0)
-    have hne : (1 - (M.Dblock⁻¹ * M.Cblock) * (M.Ablock⁻¹ * M.Bblock)).det ≠ 0 := by
-      intro hzero
-      rw [hzero, zero_mul] at hGrass
-      exact one_ne_zero hGrass.symm
-    -- From hGrass: a * b = 1 where a = det(I_m - XY), b = det(I_n - YX)
-    -- So a⁻¹ = b
-    exact (eq_inv_of_mul_eq_one_right hGrass).symm
-  -- RHS = det(A) * (det(D) * det(I - XY))⁻¹ = det(A) * det(D)⁻¹ * det(I - XY)⁻¹
-  --     = det(A) * det(D)⁻¹ * det(I - YX)  (using hDetIXY_inv)
-  -- LHS = det(A) * det(I - YX) * det(D)⁻¹
-  -- These are equal by commutativity
-  rw [mul_inv]
-  rw [hDetIXY_inv]
+  -- Let X = D⁻¹ * C (m×n, odd entries) and Y = A⁻¹ * B (n×m, odd entries)
+  let X := M.Dblock⁻¹ * M.Cblock
+  let Y := M.Ablock⁻¹ * M.Bblock
+  -- S_D = A - B * D⁻¹ * C and S_A = D - C * A⁻¹ * B
+  -- Note: B * D⁻¹ * C = B * X where X = D⁻¹ * C
+  -- and C * A⁻¹ * B = C * Y where Y = A⁻¹ * B
+  -- By grassmann_det_one_sub_mul_comm with B' = Y (odd) and C' = X (odd):
+  -- det(1 - Y * X) * det(1 - X * Y) = 1
+  have hDetComm := grassmann_det_one_sub_mul_comm Y X hAinvB hDinvC h1 h0
+  -- hDetComm : (1 - Y * X).det * (1 - X * Y).det = 1
+  --
+  -- Step 1: Establish Schur complement factorizations
+  -- S_D = A - B * D⁻¹ * C and we want to show S_D = A * (1 - Y * X)
+  -- where Y = A⁻¹ * B and X = D⁻¹ * C
+  -- A * (1 - Y * X) = A * 1 - A * (A⁻¹ * B * D⁻¹ * C)
+  --                 = A - (A * A⁻¹) * B * D⁻¹ * C
+  --                 = A - B * D⁻¹ * C (if A * A⁻¹ = 1)
+
+  -- Set up Invertible instances
+  haveI : Invertible M.Ablock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMA).invertible
+  haveI hInvA : Invertible M.Ablock := Matrix.invertibleOfDetInvertible M.Ablock
+  haveI : Invertible M.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMD).invertible
+  haveI hInvD : Invertible M.Dblock := Matrix.invertibleOfDetInvertible M.Dblock
+
+  -- A * A⁻¹ = 1
+  have hAAinv : M.Ablock * M.Ablock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Ablock (isUnit_of_invertible _)
+  -- D * D⁻¹ = 1
+  have hDDinv : M.Dblock * M.Dblock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Dblock (isUnit_of_invertible _)
+
+  -- S_D = A * (1 - Y * X)
+  have hSD_factor : M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock = M.Ablock * (1 - Y * X) := by
+    have h : M.Ablock * (1 - Y * X) = M.Ablock - M.Ablock * (Y * X) := by
+      rw [Matrix.mul_sub, Matrix.mul_one]
+    rw [h]
+    congr 1
+    -- Need: M.Bblock * M.Dblock⁻¹ * M.Cblock = M.Ablock * (Y * X)
+    -- Y * X = (A⁻¹ * B) * (D⁻¹ * C) = A⁻¹ * B * D⁻¹ * C
+    calc M.Bblock * M.Dblock⁻¹ * M.Cblock
+        = 1 * (M.Bblock * M.Dblock⁻¹ * M.Cblock) := (Matrix.one_mul _).symm
+      _ = (M.Ablock * M.Ablock⁻¹) * (M.Bblock * M.Dblock⁻¹ * M.Cblock) := by rw [hAAinv]
+      _ = M.Ablock * (M.Ablock⁻¹ * (M.Bblock * M.Dblock⁻¹ * M.Cblock)) := by
+          simp only [Matrix.mul_assoc]
+      _ = M.Ablock * (M.Ablock⁻¹ * M.Bblock * (M.Dblock⁻¹ * M.Cblock)) := by
+          simp only [Matrix.mul_assoc]
+      _ = M.Ablock * (Y * X) := rfl
+
+  -- S_A = D * (1 - X * Y)
+  have hSA_factor : M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock = M.Dblock * (1 - X * Y) := by
+    have h : M.Dblock * (1 - X * Y) = M.Dblock - M.Dblock * (X * Y) := by
+      rw [Matrix.mul_sub, Matrix.mul_one]
+    rw [h]
+    congr 1
+    calc M.Cblock * M.Ablock⁻¹ * M.Bblock
+        = 1 * (M.Cblock * M.Ablock⁻¹ * M.Bblock) := (Matrix.one_mul _).symm
+      _ = (M.Dblock * M.Dblock⁻¹) * (M.Cblock * M.Ablock⁻¹ * M.Bblock) := by rw [hDDinv]
+      _ = M.Dblock * (M.Dblock⁻¹ * (M.Cblock * M.Ablock⁻¹ * M.Bblock)) := by
+          simp only [Matrix.mul_assoc]
+      _ = M.Dblock * (M.Dblock⁻¹ * M.Cblock * (M.Ablock⁻¹ * M.Bblock)) := by
+          simp only [Matrix.mul_assoc]
+      _ = M.Dblock * (X * Y) := rfl
+
+  -- det(S_D) = det(A) * det(1 - Y * X)
+  have hDetSD : (M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock).det = M.Ablock.det * (1 - Y * X).det := by
+    rw [hSD_factor, Matrix.det_mul]
+
+  -- det(S_A) = det(D) * det(1 - X * Y)
+  have hDetSA : (M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock).det = M.Dblock.det * (1 - X * Y).det := by
+    rw [hSA_factor, Matrix.det_mul]
+
+  -- From hDetComm: (1 - Y * X).det * (1 - X * Y).det = 1
+  -- So (1 - X * Y).det is the inverse of (1 - Y * X).det
+  -- Need: det(1 - Y * X) is invertible (has nonzero body)
+  have h1YX_inv : Λ.IsInvertible (1 - Y * X).det := by
+    -- det(1 - YX) * det(1 - XY) = 1 implies body(det(1-YX)) * body(det(1-XY)) = body(1) = 1
+    -- So body(det(1-YX)) ≠ 0
+    unfold GrassmannAlgebra.IsInvertible
+    -- Apply body to both sides of hDetComm
+    have h : Λ.body ((1 - Y * X).det * (1 - X * Y).det) = Λ.body 1 := congrArg Λ.body hDetComm
+    rw [Λ.body_mul, Λ.body_one] at h
+    exact left_ne_zero_of_mul_eq_one h
+
+  have h1XY_inv : Λ.IsInvertible (1 - X * Y).det := by
+    unfold GrassmannAlgebra.IsInvertible
+    have h : Λ.body ((1 - Y * X).det * (1 - X * Y).det) = Λ.body 1 := congrArg Λ.body hDetComm
+    rw [Λ.body_mul, Λ.body_one, mul_comm] at h
+    exact left_ne_zero_of_mul_eq_one h
+
+  -- (1 - X * Y).det⁻¹ = (1 - Y * X).det
+  have hInvXY : (1 - X * Y).det⁻¹ = (1 - Y * X).det := by
+    -- From hDetComm: (1 - Y * X).det * (1 - X * Y).det = 1
+    -- So (1 - Y * X).det is a left inverse of (1 - X * Y).det
+    -- And (1 - X * Y).det⁻¹ is the unique inverse
+    have h_prod_cancel : (1 - X * Y).det * (1 - X * Y).det⁻¹ = 1 := Λ.mul_inv_cancel _ h1XY_inv
+    have h_inv_prod : (1 - X * Y).det⁻¹ * (1 - X * Y).det = 1 := Λ.inv_mul_cancel _ h1XY_inv
+    -- hDetComm says: (1 - Y * X).det * (1 - X * Y).det = 1
+    -- Multiply both sides on right by (1 - X * Y).det⁻¹:
+    -- (1 - Y * X).det * (1 - X * Y).det * (1 - X * Y).det⁻¹ = 1 * (1 - X * Y).det⁻¹
+    -- (1 - Y * X).det * 1 = (1 - X * Y).det⁻¹
+    -- (1 - Y * X).det = (1 - X * Y).det⁻¹
+    calc (1 - X * Y).det⁻¹
+        = (1 : Λ.carrier) * (1 - X * Y).det⁻¹ := (one_mul _).symm
+      _ = ((1 - Y * X).det * (1 - X * Y).det) * (1 - X * Y).det⁻¹ := by rw [hDetComm]
+      _ = (1 - Y * X).det * ((1 - X * Y).det * (1 - X * Y).det⁻¹) := by ring
+      _ = (1 - Y * X).det * (1 : Λ.carrier) := by rw [h_prod_cancel]
+      _ = (1 - Y * X).det := mul_one _
+
+  -- Now compute: ber = det(S_D) * det(D)⁻¹ and berAlt = det(A) * det(S_A)⁻¹
+  -- ber = det(A) * det(1 - Y * X) * det(D)⁻¹
+  -- berAlt = det(A) * (det(D) * det(1 - X * Y))⁻¹
+  --        = det(A) * det(D)⁻¹ * det(1 - X * Y)⁻¹
+  --        = det(A) * det(D)⁻¹ * det(1 - Y * X)  [using hInvXY]
+  --        = det(A) * det(1 - Y * X) * det(D)⁻¹  [commutativity]
+  --        = ber
+
+  rw [hDetSD, hDetSA]
+  -- Goal: det(A) * det(1 - Y * X) * det(D)⁻¹ = det(A) * (det(D) * det(1 - X * Y))⁻¹
+
+  -- (det(D) * det(1 - X * Y))⁻¹ = det(D)⁻¹ * det(1 - X * Y)⁻¹
+  have h_inv_prod : (M.Dblock.det * (1 - X * Y).det)⁻¹ = M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹ := by
+    have h1 : M.Dblock.det * (1 - X * Y).det * (M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹) = 1 := by
+      have hD_cancel : M.Dblock.det * M.Dblock.det⁻¹ = 1 := Λ.mul_inv_cancel _ hMD
+      have hXY_cancel : (1 - X * Y).det * (1 - X * Y).det⁻¹ = 1 := Λ.mul_inv_cancel _ h1XY_inv
+      calc M.Dblock.det * (1 - X * Y).det * (M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹)
+          = (M.Dblock.det * M.Dblock.det⁻¹) * ((1 - X * Y).det * (1 - X * Y).det⁻¹) := by ring
+        _ = 1 * 1 := by rw [hD_cancel, hXY_cancel]
+        _ = 1 := one_mul _
+    have h_prod_inv : Λ.IsInvertible (M.Dblock.det * (1 - X * Y).det) :=
+      Λ.mul_invertible _ _ hMD h1XY_inv
+    have h_prod_inv_cancel : (M.Dblock.det * (1 - X * Y).det)⁻¹ * (M.Dblock.det * (1 - X * Y).det) = 1 :=
+      Λ.inv_mul_cancel _ h_prod_inv
+    calc (M.Dblock.det * (1 - X * Y).det)⁻¹
+        = (M.Dblock.det * (1 - X * Y).det)⁻¹ * 1 := (mul_one _).symm
+      _ = (M.Dblock.det * (1 - X * Y).det)⁻¹ *
+          (M.Dblock.det * (1 - X * Y).det * (M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹)) := by rw [h1]
+      _ = ((M.Dblock.det * (1 - X * Y).det)⁻¹ * (M.Dblock.det * (1 - X * Y).det)) *
+          (M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹) := by ring
+      _ = 1 * (M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹) := by rw [h_prod_inv_cancel]
+      _ = M.Dblock.det⁻¹ * (1 - X * Y).det⁻¹ := one_mul _
+
+  rw [h_inv_prod, hInvXY]
   ring
 
 -- NOTE: berAlt_mul_lowerTriangular_left is defined after SuperMatrix.lowerTriangular
@@ -234,15 +294,15 @@ theorem berezinian_formulas_agree_diagonal {n m : ℕ}
 -/
 
 /-- D-based Schur complement: A - BD⁻¹C -/
-noncomputable def schurComplementD {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_ : M.Dblock.det ≠ 0) :
-    Matrix (Fin n) (Fin n) A.carrier :=
+noncomputable def schurComplementD {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_ : Λ.IsInvertible M.Dblock.det) :
+    Matrix (Fin n) (Fin n) Λ.carrier :=
   M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock
 
 /-- A-based Schur complement: D - CA⁻¹B -/
-noncomputable def schurComplementA {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_ : M.Ablock.det ≠ 0) :
-    Matrix (Fin m) (Fin m) A.carrier :=
+noncomputable def schurComplementA {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_ : Λ.IsInvertible M.Ablock.det) :
+    Matrix (Fin m) (Fin m) Λ.carrier :=
   M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock
 
 
@@ -262,11 +322,11 @@ These are essential for proving Berezinian multiplicativity.
 -/
 
 /-- Lower triangular factor (D-based): L = [I 0; D⁻¹C I] -/
-noncomputable def lowerTriangularFactorD {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_hD : M.Dblock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ A.odd) : SuperMatrix A n m :=
+noncomputable def lowerTriangularFactorD {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_hD : Λ.IsInvertible M.Dblock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ Λ.odd) : SuperMatrix Λ n m :=
   ⟨1, 0, M.Dblock⁻¹ * M.Cblock, 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -274,11 +334,11 @@ noncomputable def lowerTriangularFactorD {R : Type*} [CommRing R] {A : FieldSupe
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Upper triangular factor (D-based): U = [I BD⁻¹; 0 I] -/
-noncomputable def upperTriangularFactorD {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_hD : M.Dblock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hBDinv : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ A.odd) : SuperMatrix A n m :=
+noncomputable def upperTriangularFactorD {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_hD : Λ.IsInvertible M.Dblock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hBDinv : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ Λ.odd) : SuperMatrix Λ n m :=
   ⟨1, M.Bblock * M.Dblock⁻¹, 0, 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    hBDinv,
@@ -286,10 +346,10 @@ noncomputable def upperTriangularFactorD {R : Type*} [CommRing R] {A : FieldSupe
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Diagonal factor (D-based): Δ = [SchurD 0; 0 D] -/
-noncomputable def diagonalFactorD {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (hD : M.Dblock.det ≠ 0)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hSchur : ∀ i j, (schurComplementD M hD) i j ∈ A.even) : SuperMatrix A n m :=
+noncomputable def diagonalFactorD {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (hD : Λ.IsInvertible M.Dblock.det)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hSchur : ∀ i j, (schurComplementD M hD) i j ∈ Λ.even) : SuperMatrix Λ n m :=
   ⟨schurComplementD M hD, 0, 0, M.Dblock,
    hSchur,
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -297,11 +357,11 @@ noncomputable def diagonalFactorD {R : Type*} [CommRing R] {A : FieldSuperAlgebr
    M.Dblock_even⟩
 
 /-- Lower triangular factor (A-based): L = [I 0; CA⁻¹ I] -/
-noncomputable def lowerTriangularFactorA {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_hA : M.Ablock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hCAinv : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ A.odd) : SuperMatrix A n m :=
+noncomputable def lowerTriangularFactorA {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_hA : Λ.IsInvertible M.Ablock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hCAinv : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ Λ.odd) : SuperMatrix Λ n m :=
   ⟨1, 0, M.Cblock * M.Ablock⁻¹, 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -309,11 +369,11 @@ noncomputable def lowerTriangularFactorA {R : Type*} [CommRing R] {A : FieldSupe
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Upper triangular factor (A-based): U = [I A⁻¹B; 0 I] -/
-noncomputable def upperTriangularFactorA {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (_hA : M.Ablock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ A.odd) : SuperMatrix A n m :=
+noncomputable def upperTriangularFactorA {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (_hA : Λ.IsInvertible M.Ablock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ Λ.odd) : SuperMatrix Λ n m :=
   ⟨1, M.Ablock⁻¹ * M.Bblock, 0, 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    hAinvB,
@@ -321,10 +381,10 @@ noncomputable def upperTriangularFactorA {R : Type*} [CommRing R] {A : FieldSupe
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Diagonal factor (A-based): Δ = [A 0; 0 SchurA] -/
-noncomputable def diagonalFactorA {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (hA : M.Ablock.det ≠ 0)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hSchur : ∀ i j, (schurComplementA M hA) i j ∈ A.even) : SuperMatrix A n m :=
+noncomputable def diagonalFactorA {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (hA : Λ.IsInvertible M.Ablock.det)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hSchur : ∀ i j, (schurComplementA M hA) i j ∈ Λ.even) : SuperMatrix Λ n m :=
   ⟨M.Ablock, 0, 0, schurComplementA M hA,
    M.Ablock_even,
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -393,12 +453,12 @@ A supermatrix U = [I B'; 0 I] where I is identity and B' is odd.
 -/
 
 /-- Upper triangular supermatrix U = [I B'; 0 I] -/
-noncomputable def SuperMatrix.upperTriangular {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+noncomputable def SuperMatrix.upperTriangular {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hB' : ∀ i j, B' i j ∈ A.odd) :
-    SuperMatrix A n m :=
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hB' : ∀ i j, B' i j ∈ Λ.odd) :
+    SuperMatrix Λ n m :=
   ⟨1, B', 0, 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    hB',
@@ -406,12 +466,12 @@ noncomputable def SuperMatrix.upperTriangular {R : Type*} [CommRing R] {A : Fiel
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Lower triangular supermatrix L = [I 0; C' I] -/
-noncomputable def SuperMatrix.lowerTriangular {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+noncomputable def SuperMatrix.lowerTriangular {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hC' : ∀ i j, C' i j ∈ A.odd) :
-    SuperMatrix A n m :=
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hC' : ∀ i j, C' i j ∈ Λ.odd) :
+    SuperMatrix Λ n m :=
   ⟨1, 0, C', 1,
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even],
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -419,12 +479,12 @@ noncomputable def SuperMatrix.lowerTriangular {R : Type*} [CommRing R] {A : Fiel
    fun i j => by simp only [Matrix.one_apply]; split_ifs <;> [exact h1; exact h0even]⟩
 
 /-- Diagonal supermatrix Δ = [A' 0; 0 D'] -/
-noncomputable def SuperMatrix.diagonal {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+noncomputable def SuperMatrix.diagonal {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (A' : Matrix (Fin n) (Fin n) A.carrier) (D' : Matrix (Fin m) (Fin m) A.carrier)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hA' : ∀ i j, A' i j ∈ A.even) (hD' : ∀ i j, D' i j ∈ A.even) :
-    SuperMatrix A n m :=
+    (A' : Matrix (Fin n) (Fin n) Λ.carrier) (D' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hA' : ∀ i j, A' i j ∈ Λ.even) (hD' : ∀ i j, D' i j ∈ Λ.even) :
+    SuperMatrix Λ n m :=
   ⟨A', 0, 0, D',
    hA',
    fun _ _ => by simp only [Matrix.zero_apply]; exact h0odd,
@@ -447,12 +507,12 @@ private theorem matrix_sub_zero {α : Type*} [AddGroup α] {n m : ℕ}
     superalgebra is over ℂ). The determinant of matrices with even entries lies in
     the even part. Since the entries of the identity matrix are 0 and 1, which are
     both in the even part, det(I) = 1 (the multiplicative identity). -/
-theorem SuperMatrix.ber_upperTriangular {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.ber_upperTriangular {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hB' : ∀ i j, B' i j ∈ A.odd)
-    (hD : ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock).det ≠ 0) :
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hB' : ∀ i j, B' i j ∈ Λ.odd)
+    (hD : Λ.IsInvertible ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock).det) :
     (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').ber hD = 1 := by
   unfold SuperMatrix.ber
   -- The upper triangular matrix has Ablock = 1, Cblock = 0, Dblock = 1
@@ -469,7 +529,7 @@ theorem SuperMatrix.ber_upperTriangular {R : Type*} [CommRing R] {A : FieldSuper
     -- Goal: Ablock - Bblock * Dblock⁻¹ * 0 = 1
     have h_mul_zero : (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Bblock *
         (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock⁻¹ *
-        (0 : Matrix (Fin m) (Fin n) A.carrier) = 0 := by
+        (0 : Matrix (Fin m) (Fin n) Λ.carrier) = 0 := by
       ext i j
       simp only [Matrix.mul_apply, Matrix.zero_apply, mul_zero, Finset.sum_const_zero]
     rw [h_mul_zero, hAblock]
@@ -478,35 +538,43 @@ theorem SuperMatrix.ber_upperTriangular {R : Type*} [CommRing R] {A : FieldSuper
     simp only [Matrix.sub_apply, Matrix.one_apply, Matrix.zero_apply, sub_zero]
   rw [hSchur, hDblock]
   -- Goal: det(1_{n×n}) * det(1_{m×m})⁻¹ = 1
-  simp only [Matrix.det_one, inv_one, mul_one]
+  -- det(1) = 1 for both matrices, so this becomes 1 * 1⁻¹ = 1
+  simp only [Matrix.det_one]
+  -- Now: 1 * 1⁻¹ = 1 in Λ.carrier
+  have h1body : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+  exact Λ.mul_inv_cancel 1 h1body
 
 /-- Lower triangular supermatrix has Ber = 1.
 
     L = [I 0; C' I] has Schur complement A - B·D⁻¹·C = I - 0·I⁻¹·C' = I
     So Ber(L) = det(I) · det(I)⁻¹ = 1 -/
-theorem SuperMatrix.ber_lowerTriangular {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.ber_lowerTriangular {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hC' : ∀ i j, C' i j ∈ A.odd)
-    (hD : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock).det ≠ 0) :
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (hD : Λ.IsInvertible ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock).det) :
     (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').ber hD = 1 := by
   unfold SuperMatrix.ber SuperMatrix.lowerTriangular
   -- Bblock = 0, so 0 * D⁻¹ * C' = 0, so Schur = Ablock - 0 = Ablock = 1
-  have hBblock_zero : (0 : Matrix (Fin n) (Fin m) A.carrier) *
-      (1 : Matrix (Fin m) (Fin m) A.carrier)⁻¹ * C' = 0 := by
+  have hBblock_zero : (0 : Matrix (Fin n) (Fin m) Λ.carrier) *
+      (1 : Matrix (Fin m) (Fin m) Λ.carrier)⁻¹ * C' = 0 := by
     ext i j
     simp only [Matrix.mul_apply, Matrix.zero_apply, zero_mul, Finset.sum_const_zero]
   -- Schur complement = 1 - 0 = 1
-  have hSchur : (1 : Matrix (Fin n) (Fin n) A.carrier) -
-      (0 : Matrix (Fin n) (Fin m) A.carrier) *
-      (1 : Matrix (Fin m) (Fin m) A.carrier)⁻¹ * C' = 1 := by
+  have hSchur : (1 : Matrix (Fin n) (Fin n) Λ.carrier) -
+      (0 : Matrix (Fin n) (Fin m) Λ.carrier) *
+      (1 : Matrix (Fin m) (Fin m) Λ.carrier)⁻¹ * C' = 1 := by
     rw [hBblock_zero]
     ext i j
     simp only [Matrix.sub_apply, Matrix.one_apply, Matrix.zero_apply, sub_zero]
   rw [hSchur]
   -- Goal: det(1) * det(1)⁻¹ = 1
-  simp only [Matrix.det_one, inv_one, mul_one]
+  -- det(1 : Matrix) = 1 : Λ.carrier
+  simp only [Matrix.det_one]
+  -- Now: 1 * 1⁻¹ = 1 in Λ.carrier
+  have h1body : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+  exact Λ.mul_inv_cancel 1 h1body
 
 /-- berAlt(L · N) = berAlt(N) when L = [I 0; C' I] is lower triangular and N.A is invertible.
 
@@ -523,14 +591,14 @@ theorem SuperMatrix.ber_lowerTriangular {R : Type*} [CommRing R] {A : FieldSuper
     = N.D - N.C·N.A⁻¹·N.B = S_A(N)
 
     Therefore berAlt(L·N) = det(N.A) · det(S_A(N))⁻¹ = berAlt(N) -/
-theorem SuperMatrix.berAlt_mul_lowerTriangular_left {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (N : SuperMatrix A n m)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hC' : ∀ i j, C' i j ∈ A.odd)
-    (hNA : N.Ablock.det ≠ 0)
-    (hLNA : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).Ablock.det ≠ 0) :
+theorem SuperMatrix.berAlt_mul_lowerTriangular_left {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (N : SuperMatrix Λ n m)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (hNA : Λ.IsInvertible N.Ablock.det)
+    (hLNA : Λ.IsInvertible ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).Ablock.det) :
     ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).berAlt hLNA =
     N.berAlt hNA := by
   unfold SuperMatrix.berAlt
@@ -561,7 +629,7 @@ theorem SuperMatrix.berAlt_mul_lowerTriangular_left {R : Type*} [CommRing R] {A 
   rw [hLNA_eq, hLNB_eq, hLNC_eq, hLND_eq]
   -- Now show S_A(L·N) = S_A(N)
   -- S_A(L·N) = (C'·N.B + N.D) - (C'·N.A + N.C) · N.A⁻¹ · N.B
-  haveI : Invertible N.Ablock.det := invertibleOfNonzero hNA
+  haveI : Invertible N.Ablock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hNA).invertible
   haveI : Invertible N.Ablock := Matrix.invertibleOfDetInvertible N.Ablock
   have hSchur_eq : (C' * N.Bblock + N.Dblock) - (C' * N.Ablock + N.Cblock) * N.Ablock⁻¹ * N.Bblock =
                    N.Dblock - N.Cblock * N.Ablock⁻¹ * N.Bblock := by
@@ -601,14 +669,14 @@ theorem SuperMatrix.berAlt_mul_lowerTriangular_left {R : Type*} [CommRing R] {A 
              = M.D - M.C·M.A⁻¹·M.B = S_A(M)
 
     Therefore berAlt(M·U) = det(M.A) · det(S_A(M))⁻¹ = berAlt(M) -/
-theorem SuperMatrix.berAlt_mul_upperTriangular_right {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (M : SuperMatrix A n m)
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hB' : ∀ i j, B' i j ∈ A.odd)
-    (hMA : M.Ablock.det ≠ 0)
-    (hMUA : (M * SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Ablock.det ≠ 0) :
+theorem SuperMatrix.berAlt_mul_upperTriangular_right {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (M : SuperMatrix Λ n m)
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hB' : ∀ i j, B' i j ∈ Λ.odd)
+    (hMA : Λ.IsInvertible M.Ablock.det)
+    (hMUA : Λ.IsInvertible (M * SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Ablock.det) :
     (M * SuperMatrix.upperTriangular B' h1 h0even h0odd hB').berAlt hMUA =
     M.berAlt hMA := by
   unfold SuperMatrix.berAlt
@@ -640,7 +708,7 @@ theorem SuperMatrix.berAlt_mul_upperTriangular_right {R : Type*} [CommRing R] {A
   rw [hMUA_eq, hMUB_eq, hMUC_eq, hMUD_eq]
   -- Now show S_A(M·U) = S_A(M)
   -- S_A(M·U) = (M.C·B' + M.D) - M.C · M.A⁻¹ · (M.A·B' + M.B)
-  haveI : Invertible M.Ablock.det := invertibleOfNonzero hMA
+  haveI : Invertible M.Ablock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMA).invertible
   haveI : Invertible M.Ablock := Matrix.invertibleOfDetInvertible M.Ablock
   have hSchur_eq : (M.Cblock * B' + M.Dblock) - M.Cblock * M.Ablock⁻¹ * (M.Ablock * B' + M.Bblock) =
                    M.Dblock - M.Cblock * M.Ablock⁻¹ * M.Bblock := by
@@ -676,22 +744,22 @@ theorem SuperMatrix.berAlt_mul_upperTriangular_right {R : Type*} [CommRing R] {A
 
     Δ = [A' 0; 0 D'] has Schur complement A' - 0·D'⁻¹·0 = A'
     So Ber(Δ) = det(A') · det(D')⁻¹ -/
-theorem SuperMatrix.ber_diagonal {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.ber_diagonal {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (A' : Matrix (Fin n) (Fin n) A.carrier) (D' : Matrix (Fin m) (Fin m) A.carrier)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hA' : ∀ i j, A' i j ∈ A.even) (hD' : ∀ i j, D' i j ∈ A.even)
-    (hD : ((SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock).det ≠ 0) :
+    (A' : Matrix (Fin n) (Fin n) Λ.carrier) (D' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hA' : ∀ i j, A' i j ∈ Λ.even) (hD' : ∀ i j, D' i j ∈ Λ.even)
+    (hD : Λ.IsInvertible ((SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock).det) :
     (SuperMatrix.diagonal A' D' h0odd hA' hD').ber hD = A'.det * D'.det⁻¹ := by
   unfold SuperMatrix.ber SuperMatrix.diagonal
   -- Bblock = 0, Cblock = 0, so Schur = Ablock - 0 * D'⁻¹ * 0 = A'
-  have hBC_zero : (0 : Matrix (Fin n) (Fin m) A.carrier) * D'⁻¹ *
-      (0 : Matrix (Fin m) (Fin n) A.carrier) = 0 := by
+  have hBC_zero : (0 : Matrix (Fin n) (Fin m) Λ.carrier) * D'⁻¹ *
+      (0 : Matrix (Fin m) (Fin n) Λ.carrier) = 0 := by
     ext i j
     simp only [Matrix.mul_apply, Matrix.zero_apply, mul_zero, Finset.sum_const_zero]
   -- Schur complement = A' - 0 = A'
-  have hSchur : A' - (0 : Matrix (Fin n) (Fin m) A.carrier) * D'⁻¹ *
-      (0 : Matrix (Fin m) (Fin n) A.carrier) = A' := by
+  have hSchur : A' - (0 : Matrix (Fin n) (Fin m) Λ.carrier) * D'⁻¹ *
+      (0 : Matrix (Fin m) (Fin n) Λ.carrier) = A' := by
     rw [hBC_zero]
     ext i j
     simp only [Matrix.sub_apply, Matrix.zero_apply, sub_zero]
@@ -704,9 +772,9 @@ theorem SuperMatrix.ber_diagonal {R : Type*} [CommRing R] {A : FieldSuperAlgebra
           = [I, B₂ + B₁; 0, I]
 
     So the product has C-block = 0. -/
-theorem SuperMatrix.upperTriangular_mul_Cblock_zero {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.upperTriangular_mul_Cblock_zero {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (U₁ U₂ : SuperMatrix A n m)
+    (U₁ U₂ : SuperMatrix Λ n m)
     (_hU₁A : U₁.Ablock = 1) (hU₁C : U₁.Cblock = 0) (hU₁D : U₁.Dblock = 1)
     (hU₂A : U₂.Ablock = 1) (hU₂C : U₂.Cblock = 0) (_hU₂D : U₂.Dblock = 1) :
     (U₁ * U₂).Cblock = 0 := by
@@ -724,9 +792,9 @@ theorem SuperMatrix.upperTriangular_mul_Cblock_zero {R : Type*} [CommRing R] {A 
         = [A', A'·B'; 0, D']
 
     So the product has C-block = 0. -/
-theorem SuperMatrix.diagonal_mul_upper_Cblock_zero {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.diagonal_mul_upper_Cblock_zero {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (Δ U : SuperMatrix A n m)
+    (Δ U : SuperMatrix Λ n m)
     (_hΔB : Δ.Bblock = 0) (hΔC : Δ.Cblock = 0)
     (hUA : U.Ablock = 1) (hUC : U.Cblock = 0) (_hUD : U.Dblock = 1) :
     (Δ * U).Cblock = 0 := by
@@ -741,9 +809,9 @@ theorem SuperMatrix.diagonal_mul_upper_Cblock_zero {R : Type*} [CommRing R] {A :
          = [A·A'', B·D''; 0, D·D'']
 
     So the product has C-block = 0. -/
-theorem SuperMatrix.Cblock_zero_mul_diagonal_Cblock_zero {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.Cblock_zero_mul_diagonal_Cblock_zero {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (Y Δ' : SuperMatrix A n m)
+    (Y Δ' : SuperMatrix Λ n m)
     (hYC : Y.Cblock = 0)
     (_hΔ'B : Δ'.Bblock = 0) (hΔ'C : Δ'.Cblock = 0) :
     (Y * Δ').Cblock = 0 := by
@@ -755,9 +823,9 @@ theorem SuperMatrix.Cblock_zero_mul_diagonal_Cblock_zero {R : Type*} [CommRing R
 
     Y = [A B; 0 D], L = [I 0; E I]
     (Y·L).D = Y.C·L.B + Y.D·L.D = 0·0 + D·I = D -/
-theorem SuperMatrix.Cblock_zero_mul_lower_Dblock {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.Cblock_zero_mul_lower_Dblock {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (Y L : SuperMatrix A n m)
+    (Y L : SuperMatrix Λ n m)
     (hYC : Y.Cblock = 0)
     (_hLA : L.Ablock = 1) (hLB : L.Bblock = 0) (hLD : L.Dblock = 1) :
     (Y * L).Dblock = Y.Dblock := by
@@ -774,12 +842,12 @@ theorem SuperMatrix.Cblock_zero_mul_lower_Dblock {R : Type*} [CommRing R] {A : F
     Schur(Y) = A - B·D⁻¹·0 = A
 
     So they have the same Schur complement. -/
-theorem SuperMatrix.Cblock_zero_mul_lower_schur {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
+theorem SuperMatrix.Cblock_zero_mul_lower_schur {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     {n m : ℕ}
-    (Y L : SuperMatrix A n m)
+    (Y L : SuperMatrix Λ n m)
     (hYC : Y.Cblock = 0)
     (hLA : L.Ablock = 1) (hLB : L.Bblock = 0) (hLD : L.Dblock = 1)
-    (hD : Y.Dblock.det ≠ 0) :
+    (hD : Λ.IsInvertible Y.Dblock.det) :
     schurComplementD (Y * L) (by rw [SuperMatrix.Cblock_zero_mul_lower_Dblock Y L hYC hLA hLB hLD]; exact hD) =
     schurComplementD Y hD := by
   unfold schurComplementD
@@ -805,22 +873,22 @@ theorem SuperMatrix.Cblock_zero_mul_lower_schur {R : Type*} [CommRing R] {A : Fi
   --            = Y.A + Y.B·L.C - Y.B·L.C = Y.A
   -- Schur(Y) = Y.A - Y.B·Y.D⁻¹·0 = Y.A
   simp only [Matrix.mul_assoc]
-  haveI : Invertible Y.Dblock.det := invertibleOfNonzero hD
+  haveI : Invertible Y.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hD).invertible
   haveI : Invertible Y.Dblock := Matrix.invertibleOfDetInvertible Y.Dblock
   rw [Matrix.inv_mul_cancel_left_of_invertible]
   simp only [hYC, Matrix.mul_zero, sub_zero, add_sub_cancel_right]
 
 /-- Multiplying on the left by an upper triangular matrix U = [I B'; 0 I] preserves Ber.
     Since Ber(U) = 1, we have Ber(U * N) = Ber(N). -/
-theorem SuperMatrix.ber_mul_upperTriangular_left {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (N : SuperMatrix A n m)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hB' : ∀ i j, B' i j ∈ A.odd)
-    (hND : N.Dblock.det ≠ 0)
-    (hUD : (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det ≠ 0)
-    (hUND : ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') * N).Dblock.det ≠ 0) :
+theorem SuperMatrix.ber_mul_upperTriangular_left {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (N : SuperMatrix Λ n m)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hB' : ∀ i j, B' i j ∈ Λ.odd)
+    (hND : Λ.IsInvertible N.Dblock.det)
+    (hUD : Λ.IsInvertible (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det)
+    (hUND : Λ.IsInvertible ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') * N).Dblock.det) :
     ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') * N).ber hUND =
     N.ber hND := by
   -- U = [I B'; 0 I], U * N = [N.A + B'*N.C, N.B + B'*N.D; N.C, N.D]
@@ -872,7 +940,7 @@ theorem SuperMatrix.ber_mul_upperTriangular_left {R : Type*} [CommRing R] {A : F
   -- = N.A + B'*N.C - N.B*N.D⁻¹*N.C - B'*N.D*N.D⁻¹*N.C
   -- = N.A + B'*N.C - N.B*N.D⁻¹*N.C - B'*N.C  (using D*D⁻¹ = I)
   -- = N.A - N.B*N.D⁻¹*N.C
-  haveI : Invertible N.Dblock.det := invertibleOfNonzero hND
+  haveI : Invertible N.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hND).invertible
   haveI : Invertible N.Dblock := Matrix.invertibleOfDetInvertible N.Dblock
   have h_DinvD : N.Dblock * N.Dblock⁻¹ = 1 := Matrix.mul_nonsing_inv N.Dblock (isUnit_of_invertible _)
   have h_cancel : B' * N.Dblock * N.Dblock⁻¹ * N.Cblock = B' * N.Cblock := by
@@ -898,15 +966,15 @@ theorem SuperMatrix.ber_mul_upperTriangular_left {R : Type*} [CommRing R] {A : F
 
 /-- Multiplying on the right by a lower triangular matrix L = [I 0; C' I] preserves Ber.
     Since Ber(L) = 1, we have Ber(M * L) = Ber(M). -/
-theorem SuperMatrix.ber_mul_lowerTriangular_right {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (M : SuperMatrix A n m)
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hC' : ∀ i j, C' i j ∈ A.odd)
-    (hMD : M.Dblock.det ≠ 0)
-    (_hLD : (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det ≠ 0)
-    (hMLD : (M * SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det ≠ 0) :
+theorem SuperMatrix.ber_mul_lowerTriangular_right {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (M : SuperMatrix Λ n m)
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (hMD : Λ.IsInvertible M.Dblock.det)
+    (_hLD : Λ.IsInvertible (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det)
+    (hMLD : Λ.IsInvertible (M * SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det) :
     (M * SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').ber hMLD =
     M.ber hMD := by
   -- M * L = [M.A + M.B*C', M.B; M.C + M.D*C', M.D]
@@ -946,7 +1014,7 @@ theorem SuperMatrix.ber_mul_lowerTriangular_right {R : Type*} [CommRing R] {A : 
   rw [hMLD_eq, hMLC_eq, hMLB_eq, hMLA_eq]
   congr 1
   -- Need: (M.A + M.B*C') - M.B * M.D⁻¹ * (M.C + M.D*C') = M.A - M.B * M.D⁻¹ * M.C
-  haveI : Invertible M.Dblock.det := invertibleOfNonzero hMD
+  haveI : Invertible M.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMD).invertible
   haveI : Invertible M.Dblock := Matrix.invertibleOfDetInvertible M.Dblock
   have h_DinvD : M.Dblock⁻¹ * M.Dblock = 1 := Matrix.nonsing_inv_mul M.Dblock (isUnit_of_invertible _)
   have h_distrib : M.Bblock * M.Dblock⁻¹ * (M.Cblock + M.Dblock * C') =
@@ -958,7 +1026,7 @@ theorem SuperMatrix.ber_mul_lowerTriangular_right {R : Type*} [CommRing R] {A : 
     calc M.Bblock * M.Dblock⁻¹ * (M.Dblock * C')
         = M.Bblock * (M.Dblock⁻¹ * (M.Dblock * C')) := by rw [Matrix.mul_assoc]
       _ = M.Bblock * ((M.Dblock⁻¹ * M.Dblock) * C') := by rw [Matrix.mul_assoc]
-      _ = M.Bblock * ((1 : Matrix (Fin m) (Fin m) A.carrier) * C') := by rw [h_DinvD]
+      _ = M.Bblock * ((1 : Matrix (Fin m) (Fin m) Λ.carrier) * C') := by rw [h_DinvD]
       _ = M.Bblock * C' := by rw [Matrix.one_mul]
   have heq : M.Ablock + M.Bblock * C' - M.Bblock * M.Dblock⁻¹ * (M.Cblock + M.Dblock * C') =
              M.Ablock - M.Bblock * M.Dblock⁻¹ * M.Cblock := by
@@ -974,25 +1042,25 @@ theorem SuperMatrix.ber_mul_lowerTriangular_right {R : Type*} [CommRing R] {A : 
     1. Ber(Δ · L) = Ber(Δ) by direct computation (Δ.B = 0 makes Schur = A')
     2. Ber(U · (Δ · L)) = Ber(Δ · L) by ber_mul_upperTriangular_left
     3. Therefore Ber(U · Δ · L) = Ber(Δ) -/
-theorem SuperMatrix.ber_UDL {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (A' : Matrix (Fin n) (Fin n) A.carrier) (D' : Matrix (Fin m) (Fin m) A.carrier)
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hB' : ∀ i j, B' i j ∈ A.odd)
-    (hA' : ∀ i j, A' i j ∈ A.even) (hD' : ∀ i j, D' i j ∈ A.even)
-    (hC' : ∀ i j, C' i j ∈ A.odd)
-    (_hD'det : D'.det ≠ 0)
-    (hUD : (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det ≠ 0)
-    (hΔD : (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det ≠ 0)
-    (_hLD : (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det ≠ 0)
-    (hΔLD : ((SuperMatrix.diagonal A' D' h0odd hA' hD') *
-            (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC')).Dblock.det ≠ 0)
-    (hUΔLD : ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') *
+theorem SuperMatrix.ber_UDL {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (A' : Matrix (Fin n) (Fin n) Λ.carrier) (D' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hB' : ∀ i j, B' i j ∈ Λ.odd)
+    (hA' : ∀ i j, A' i j ∈ Λ.even) (hD' : ∀ i j, D' i j ∈ Λ.even)
+    (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (_hD'det : Λ.IsInvertible D'.det)
+    (hUD : Λ.IsInvertible (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det)
+    (hΔD : Λ.IsInvertible (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det)
+    (_hLD : Λ.IsInvertible (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det)
+    (hΔLD : Λ.IsInvertible ((SuperMatrix.diagonal A' D' h0odd hA' hD') *
+            (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC')).Dblock.det)
+    (hUΔLD : Λ.IsInvertible ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') *
              ((SuperMatrix.diagonal A' D' h0odd hA' hD') *
-              (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC'))).Dblock.det ≠ 0) :
+              (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC'))).Dblock.det) :
     ((SuperMatrix.upperTriangular B' h1 h0even h0odd hB') *
      ((SuperMatrix.diagonal A' D' h0odd hA' hD') *
       (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC'))).ber hUΔLD =
@@ -1065,33 +1133,33 @@ theorem SuperMatrix.ber_UDL {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     3. Ber(L · Δ) = Ber(Δ) by direct computation (since (L·Δ).B = 0, Schur = A')
     4. berAlt((L · Δ) · U) = berAlt(L · Δ) by berAlt_mul_upperTriangular_right
     5. Therefore Ber(L · Δ · U) = Ber(Δ) -/
-theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (A' : Matrix (Fin n) (Fin n) A.carrier) (D' : Matrix (Fin m) (Fin m) A.carrier)
-    (B' : Matrix (Fin n) (Fin m) A.carrier)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hC' : ∀ i j, C' i j ∈ A.odd)
-    (hA' : ∀ i j, A' i j ∈ A.even) (hD' : ∀ i j, D' i j ∈ A.even)
-    (hB' : ∀ i j, B' i j ∈ A.odd)
-    (hA'det : A'.det ≠ 0)  -- Key: A' must be invertible for LDU
-    (_hD'det : D'.det ≠ 0)
-    (_hLD : (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det ≠ 0)
-    (hΔD : (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det ≠ 0)
-    (_hUD : (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det ≠ 0)
-    (hLΔD : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
-            (SuperMatrix.diagonal A' D' h0odd hA' hD')).Dblock.det ≠ 0)
-    (hLΔUD : (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
+theorem SuperMatrix.ber_LDU {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (A' : Matrix (Fin n) (Fin n) Λ.carrier) (D' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (B' : Matrix (Fin n) (Fin m) Λ.carrier)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (hA' : ∀ i j, A' i j ∈ Λ.even) (hD' : ∀ i j, D' i j ∈ Λ.even)
+    (hB' : ∀ i j, B' i j ∈ Λ.odd)
+    (hA'det : Λ.IsInvertible A'.det)  -- Key: A' must be invertible for LDU
+    (_hD'det : Λ.IsInvertible D'.det)
+    (_hLD : Λ.IsInvertible (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det)
+    (hΔD : Λ.IsInvertible (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det)
+    (_hUD : Λ.IsInvertible (SuperMatrix.upperTriangular B' h1 h0even h0odd hB').Dblock.det)
+    (hLΔD : Λ.IsInvertible ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
+            (SuperMatrix.diagonal A' D' h0odd hA' hD')).Dblock.det)
+    (hLΔUD : Λ.IsInvertible (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
               (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
-             (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Dblock.det ≠ 0)
+             (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Dblock.det)
     -- Parity conditions for ber = berAlt
-    (hD'inv_C'A'_odd : ∀ i j, (D'⁻¹ * (C' * A')) i j ∈ A.odd)
-    (_hA'inv_B'_odd : ∀ i j, (A'⁻¹ * B') i j ∈ A.odd)
+    (hD'inv_C'A'_odd : ∀ i j, (D'⁻¹ * (C' * A')) i j ∈ Λ.odd)
+    (_hA'inv_B'_odd : ∀ i j, (A'⁻¹ * B') i j ∈ Λ.odd)
     (hLΔU_DinvC_odd : ∀ i j, ((((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                                (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
                               (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Dblock⁻¹ *
-                             (C' * A')) i j ∈ A.odd) :
+                             (C' * A')) i j ∈ Λ.odd) :
     (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
       (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
      (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).ber hLΔUD =
@@ -1124,8 +1192,8 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     simp only [SuperMatrix.lowerTriangular, SuperMatrix.diagonal]
     simp only [Matrix.mul_zero, Matrix.one_mul, zero_add]
   -- Step 4: (L·Δ).A = A' is invertible
-  have hLΔA_det : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
-                  (SuperMatrix.diagonal A' D' h0odd hA' hD')).Ablock.det ≠ 0 := by
+  have hLΔA_det : Λ.IsInvertible ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
+                   (SuperMatrix.diagonal A' D' h0odd hA' hD')).Ablock.det := by
     rw [hLΔA]; exact hA'det
   -- Step 5: ((L·Δ)·U).A = (L·Δ).A = A' (upper triangular doesn't change A block)
   have hLΔUA : (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
@@ -1140,9 +1208,9 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     rw [hLΔA, hLΔB]
     simp only [SuperMatrix.upperTriangular]
     simp only [Matrix.mul_one, Matrix.zero_mul, add_zero]
-  have hLΔUA_det : (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
+  have hLΔUA_det : Λ.IsInvertible (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                     (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
-                   (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Ablock.det ≠ 0 := by
+                    (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Ablock.det := by
     rw [hLΔUA]; exact hA'det
   -- Step 6: Ber(L · Δ) = Ber(Δ) since (L·Δ).B = 0 means Schur = (L·Δ).A = A'
   have hBerLΔ : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
@@ -1180,7 +1248,7 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   have hLΔ_AinvB : ∀ i j, (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                            (SuperMatrix.diagonal A' D' h0odd hA' hD')).Ablock⁻¹ *
                           ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
-                           (SuperMatrix.diagonal A' D' h0odd hA' hD')).Bblock) i j ∈ A.odd := by
+                           (SuperMatrix.diagonal A' D' h0odd hA' hD')).Bblock) i j ∈ Λ.odd := by
     intro i j
     rw [hLΔB, Matrix.mul_zero]
     exact h0odd
@@ -1188,7 +1256,7 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   have hLΔ_DinvC : ∀ i j, (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                            (SuperMatrix.diagonal A' D' h0odd hA' hD')).Dblock⁻¹ *
                           ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
-                           (SuperMatrix.diagonal A' D' h0odd hA' hD')).Cblock) i j ∈ A.odd := by
+                           (SuperMatrix.diagonal A' D' h0odd hA' hD')).Cblock) i j ∈ Λ.odd := by
     intro i j
     rw [hLΔD_eq, hLΔC]
     exact hD'inv_C'A'_odd i j
@@ -1224,11 +1292,11 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
                             (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Ablock⁻¹ *
                            (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                              (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
-                            (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Bblock) i j ∈ A.odd := by
+                            (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Bblock) i j ∈ Λ.odd := by
     intro i j
     rw [hLΔUA, hLΔUB]
     -- A'⁻¹ * (A' * B') = (A'⁻¹ * A') * B' = I * B' = B' which is odd
-    haveI : Invertible A'.det := invertibleOfNonzero hA'det
+    haveI : Invertible A'.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hA'det).invertible
     haveI : Invertible A' := Matrix.invertibleOfDetInvertible A'
     have hAinvA : A'⁻¹ * A' = 1 := Matrix.nonsing_inv_mul A' (isUnit_of_invertible _)
     have heq : A'⁻¹ * (A' * B') = B' := by
@@ -1243,7 +1311,7 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
                             (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Dblock⁻¹ *
                            (((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') *
                              (SuperMatrix.diagonal A' D' h0odd hA' hD')) *
-                            (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Cblock) i j ∈ A.odd := by
+                            (SuperMatrix.upperTriangular B' h1 h0even h0odd hB')).Cblock) i j ∈ Λ.odd := by
     intro i j
     rw [hLΔUC]
     exact hLΔU_DinvC_odd i j
@@ -1270,17 +1338,17 @@ theorem SuperMatrix.ber_LDU {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     - Δ = [A 0; 0 S_A] where S_A = D - CA⁻¹B
     - U = [I A⁻¹B; 0 I]
     This requires A to be invertible. -/
-theorem SuperMatrix.LDU_factorization {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (hA : M.Ablock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hCAinv : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ A.odd)
-    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ A.odd)
-    (hSchur : ∀ i j, (schurComplementA M hA) i j ∈ A.even) :
+theorem SuperMatrix.LDU_factorization {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (hA : Λ.IsInvertible M.Ablock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hCAinv : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ Λ.odd)
+    (hAinvB : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ Λ.odd)
+    (hSchur : ∀ i j, (schurComplementA M hA) i j ∈ Λ.even) :
     M = ((SuperMatrix.lowerTriangular (M.Cblock * M.Ablock⁻¹) h1 h0even h0odd hCAinv) *
          (SuperMatrix.diagonal M.Ablock (schurComplementA M hA) h0odd M.Ablock_even hSchur)) *
         (SuperMatrix.upperTriangular (M.Ablock⁻¹ * M.Bblock) h1 h0even h0odd hAinvB) := by
-  haveI : Invertible M.Ablock.det := invertibleOfNonzero hA
+  haveI : Invertible M.Ablock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hA).invertible
   haveI : Invertible M.Ablock := Matrix.invertibleOfDetInvertible M.Ablock
   have hAinvA : M.Ablock⁻¹ * M.Ablock = 1 := Matrix.nonsing_inv_mul M.Ablock (isUnit_of_invertible _)
   have hAAinv : M.Ablock * M.Ablock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Ablock (isUnit_of_invertible _)
@@ -1345,17 +1413,17 @@ theorem SuperMatrix.LDU_factorization {R : Type*} [CommRing R] {A : FieldSuperAl
     - Δ = [S_D 0; 0 D] where S_D = A - BD⁻¹C
     - L = [I 0; D⁻¹C I]
     This requires D to be invertible. -/
-theorem SuperMatrix.UDL_factorization {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    {n m : ℕ} (M : SuperMatrix A n m) (hD : M.Dblock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hBDinv : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ A.odd)
-    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ A.odd)
-    (hSchur : ∀ i j, (schurComplementD M hD) i j ∈ A.even) :
+theorem SuperMatrix.UDL_factorization {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M : SuperMatrix Λ n m) (hD : Λ.IsInvertible M.Dblock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hBDinv : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ Λ.odd)
+    (hDinvC : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ Λ.odd)
+    (hSchur : ∀ i j, (schurComplementD M hD) i j ∈ Λ.even) :
     M = ((SuperMatrix.upperTriangular (M.Bblock * M.Dblock⁻¹) h1 h0even h0odd hBDinv) *
          (SuperMatrix.diagonal (schurComplementD M hD) M.Dblock h0odd hSchur M.Dblock_even)) *
         (SuperMatrix.lowerTriangular (M.Dblock⁻¹ * M.Cblock) h1 h0even h0odd hDinvC) := by
-  haveI : Invertible M.Dblock.det := invertibleOfNonzero hD
+  haveI : Invertible M.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hD).invertible
   haveI : Invertible M.Dblock := Matrix.invertibleOfDetInvertible M.Dblock
   have hDinvD : M.Dblock⁻¹ * M.Dblock = 1 := Matrix.nonsing_inv_mul M.Dblock (isUnit_of_invertible _)
   have hDDinv : M.Dblock * M.Dblock⁻¹ = 1 := Matrix.mul_nonsing_inv M.Dblock (isUnit_of_invertible _)
@@ -1424,31 +1492,31 @@ theorem SuperMatrix.UDL_factorization {R : Type*} [CommRing R] {A : FieldSuperAl
             = Ber(L · Δ · U'') · Ber(Δ')  (strip Δ' from right)
             = Ber(Δ) · Ber(Δ')            (by ber_LDU: Ber(L·Δ·U'') = Ber(Δ))
             = Ber(M) · Ber(N)             (since Ber(M) = Ber(Δ) and Ber(N) = Ber(Δ')) -/
-theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (M N : SuperMatrix A n m)
-    (hMA : M.Ablock.det ≠ 0)
-    (hMD : M.Dblock.det ≠ 0)
-    (hND : N.Dblock.det ≠ 0)
-    (hMND : (M * N).Dblock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ A.odd)
-    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ A.odd)
-    (hCAinvM : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ A.odd)
-    (hAinvBM : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ A.odd)
-    (hDinvCM : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ A.odd)
-    (hSchurM : ∀ i j, (schurComplementA M hMA) i j ∈ A.even)
-    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ A.even)
-    (hSchurM_det : (schurComplementA M hMA).det ≠ 0) :
+theorem SuperMatrix.ber_mul_A_invertible {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (M N : SuperMatrix Λ n m)
+    (hMA : Λ.IsInvertible M.Ablock.det)
+    (hMD : Λ.IsInvertible M.Dblock.det)
+    (hND : Λ.IsInvertible N.Dblock.det)
+    (hMND : Λ.IsInvertible (M * N).Dblock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ Λ.odd)
+    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ Λ.odd)
+    (hCAinvM : ∀ i j, (M.Cblock * M.Ablock⁻¹) i j ∈ Λ.odd)
+    (hAinvBM : ∀ i j, (M.Ablock⁻¹ * M.Bblock) i j ∈ Λ.odd)
+    (hDinvCM : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ Λ.odd)
+    (hSchurM : ∀ i j, (schurComplementA M hMA) i j ∈ Λ.even)
+    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ Λ.even)
+    (hSchurM_det : Λ.IsInvertible (schurComplementA M hMA).det) :
     (M * N).ber hMND = M.ber hMD * N.ber hND := by
   -- M = L · Δ · U, N = U' · Δ' · L'
   -- Ber(MN) = Ber(L·Δ·U·U'·Δ'·L') = Ber(L·Δ·U''·Δ') = Ber(L·Δ·U'')·Ber(Δ') = Ber(M)·Ber(N)
-  haveI : Invertible M.Ablock.det := invertibleOfNonzero hMA
+  haveI : Invertible M.Ablock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMA).invertible
   haveI hInvMA : Invertible M.Ablock := Matrix.invertibleOfDetInvertible M.Ablock
-  haveI : Invertible M.Dblock.det := invertibleOfNonzero hMD
+  haveI : Invertible M.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hMD).invertible
   haveI hInvMD : Invertible M.Dblock := Matrix.invertibleOfDetInvertible M.Dblock
-  haveI : Invertible N.Dblock.det := invertibleOfNonzero hND
+  haveI : Invertible N.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hND).invertible
   haveI hInvND : Invertible N.Dblock := Matrix.invertibleOfDetInvertible N.Dblock
   -- Define the factorization components
   -- For M (LDU): L = [I 0; CA⁻¹ I], Δ = [A 0; 0 S_A], U = [I A⁻¹B; 0 I]
@@ -1483,20 +1551,34 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     hBDinvN hDinvCN hSchurN
 
   -- Determinant facts for the factorization components
-  have hLD : L.Dblock.det ≠ 0 := by
-    show (1 : Matrix (Fin m) (Fin m) A.carrier).det ≠ 0
-    rw [Matrix.det_one]; exact one_ne_zero
-  have hΔD : Δ.Dblock.det ≠ 0 := hSchurM_det
-  have hUD : U.Dblock.det ≠ 0 := by
-    show (1 : Matrix (Fin m) (Fin m) A.carrier).det ≠ 0
-    rw [Matrix.det_one]; exact one_ne_zero
-  have hU'D : U'.Dblock.det ≠ 0 := by
-    show (1 : Matrix (Fin m) (Fin m) A.carrier).det ≠ 0
-    rw [Matrix.det_one]; exact one_ne_zero
-  have hΔ'D : Δ'.Dblock.det ≠ 0 := hND
-  have hL'D : L'.Dblock.det ≠ 0 := by
-    show (1 : Matrix (Fin m) (Fin m) A.carrier).det ≠ 0
-    rw [Matrix.det_one]; exact one_ne_zero
+  -- For triangular matrices with D = I, det(D) = 1, and body(1) = 1 ≠ 0
+  have hLD : Λ.IsInvertible L.Dblock.det := by
+    -- L.Dblock = 1, so det = 1, and IsInvertible 1 holds since body(1) = 1 ≠ 0
+    show Λ.IsInvertible (SuperMatrix.lowerTriangular C_M h1 h0even h0odd hCAinvM).Dblock.det
+    simp only [SuperMatrix.lowerTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
+    exact one_ne_zero
+  have hΔD : Λ.IsInvertible Δ.Dblock.det := hSchurM_det
+  have hUD : Λ.IsInvertible U.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.upperTriangular B_M h1 h0even h0odd hAinvBM).Dblock.det
+    simp only [SuperMatrix.upperTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
+    exact one_ne_zero
+  have hU'D : Λ.IsInvertible U'.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.upperTriangular B_N h1 h0even h0odd hBDinvN).Dblock.det
+    simp only [SuperMatrix.upperTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
+    exact one_ne_zero
+  have hΔ'D : Λ.IsInvertible Δ'.Dblock.det := hND
+  have hL'D : Λ.IsInvertible L'.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.lowerTriangular C_N h1 h0even h0odd hDinvCN).Dblock.det
+    simp only [SuperMatrix.lowerTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
+    exact one_ne_zero
 
   -- Key: MN = (L * Δ * U) * (U' * Δ' * L') by the factorization equations
   have hMN_eq : M * N = ((L * Δ) * U) * ((U' * Δ') * L') := by
@@ -1519,11 +1601,11 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     have hL'B : L'.Bblock = 0 := rfl
     have hL'D : L'.Dblock = 1 := rfl
     simp only [hL'B, hL'D, Matrix.mul_zero, zero_add, Matrix.mul_one]
-  have hXD : (L * Δ * U * (U' * Δ')).Dblock.det ≠ 0 := by
+  have hXD : Λ.IsInvertible (L * Δ * U * (U' * Δ')).Dblock.det := by
     rw [← hXL'_D_eq']
     have h : (L * Δ * U * (U' * Δ') * L').Dblock = (M * N).Dblock := by rw [← hMN_assoc]
     rw [h]; exact hMND
-  have hXL'D : (L * Δ * U * (U' * Δ') * L').Dblock.det ≠ 0 := by
+  have hXL'D : Λ.IsInvertible (L * Δ * U * (U' * Δ') * L').Dblock.det := by
     have h : (L * Δ * U * (U' * Δ') * L').Dblock = (M * N).Dblock := by
       rw [← hMN_assoc]
     rw [h]; exact hMND
@@ -1550,8 +1632,8 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     -- Since (M*N) = (L*Δ*U*(U'*Δ')) * L', and the Dblocks are equal
     have hDet_eq : (M * N).Dblock.det = ((L * Δ * U * (U' * Δ')) * L').Dblock.det := by
       rw [hMN_blocks]
-    -- Need to show (L*Δ*U*(U'*Δ') * L').Dblock.det ≠ 0 for the lemma application
-    have hXL'D_ne : ((L * Δ * U * (U' * Δ')) * L').Dblock.det ≠ 0 := by
+    -- Need to show Λ.IsInvertible (L*Δ*U*(U'*Δ') * L').Dblock.det for the lemma application
+    have hXL'D_ne : Λ.IsInvertible ((L * Δ * U * (U' * Δ')) * L').Dblock.det := by
       rw [hXL'_D_eq]; exact hXD
     -- Apply the lemma
     have hStrip' := SuperMatrix.ber_mul_lowerTriangular_right (L * Δ * U * (U' * Δ')) C_N
@@ -1574,12 +1656,27 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
          (L * Δ * U * U').Dblock * Δ'.Dblock
     have hΔ'B : Δ'.Bblock = 0 := rfl
     simp only [hΔ'B, Matrix.mul_zero, zero_add]
-  have hYD : (L * Δ * U * U').Dblock.det ≠ 0 := by
+  have hYD : Λ.IsInvertible (L * Δ * U * U').Dblock.det := by
     -- det((L*Δ*U*(U'*Δ')).D) = det((L*Δ*U*U').D * Δ'.D) = det((L*Δ*U*U').D) * det(Δ'.D)
-    -- Since LHS ≠ 0 (hXD) and det(Δ'.D) = det(N.D) ≠ 0 (hND), det((L*Δ*U*U').D) ≠ 0
+    -- Since LHS is invertible (hXD) and det(Δ'.D) = det(N.D) is invertible (hND),
+    -- det((L*Δ*U*U').D) must also be invertible (body of product nonzero implies both factors have nonzero body)
+    unfold GrassmannAlgebra.IsInvertible at hXD hND ⊢
+    -- We have: body(det((L*Δ*U*(U'*Δ')).D)) ≠ 0
+    -- We have: (L*Δ*U*(U'*Δ')).D = (L*Δ*U*U').D * Δ'.D  (from hZΔ'_D_eq)
+    -- So: body(det((L*Δ*U*U').D * Δ'.D)) ≠ 0
+    -- i.e., body(det((L*Δ*U*U').D)) * body(det(Δ'.D)) ≠ 0
+    -- Since body(det(Δ'.D)) = body(det(N.D)) ≠ 0, we get body(det((L*Δ*U*U').D)) ≠ 0
     have hΔ'D_eq : Δ'.Dblock = N.Dblock := rfl
-    rw [hZΔ'_D_eq, Matrix.det_mul] at hXD
-    have hΔ'D_det : Δ'.Dblock.det ≠ 0 := by rw [hΔ'D_eq]; exact hND
+    have hXD_eq : (L * Δ * U * (U' * Δ')).Dblock.det = (L * Δ * U * U').Dblock.det * Δ'.Dblock.det := by
+      rw [hZΔ'_D_eq]
+      exact Matrix.det_mul _ _
+    -- hXD : body((L*Δ*U*(U'*Δ')).D.det) ≠ 0
+    -- Goal: body((L*Δ*U*U').D.det) ≠ 0
+    -- hND : body(N.D.det) ≠ 0
+    have h : Λ.body (L * Δ * U * (U' * Δ')).Dblock.det =
+             Λ.body (L * Δ * U * U').Dblock.det * Λ.body N.Dblock.det := by
+      rw [hXD_eq, hΔ'D_eq, Λ.body_mul]
+    rw [h] at hXD
     exact left_ne_zero_of_mul hXD
   have hStrip2 : (L * Δ * U * (U' * Δ')).ber hXD =
                  (L * Δ * U * U').ber hYD * Δ'.ber hΔ'D := by
@@ -1613,9 +1710,9 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
       have hΔ'D_eq : Δ'.Dblock = D_N := rfl
       simp only [hΔ'B, hΔ'D_eq, Matrix.mul_zero, zero_add]
     -- Set up invertibility
-    haveI : Invertible D_N.det := invertibleOfNonzero hND
+    haveI : Invertible D_N.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hND).invertible
     haveI hInvDN : Invertible D_N := Matrix.invertibleOfDetInvertible D_N
-    haveI : Invertible Z.Dblock.det := invertibleOfNonzero hYD
+    haveI : Invertible Z.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hYD).invertible
     haveI hInvZD : Invertible Z.Dblock := Matrix.invertibleOfDetInvertible Z.Dblock
     -- Compute Schur complement: (Z*Δ').A - (Z*Δ').B * (Z*Δ').D⁻¹ * (Z*Δ').C
     -- = Z.A*A_N - Z.B*D_N * (Z.D*D_N)⁻¹ * Z.C*A_N
@@ -1644,13 +1741,75 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
                       (Z.Ablock - Z.Bblock * Z.Dblock⁻¹ * Z.Cblock).det * A_N.det := Matrix.det_mul _ _
     -- det(Z.D * D_N) = det(Z.D) * det(D_N)
     have hdet_D : (Z.Dblock * D_N).det = Z.Dblock.det * D_N.det := Matrix.det_mul _ _
-    rw [hdet_schur, hdet_D, mul_inv]
-    -- Δ'.ber: Δ' = diagonal A_N D_N, so Δ'.ber = det(A_N) * det(D_N)⁻¹
-    have hΔ'A : Δ'.Ablock = A_N := rfl
-    have hΔ'B : Δ'.Bblock = 0 := rfl
-    have hΔ'C : Δ'.Cblock = 0 := rfl
-    have hΔ'D_eq' : Δ'.Dblock = D_N := rfl
-    simp only [hΔ'A, hΔ'B, hΔ'C, hΔ'D_eq', Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+    rw [hdet_schur, hdet_D]
+    -- Goal: det(Schur) * det(A_N) * (det(Z.D) * det(D_N))⁻¹ =
+    --       det(Schur) * det(Z.D)⁻¹ * (det(A_N) * det(D_N)⁻¹)
+    -- In a commutative ring with good inverses: (ab)⁻¹ = a⁻¹ * b⁻¹
+    -- Need: det(Z.D) and det(D_N) have nonzero bodies
+    have hZD_inv : Λ.IsInvertible Z.Dblock.det := hYD
+    have hDN_inv : Λ.IsInvertible D_N.det := hND
+    -- (det(Z.D) * det(D_N))⁻¹ = det(Z.D)⁻¹ * det(D_N)⁻¹ (commutative case)
+    have h_inv_prod : (Z.Dblock.det * D_N.det)⁻¹ = Z.Dblock.det⁻¹ * D_N.det⁻¹ := by
+      -- Use IsUnit from Mathlib which has mul_inv_cancel for units
+      have hZD_unit : IsUnit Z.Dblock.det := (Λ.isUnit_iff_body_ne_zero _).mpr hZD_inv
+      have hDN_unit : IsUnit D_N.det := (Λ.isUnit_iff_body_ne_zero _).mpr hDN_inv
+      -- Get the unit values
+      obtain ⟨uZ, huZ⟩ := hZD_unit
+      obtain ⟨uD, huD⟩ := hDN_unit
+      -- The inverse of a unit is unique and equals the unit inverse
+      -- x⁻¹ = ↑(u⁻¹) when x = ↑u
+      have h1 : Z.Dblock.det * D_N.det * (Z.Dblock.det⁻¹ * D_N.det⁻¹) = 1 := by
+        have hZD_cancel : Z.Dblock.det * Z.Dblock.det⁻¹ = 1 := Λ.mul_inv_cancel _ hZD_inv
+        have hDN_cancel : D_N.det * D_N.det⁻¹ = 1 := Λ.mul_inv_cancel _ hDN_inv
+        calc Z.Dblock.det * D_N.det * (Z.Dblock.det⁻¹ * D_N.det⁻¹)
+            = Z.Dblock.det * (D_N.det * Z.Dblock.det⁻¹) * D_N.det⁻¹ := by ring
+          _ = Z.Dblock.det * (Z.Dblock.det⁻¹ * D_N.det) * D_N.det⁻¹ := by ring
+          _ = (Z.Dblock.det * Z.Dblock.det⁻¹) * D_N.det * D_N.det⁻¹ := by ring
+          _ = 1 * D_N.det * D_N.det⁻¹ := by rw [hZD_cancel]
+          _ = D_N.det * D_N.det⁻¹ := by ring
+          _ = 1 := hDN_cancel
+      -- The product is also invertible
+      have h_prod_inv : Λ.IsInvertible (Z.Dblock.det * D_N.det) := Λ.mul_invertible _ _ hZD_inv hDN_inv
+      have h_prod_cancel : (Z.Dblock.det * D_N.det) * (Z.Dblock.det * D_N.det)⁻¹ = 1 :=
+        Λ.mul_inv_cancel _ h_prod_inv
+      -- From h1 and h_prod_cancel, both (Z.D.det⁻¹ * D_N.det⁻¹) and (Z.D.det * D_N.det)⁻¹
+      -- are right inverses of (Z.D.det * D_N.det), hence equal
+      -- Use: if a * b = 1 and a * c = 1 then b = c (left cancellation via inverse)
+      have h_prod_inv_cancel : (Z.Dblock.det * D_N.det)⁻¹ * (Z.Dblock.det * D_N.det) = 1 :=
+        Λ.inv_mul_cancel _ h_prod_inv
+      calc (Z.Dblock.det * D_N.det)⁻¹
+          = (Z.Dblock.det * D_N.det)⁻¹ * 1 := (mul_one _).symm
+        _ = (Z.Dblock.det * D_N.det)⁻¹ * (Z.Dblock.det * D_N.det * (Z.Dblock.det⁻¹ * D_N.det⁻¹)) := by rw [h1]
+        _ = ((Z.Dblock.det * D_N.det)⁻¹ * (Z.Dblock.det * D_N.det)) * (Z.Dblock.det⁻¹ * D_N.det⁻¹) := by ring_nf
+        _ = 1 * (Z.Dblock.det⁻¹ * D_N.det⁻¹) := by rw [h_prod_inv_cancel]
+        _ = Z.Dblock.det⁻¹ * D_N.det⁻¹ := one_mul _
+    rw [h_inv_prod]
+    -- LHS: det(Schur(Z)) * det(A_N) * (det(Z.D)⁻¹ * det(D_N)⁻¹)
+    -- RHS: det(Schur(Z)) * det(Z.D)⁻¹ * (det(Schur(Δ')) * det(Δ'.D)⁻¹)
+    -- where Schur(Δ') = Δ'.A - Δ'.B * Δ'.D⁻¹ * Δ'.C = A_N - 0 * D_N⁻¹ * 0 = A_N
+    -- and Δ'.D = D_N
+    -- So RHS = det(Schur(Z)) * det(Z.D)⁻¹ * (det(A_N) * det(D_N)⁻¹)
+    -- First simplify Δ'.ber
+    have hΔ'_schur : Δ'.Ablock - Δ'.Bblock * Δ'.Dblock⁻¹ * Δ'.Cblock = A_N := by
+      have hΔ'B : Δ'.Bblock = 0 := rfl
+      have hΔ'C : Δ'.Cblock = 0 := rfl
+      have hΔ'A : Δ'.Ablock = A_N := rfl
+      simp only [hΔ'B, hΔ'C, hΔ'A, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+    have hΔ'D : Δ'.Dblock = D_N := rfl
+    -- Z = L * Δ * U * U' definitionally
+    have hZ_eq : Z = L * Δ * U * U' := rfl
+    -- So Z.Ablock = (L * Δ * U * U').Ablock etc
+    have hZA : Z.Ablock = (L * Δ * U * U').Ablock := rfl
+    have hZB : Z.Bblock = (L * Δ * U * U').Bblock := rfl
+    have hZC : Z.Cblock = (L * Δ * U * U').Cblock := rfl
+    have hZD : Z.Dblock = (L * Δ * U * U').Dblock := rfl
+    -- Rewrite RHS to use Z
+    conv_rhs =>
+      rw [← hZA, ← hZB, ← hZC, ← hZD]
+      rw [hΔ'_schur, hΔ'D]
+    -- Now both sides should be in terms of Z
+    -- LHS: det(Z.A - Z.B * Z.D⁻¹ * Z.C) * det(A_N) * det(Z.D)⁻¹ * det(D_N)⁻¹
+    -- RHS: det(D_N)⁻¹ * det(Z.A - Z.B * Z.D⁻¹ * Z.C) * det(Z.D)⁻¹ * det(A_N)
     ring
 
   -- Step 3: U * U' is upper triangular, so L * Δ * (U*U') has LDU form
@@ -1859,11 +2018,11 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     -- First need to show W.ber = W.berAlt using ber_eq_berAlt
     -- This requires: W.A⁻¹*W.B and W.D⁻¹*W.C are odd
     have hW_A_eq : (L * Δ * U * U').Ablock = M.Ablock := by rw [hW_eq]; exact hW_A
-    have hW_A_det : (L * Δ * U * U').Ablock.det ≠ 0 := by rw [hW_A_eq]; exact hMA
+    have hW_A_det : Λ.IsInvertible (L * Δ * U * U').Ablock.det := by rw [hW_A_eq]; exact hMA
     -- Need parity conditions for W.A⁻¹*W.B and W.D⁻¹*W.C
     -- W.A = M.A (even), W.B = M.A*(B_M+B_N) where B_M, B_N are odd
     -- W.A⁻¹*W.B = M.A⁻¹ * M.A * (B_M+B_N) = B_M + B_N which is odd
-    have hW_AinvB_odd : ∀ i j, ((L * Δ * U * U').Ablock⁻¹ * (L * Δ * U * U').Bblock) i j ∈ A.odd := by
+    have hW_AinvB_odd : ∀ i j, ((L * Δ * U * U').Ablock⁻¹ * (L * Δ * U * U').Bblock) i j ∈ Λ.odd := by
       intro i j
       rw [hW_eq, hW_A, hW_B]
       -- M.A⁻¹ * (M.A * (B_M + B_N)) = (M.A⁻¹ * M.A) * (B_M + B_N) = I * (B_M + B_N) = B_M + B_N
@@ -1875,9 +2034,9 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
           _ = B_M + B_N := by rw [Matrix.one_mul]
       rw [h_eq]
       -- B_M + B_N is odd (sum of odd matrices is odd)
-      have hBM_odd : B_M i j ∈ A.odd := hAinvBM i j
-      have hBN_odd : B_N i j ∈ A.odd := hBDinvN i j
-      exact A.odd.add_mem hBM_odd hBN_odd
+      have hBM_odd : B_M i j ∈ Λ.odd := hAinvBM i j
+      have hBN_odd : B_N i j ∈ Λ.odd := hBDinvN i j
+      exact Λ.odd.add_mem hBM_odd hBN_odd
     -- W.D⁻¹*W.C: W.C = M.C (odd), W.D involves odd terms so W.D⁻¹ is more complex
     -- But SchurA(W) = D_M (shown above), so we can use berAlt directly
     -- Let's compute W.berAlt and show it equals Δ.ber
@@ -1910,7 +2069,7 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     -- W.D = C_M * M.A * (B_M + B_N) + D_M = M.C * (B_M + B_N) + D_M
     -- M.C has odd entries, B_M + B_N has odd entries, so M.C * (B_M + B_N) is even (odd * odd = even)
     -- D_M has even entries (hSchurM), so W.D = even + even = even
-    have hW_D_even : ∀ i j, (L * Δ * U * U').Dblock i j ∈ A.even := by
+    have hW_D_even : ∀ i j, (L * Δ * U * U').Dblock i j ∈ Λ.even := by
       intro i j
       rw [hW_eq, hW_D]
       -- C_M * M.A * (B_M + B_N) + D_M = M.C * (B_M + B_N) + D_M
@@ -1926,7 +2085,7 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
       simp only [Matrix.add_apply]
       -- (C_M * M.A * (B_M + B_N)) i j + D_M i j
       -- = (M.C * (B_M + B_N)) i j + D_M i j  (using hCM_MA_eq)
-      have hProd_even : (C_M * M.Ablock * (B_M + B_N)) i j ∈ A.even := by
+      have hProd_even : (C_M * M.Ablock * (B_M + B_N)) i j ∈ Λ.even := by
         -- C_M * M.A * (B_M + B_N) = M.C * (B_M + B_N)
         have h_eq : C_M * M.Ablock * (B_M + B_N) = M.Cblock * (B_M + B_N) := by
           rw [hCM_MA_eq]
@@ -1934,20 +2093,20 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
         -- M.C (i, k) * (B_M + B_N) (k, j) is odd * odd = even for each k
         -- Then sum of even is even
         simp only [Matrix.mul_apply]
-        apply A.even.sum_mem
+        apply Λ.even.sum_mem
         intro k _
-        have hMC_odd : M.Cblock i k ∈ A.odd := M.Cblock_odd i k
-        have hBsum_odd : (B_M + B_N) k j ∈ A.odd := by
+        have hMC_odd : M.Cblock i k ∈ Λ.odd := M.Cblock_odd i k
+        have hBsum_odd : (B_M + B_N) k j ∈ Λ.odd := by
           simp only [Matrix.add_apply]
-          exact A.odd.add_mem (hAinvBM k j) (hBDinvN k j)
-        exact A.odd_mul_odd _ _ hMC_odd hBsum_odd
-      have hDM_even : D_M i j ∈ A.even := hSchurM i j
-      exact A.even.add_mem hProd_even hDM_even
+          exact Λ.odd.add_mem (hAinvBM k j) (hBDinvN k j)
+        exact Λ.odd_mul_odd _ _ hMC_odd hBsum_odd
+      have hDM_even : D_M i j ∈ Λ.even := hSchurM i j
+      exact Λ.even.add_mem hProd_even hDM_even
     -- Now show W.D⁻¹ * W.C has odd entries
     -- Key: W.D has even entries, W.D⁻¹ also has even entries (inverse preserves parity in even subalgebra)
     -- W.C = M.C has odd entries
     -- even matrix * odd matrix = odd matrix (entry-wise: even * odd = odd)
-    have hW_DinvC_odd : ∀ i j, ((L * Δ * U * U').Dblock⁻¹ * (L * Δ * U * U').Cblock) i j ∈ A.odd := by
+    have hW_DinvC_odd : ∀ i j, ((L * Δ * U * U').Dblock⁻¹ * (L * Δ * U * U').Cblock) i j ∈ Λ.odd := by
       intro i j
       rw [hW_C_eq_MC]
       -- W.D⁻¹ * M.C
@@ -1957,21 +2116,21 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
       -- M.C has odd entries
       -- (W.D⁻¹)_ik * M.C_kj is even * odd = odd, sum of odd is odd
       simp only [Matrix.mul_apply]
-      apply A.odd.sum_mem
+      apply Λ.odd.sum_mem
       intro k _
-      -- W.D⁻¹ i k ∈ A.even (inverse of even matrix has even entries)
-      -- M.C k j ∈ A.odd
-      have hMC_odd : M.Cblock k j ∈ A.odd := M.Cblock_odd k j
+      -- W.D⁻¹ i k ∈ Λ.even (inverse of even matrix has even entries)
+      -- M.C k j ∈ Λ.odd
+      have hMC_odd : M.Cblock k j ∈ Λ.odd := M.Cblock_odd k j
       -- For the even entry of W.D⁻¹, we use that det is a polynomial in even entries (hence even)
       -- and adjugate entries are polynomials in even entries (hence even)
       -- So (det)⁻¹ * adjugate = inverse has even entries
       -- This is a fundamental property of Grassmann algebras that we assume here
-      have hWDinv_even : (L * Δ * U * U').Dblock⁻¹ i k ∈ A.even := by
+      have hWDinv_even : (L * Δ * U * U').Dblock⁻¹ i k ∈ Λ.even := by
         -- The inverse of a matrix with even entries has even entries
         -- This follows from matrix_inv_even: M⁻¹ = (det M)⁻¹ • adjugate M
         -- where det M ∈ even, adjugate entries ∈ even, and (det M)⁻¹ ∈ even
         exact matrix_inv_even (L * Δ * U * U').Dblock hW_D_even hYD h1 h0even i k
-      exact A.even_mul_odd _ _ hWDinv_even hMC_odd
+      exact Λ.even_mul_odd _ _ hWDinv_even hMC_odd
     have hW_berAlt := SuperMatrix.ber_eq_berAlt (L * Δ * U * U') hW_A_det hYD
       hW_AinvB_odd hW_DinvC_odd h1 h0even
     -- Now show W.berAlt = Δ.ber
@@ -2014,7 +2173,7 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
   -- Step 4: Ber(Δ) = Ber(M) and Ber(Δ') = Ber(N)
   -- M.Dblock = (L*Δ*U).Dblock since M = L*Δ*U
   have hLΔU_D : (L * Δ * U).Dblock.det = M.Dblock.det := by rw [← hM_eq]
-  have hLΔU_D' : (L * Δ * U).Dblock.det ≠ 0 := hLΔU_D ▸ hMD
+  have hLΔU_D' : Λ.IsInvertible (L * Δ * U).Dblock.det := hLΔU_D ▸ hMD
 
   have hBerM : M.ber hMD = Δ.ber hΔD := by
     -- Strategy: M.ber = M.berAlt by ber_eq_berAlt, and Δ.ber = M.berAlt
@@ -2037,7 +2196,7 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
 
   -- N.Dblock = (U'*Δ'*L').Dblock since N = U'*Δ'*L'
   have hU'Δ'L'_D : (U' * Δ' * L').Dblock.det = N.Dblock.det := by rw [← hN_eq]
-  have hU'Δ'L'_D' : (U' * Δ' * L').Dblock.det ≠ 0 := hU'Δ'L'_D ▸ hND
+  have hU'Δ'L'_D' : Λ.IsInvertible (U' * Δ' * L').Dblock.det := hU'Δ'L'_D ▸ hND
 
   have hBerN : N.ber hND = Δ'.ber hΔ'D := by
     -- N.ber = det(N.A - N.B N.D⁻¹ N.C) * det(N.D)⁻¹ = det(schurComplementD N) * det(N.D)⁻¹
@@ -2062,18 +2221,18 @@ theorem SuperMatrix.ber_mul_A_invertible {R : Type*} [CommRing R] {A : FieldSupe
     Ber(L * N) = Ber(L) * Ber(N) = 1 * Ber(N) = Ber(N)
 
     Note: This does NOT require N.A to be invertible! -/
-theorem SuperMatrix.ber_mul_lowerTriangular_left {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (C' : Matrix (Fin m) (Fin n) A.carrier)
-    (N : SuperMatrix A n m)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd) (hC' : ∀ i j, C' i j ∈ A.odd)
-    (hND : N.Dblock.det ≠ 0)
-    (hLD : (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det ≠ 0)
-    (hLND : ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).Dblock.det ≠ 0)
-    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ A.odd)
-    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ A.odd)
-    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ A.even) :
+theorem SuperMatrix.ber_mul_lowerTriangular_left {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (C' : Matrix (Fin m) (Fin n) Λ.carrier)
+    (N : SuperMatrix Λ n m)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd) (hC' : ∀ i j, C' i j ∈ Λ.odd)
+    (hND : Λ.IsInvertible N.Dblock.det)
+    (hLD : Λ.IsInvertible (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock.det)
+    (hLND : Λ.IsInvertible ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).Dblock.det)
+    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ Λ.odd)
+    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ Λ.odd)
+    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ Λ.even) :
     ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC') * N).ber hLND =
     N.ber hND := by
   -- Apply ber_mul_A_invertible with M = L
@@ -2081,32 +2240,34 @@ theorem SuperMatrix.ber_mul_lowerTriangular_left {R : Type*} [CommRing R] {A : F
   -- Ber(L) = 1 (from ber_lowerTriangular)
   -- So Ber(L * N) = Ber(L) * Ber(N) = 1 * Ber(N) = Ber(N)
   let L := SuperMatrix.lowerTriangular C' h1 h0even h0odd hC'
-  have hLA : L.Ablock.det ≠ 0 := by
-    show (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Ablock.det ≠ 0
-    simp only [SuperMatrix.lowerTriangular]
-    rw [Matrix.det_one]
+  have hLA : Λ.IsInvertible L.Ablock.det := by
+    -- L.Ablock = 1, det(1) = 1, and body(1) = 1 ≠ 0, so 1 is invertible
+    show Λ.IsInvertible (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Ablock.det
+    simp only [SuperMatrix.lowerTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
   -- Ber(L) = 1
   have hBerL : L.ber hLD = 1 := SuperMatrix.ber_lowerTriangular C' h1 h0even h0odd hC' hLD
   -- For ber_mul_A_invertible with M = L, we need:
-  -- hCAinvM: (L.C * L.A⁻¹) i j ∈ A.odd, i.e., (C' * I⁻¹) = C' which is odd
-  -- hAinvBM: (L.A⁻¹ * L.B) i j ∈ A.odd, i.e., (I⁻¹ * 0) = 0 which is in odd
-  have hCAinvL : ∀ i j, (L.Cblock * L.Ablock⁻¹) i j ∈ A.odd := by
+  -- hCAinvM: (L.C * L.A⁻¹) i j ∈ Λ.odd, i.e., (C' * I⁻¹) = C' which is odd
+  -- hAinvBM: (L.A⁻¹ * L.B) i j ∈ Λ.odd, i.e., (I⁻¹ * 0) = 0 which is in odd
+  have hCAinvL : ∀ i j, (L.Cblock * L.Ablock⁻¹) i j ∈ Λ.odd := by
     intro i j
     show ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Cblock *
-          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Ablock⁻¹) i j ∈ A.odd
+          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Ablock⁻¹) i j ∈ Λ.odd
     simp only [SuperMatrix.lowerTriangular]
     rw [inv_one, Matrix.mul_one]
     exact hC' i j
-  have hAinvBL : ∀ i j, (L.Ablock⁻¹ * L.Bblock) i j ∈ A.odd := by
+  have hAinvBL : ∀ i j, (L.Ablock⁻¹ * L.Bblock) i j ∈ Λ.odd := by
     intro i j
     show ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Ablock⁻¹ *
-          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Bblock) i j ∈ A.odd
+          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Bblock) i j ∈ Λ.odd
     simp only [SuperMatrix.lowerTriangular]
     rw [Matrix.mul_zero]
     exact h0odd
   -- Schur complement of L: schurComplementA(L) = L.D - L.C * L.A⁻¹ * L.B = I - C' * I⁻¹ * 0 = I
-  have hSchurL : ∀ i j, (schurComplementA L hLA) i j ∈ A.even := by
+  have hSchurL : ∀ i j, (schurComplementA L hLA) i j ∈ Λ.even := by
     intro i j
     unfold schurComplementA
     -- L.Dblock = I, L.Bblock = 0, so L.D - L.C * L.A⁻¹ * L.B = I - anything * 0 = I
@@ -2118,18 +2279,22 @@ theorem SuperMatrix.ber_mul_lowerTriangular_left {R : Type*} [CommRing R] {A : F
     · exact h1
     · exact h0even
   -- Schur complement determinant: det(schurComplementA L) = det(I) = 1 ≠ 0
-  have hSchurL_det : (schurComplementA L hLA).det ≠ 0 := by
+  have hSchurL_det : Λ.IsInvertible (schurComplementA L hLA).det := by
+    -- schurComplementA L = D - C * A⁻¹ * B = I - C' * I⁻¹ * 0 = I
+    -- det(I) = 1, body(1) = 1 ≠ 0
     unfold schurComplementA
     have hLB : L.Bblock = 0 := rfl
     have hLD_eq : L.Dblock = 1 := rfl
-    rw [hLB, Matrix.mul_zero, sub_zero, hLD_eq]
-    rw [Matrix.det_one]
+    simp only [hLB, Matrix.mul_zero, sub_zero, hLD_eq, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
   -- L.Dblock⁻¹ * L.Cblock = I⁻¹ * C' = C' which is odd
-  have hDinvCL : ∀ i j, (L.Dblock⁻¹ * L.Cblock) i j ∈ A.odd := by
+  have hDinvCL : ∀ i j, (L.Dblock⁻¹ * L.Cblock) i j ∈ Λ.odd := by
+    -- L.Dblock = I, L.Cblock = C', I⁻¹ * C' = C' which is odd
     intro i j
     show ((SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Dblock⁻¹ *
-          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Cblock) i j ∈ A.odd
+          (SuperMatrix.lowerTriangular C' h1 h0even h0odd hC').Cblock) i j ∈ Λ.odd
     simp only [SuperMatrix.lowerTriangular]
     rw [inv_one, Matrix.one_mul]
     exact hC' i j
@@ -2155,15 +2320,15 @@ theorem SuperMatrix.ber_mul_lowerTriangular_left {R : Type*} [CommRing R] {A : F
     = det(A') · det(Z.A - Z.B · Z.D⁻¹ · Z.C) / (det(D') · det(Z.D))
     = (det(A')/det(D')) · (det(Z.A - Z.B·Z.D⁻¹·Z.C)/det(Z.D))
     = Ber(Δ) · Ber(Z) -/
-theorem SuperMatrix.ber_mul_diagonal_left {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (A' : Matrix (Fin n) (Fin n) A.carrier) (D' : Matrix (Fin m) (Fin m) A.carrier)
-    (Z : SuperMatrix A n m)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hA' : ∀ i j, A' i j ∈ A.even) (hD' : ∀ i j, D' i j ∈ A.even)
-    (hD'det : D'.det ≠ 0) (hZD : Z.Dblock.det ≠ 0)
-    (hΔD : (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det ≠ 0)
-    (hΔZD : ((SuperMatrix.diagonal A' D' h0odd hA' hD') * Z).Dblock.det ≠ 0) :
+theorem SuperMatrix.ber_mul_diagonal_left {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (A' : Matrix (Fin n) (Fin n) Λ.carrier) (D' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (Z : SuperMatrix Λ n m)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hA' : ∀ i j, A' i j ∈ Λ.even) (hD' : ∀ i j, D' i j ∈ Λ.even)
+    (hD'det : Λ.IsInvertible D'.det) (hZD : Λ.IsInvertible Z.Dblock.det)
+    (hΔD : Λ.IsInvertible (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock.det)
+    (hΔZD : Λ.IsInvertible ((SuperMatrix.diagonal A' D' h0odd hA' hD') * Z).Dblock.det) :
     ((SuperMatrix.diagonal A' D' h0odd hA' hD') * Z).ber hΔZD =
     (SuperMatrix.diagonal A' D' h0odd hA' hD').ber hΔD * Z.ber hZD := by
   unfold SuperMatrix.ber
@@ -2199,9 +2364,9 @@ theorem SuperMatrix.ber_mul_diagonal_left {R : Type*} [CommRing R] {A : FieldSup
   -- = A'·Z.A - A'·Z.B · Z.D⁻¹·D'⁻¹ · D'·Z.C  (using (D'·Z.D)⁻¹ = Z.D⁻¹·D'⁻¹)
   -- = A'·Z.A - A'·Z.B · Z.D⁻¹ · Z.C           (D'⁻¹·D' = I)
   -- = A' · (Z.A - Z.B·Z.D⁻¹·Z.C)
-  haveI : Invertible D'.det := invertibleOfNonzero hD'det
+  haveI : Invertible D'.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hD'det).invertible
   haveI : Invertible D' := Matrix.invertibleOfDetInvertible D'
-  haveI : Invertible Z.Dblock.det := invertibleOfNonzero hZD
+  haveI : Invertible Z.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hZD).invertible
   haveI : Invertible Z.Dblock := Matrix.invertibleOfDetInvertible Z.Dblock
 
   -- (D' * Z.D)⁻¹ = Z.D⁻¹ * D'⁻¹ for invertible matrices
@@ -2239,17 +2404,43 @@ theorem SuperMatrix.ber_mul_diagonal_left {R : Type*} [CommRing R] {A : FieldSup
   rw [h_det_schur, h_det]
   -- Goal: det(A') · det(Z.A - Z.B·Z.D⁻¹·Z.C) · (det(D') · det(Z.D))⁻¹
   --     = det(A') · det(D')⁻¹ · (det(Z.A - Z.B·Z.D⁻¹·Z.C) · det(Z.D)⁻¹)
-  rw [mul_inv]
-  -- Simplify the diagonal matrix blocks on the RHS
-  -- (diagonal A' D' h0odd hA' hD').Ablock = A'
-  -- (diagonal A' D' h0odd hA' hD').Bblock = 0
-  -- (diagonal A' D' h0odd hA' hD').Cblock = 0
-  -- (diagonal A' D' h0odd hA' hD').Dblock = D'
+  -- Need: (det(D') * det(Z.D))⁻¹ = det(D')⁻¹ * det(Z.D)⁻¹
+  have h_inv_prod : (D'.det * Z.Dblock.det)⁻¹ = D'.det⁻¹ * Z.Dblock.det⁻¹ := by
+    have h1 : D'.det * Z.Dblock.det * (D'.det⁻¹ * Z.Dblock.det⁻¹) = 1 := by
+      have hD'_cancel : D'.det * D'.det⁻¹ = 1 := Λ.mul_inv_cancel _ hD'det
+      have hZD_cancel : Z.Dblock.det * Z.Dblock.det⁻¹ = 1 := Λ.mul_inv_cancel _ hZD
+      calc D'.det * Z.Dblock.det * (D'.det⁻¹ * Z.Dblock.det⁻¹)
+          = (D'.det * D'.det⁻¹) * (Z.Dblock.det * Z.Dblock.det⁻¹) := by ring
+        _ = 1 * 1 := by rw [hD'_cancel, hZD_cancel]
+        _ = 1 := one_mul _
+    have h_prod_inv : Λ.IsInvertible (D'.det * Z.Dblock.det) :=
+      Λ.mul_invertible _ _ hD'det hZD
+    have h_prod_inv_cancel : (D'.det * Z.Dblock.det)⁻¹ * (D'.det * Z.Dblock.det) = 1 :=
+      Λ.inv_mul_cancel _ h_prod_inv
+    calc (D'.det * Z.Dblock.det)⁻¹
+        = (D'.det * Z.Dblock.det)⁻¹ * 1 := (mul_one _).symm
+      _ = (D'.det * Z.Dblock.det)⁻¹ *
+          (D'.det * Z.Dblock.det * (D'.det⁻¹ * Z.Dblock.det⁻¹)) := by rw [h1]
+      _ = ((D'.det * Z.Dblock.det)⁻¹ * (D'.det * Z.Dblock.det)) *
+          (D'.det⁻¹ * Z.Dblock.det⁻¹) := by ring
+      _ = 1 * (D'.det⁻¹ * Z.Dblock.det⁻¹) := by rw [h_prod_inv_cancel]
+      _ = D'.det⁻¹ * Z.Dblock.det⁻¹ := one_mul _
+  rw [h_inv_prod]
+  -- RHS has (diagonal ...).Ablock etc which need to be simplified
+  -- Δ.Ablock = A', Δ.Bblock = 0, Δ.Cblock = 0, Δ.Dblock = D'
   have hΔA : (SuperMatrix.diagonal A' D' h0odd hA' hD').Ablock = A' := rfl
   have hΔB : (SuperMatrix.diagonal A' D' h0odd hA' hD').Bblock = 0 := rfl
   have hΔC : (SuperMatrix.diagonal A' D' h0odd hA' hD').Cblock = 0 := rfl
   have hΔD : (SuperMatrix.diagonal A' D' h0odd hA' hD').Dblock = D' := rfl
-  simp only [hΔA, hΔB, hΔC, hΔD, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+  -- Schur complement of Δ with D'⁻¹: A' - 0 * D'⁻¹ * 0 = A'
+  have hΔ_schur2 : (SuperMatrix.diagonal A' D' h0odd hA' hD').Ablock -
+                   (SuperMatrix.diagonal A' D' h0odd hA' hD').Bblock *
+                   D'⁻¹ *
+                   (SuperMatrix.diagonal A' D' h0odd hA' hD').Cblock = A' := by
+    simp only [hΔA, hΔB, hΔC, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+  simp only [hΔD, hΔ_schur2]
+  -- Now goal is: A'.det * schur.det * D'.det⁻¹ * Z.D.det⁻¹ = schur.det * D'.det⁻¹ * Z.D.det⁻¹ * A'.det
+  -- This is: a * b * c * d = b * c * d * a which holds by commutativity
   ring
 
 /-- Berezinian multiplicativity for diagonal matrix on the right.
@@ -2273,15 +2464,15 @@ theorem SuperMatrix.ber_mul_diagonal_left {R : Type*} [CommRing R] {A : FieldSup
     So Ber(Z·Δ') = det(Schur(Z)·A'') / det(Z.D·D'')
                 = det(Schur(Z))·det(A'') / (det(Z.D)·det(D''))
                 = Ber(Z) · Ber(Δ') -/
-theorem SuperMatrix.ber_mul_diagonal_right {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (Z : SuperMatrix A n m)
-    (A'' : Matrix (Fin n) (Fin n) A.carrier) (D'' : Matrix (Fin m) (Fin m) A.carrier)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hA'' : ∀ i j, A'' i j ∈ A.even) (hD'' : ∀ i j, D'' i j ∈ A.even)
-    (hD''det : D''.det ≠ 0) (hZD : Z.Dblock.det ≠ 0)
-    (hΔD : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Dblock.det ≠ 0)
-    (hZΔD : (Z * (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'')).Dblock.det ≠ 0) :
+theorem SuperMatrix.ber_mul_diagonal_right {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (Z : SuperMatrix Λ n m)
+    (A'' : Matrix (Fin n) (Fin n) Λ.carrier) (D'' : Matrix (Fin m) (Fin m) Λ.carrier)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hA'' : ∀ i j, A'' i j ∈ Λ.even) (hD'' : ∀ i j, D'' i j ∈ Λ.even)
+    (hD''det : Λ.IsInvertible D''.det) (hZD : Λ.IsInvertible Z.Dblock.det)
+    (hΔD : Λ.IsInvertible (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Dblock.det)
+    (hZΔD : Λ.IsInvertible (Z * (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'')).Dblock.det) :
     (Z * (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'')).ber hZΔD =
     Z.ber hZD * (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').ber hΔD := by
   unfold SuperMatrix.ber
@@ -2308,9 +2499,9 @@ theorem SuperMatrix.ber_mul_diagonal_right {R : Type*} [CommRing R] {A : FieldSu
     simp only [Matrix.mul_zero, zero_add]
   rw [hZΔA, hZΔB, hZΔC, hZΔD_eq]
   -- Set up invertibility
-  haveI : Invertible D''.det := invertibleOfNonzero hD''det
+  haveI : Invertible D''.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hD''det).invertible
   haveI : Invertible D'' := Matrix.invertibleOfDetInvertible D''
-  haveI : Invertible Z.Dblock.det := invertibleOfNonzero hZD
+  haveI : Invertible Z.Dblock.det := ((Λ.isUnit_iff_body_ne_zero _).mpr hZD).invertible
   haveI : Invertible Z.Dblock := Matrix.invertibleOfDetInvertible Z.Dblock
   -- (Z.D * D'')⁻¹ = D''⁻¹ * Z.D⁻¹
   have h_inv : (Z.Dblock * D'')⁻¹ = D''⁻¹ * Z.Dblock⁻¹ := by
@@ -2346,13 +2537,40 @@ theorem SuperMatrix.ber_mul_diagonal_right {R : Type*} [CommRing R] {A : FieldSu
                      (Z.Ablock - Z.Bblock * Z.Dblock⁻¹ * Z.Cblock).det * A''.det := by
     rw [Matrix.det_mul]
   rw [h_det_schur, h_det]
-  rw [mul_inv]
-  -- Simplify diagonal matrix blocks on the RHS
+  -- Goal: schur.det * A''.det * (Z.D.det * D''.det)⁻¹ = schur.det * Z.D.det⁻¹ * (Δ'.schur.det * Δ'.D.det⁻¹)
+  -- Need: (Z.D.det * D''.det)⁻¹ = Z.D.det⁻¹ * D''.det⁻¹
+  have h_inv_prod : (Z.Dblock.det * D''.det)⁻¹ = Z.Dblock.det⁻¹ * D''.det⁻¹ := by
+    have h1 : Z.Dblock.det * D''.det * (Z.Dblock.det⁻¹ * D''.det⁻¹) = 1 := by
+      have hZD_cancel : Z.Dblock.det * Z.Dblock.det⁻¹ = 1 := Λ.mul_inv_cancel _ hZD
+      have hD''_cancel : D''.det * D''.det⁻¹ = 1 := Λ.mul_inv_cancel _ hD''det
+      calc Z.Dblock.det * D''.det * (Z.Dblock.det⁻¹ * D''.det⁻¹)
+          = (Z.Dblock.det * Z.Dblock.det⁻¹) * (D''.det * D''.det⁻¹) := by ring
+        _ = 1 * 1 := by rw [hZD_cancel, hD''_cancel]
+        _ = 1 := one_mul _
+    have h_prod_inv : Λ.IsInvertible (Z.Dblock.det * D''.det) :=
+      Λ.mul_invertible _ _ hZD hD''det
+    have h_prod_inv_cancel : (Z.Dblock.det * D''.det)⁻¹ * (Z.Dblock.det * D''.det) = 1 :=
+      Λ.inv_mul_cancel _ h_prod_inv
+    calc (Z.Dblock.det * D''.det)⁻¹
+        = (Z.Dblock.det * D''.det)⁻¹ * 1 := (mul_one _).symm
+      _ = (Z.Dblock.det * D''.det)⁻¹ *
+          (Z.Dblock.det * D''.det * (Z.Dblock.det⁻¹ * D''.det⁻¹)) := by rw [h1]
+      _ = ((Z.Dblock.det * D''.det)⁻¹ * (Z.Dblock.det * D''.det)) *
+          (Z.Dblock.det⁻¹ * D''.det⁻¹) := by ring
+      _ = 1 * (Z.Dblock.det⁻¹ * D''.det⁻¹) := by rw [h_prod_inv_cancel]
+      _ = Z.Dblock.det⁻¹ * D''.det⁻¹ := one_mul _
+  rw [h_inv_prod]
+  -- Simplify diagonal block terms on RHS
   have hΔA : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Ablock = A'' := rfl
   have hΔB : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Bblock = 0 := rfl
   have hΔC : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Cblock = 0 := rfl
   have hΔD : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Dblock = D'' := rfl
-  simp only [hΔA, hΔB, hΔC, hΔD, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+  have hΔ_schur2 : (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Ablock -
+                  (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Bblock *
+                  D''⁻¹ *
+                  (SuperMatrix.diagonal A'' D'' h0odd hA'' hD'').Cblock = A'' := by
+    simp only [hΔA, hΔB, hΔC, Matrix.zero_mul, Matrix.mul_zero, sub_zero]
+  simp only [hΔ_schur2, hΔD]
   ring
 
 /-- Berezinian multiplicativity: Ber(MN) = Ber(M) · Ber(N) for SuperMatrices.
@@ -2364,20 +2582,20 @@ theorem SuperMatrix.ber_mul_diagonal_right {R : Type*} [CommRing R] {A : FieldSu
     - UDL for N (D-based): N = U' · Δ' · L'
     - MN = U · Δ · L · U' · Δ' · L'
     - Apply stripping lemmas -/
-theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
-    [SuperCommutative A.toSuperAlgebra] {n m : ℕ}
-    (M N : SuperMatrix A n m)
-    (hMD : M.Dblock.det ≠ 0)
-    (hND : N.Dblock.det ≠ 0)
-    (hMND : (M * N).Dblock.det ≠ 0)
-    (h1 : (1 : A.carrier) ∈ A.even) (h0even : (0 : A.carrier) ∈ A.even)
-    (h0odd : (0 : A.carrier) ∈ A.odd)
-    (hBDinvM : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ A.odd)
-    (hDinvCM : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ A.odd)
-    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ A.odd)
-    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ A.odd)
-    (hSchurM : ∀ i j, (schurComplementD M hMD) i j ∈ A.even)
-    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ A.even) :
+theorem SuperMatrix.ber_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
+    [SuperCommutative Λ.toSuperAlgebra] {n m : ℕ}
+    (M N : SuperMatrix Λ n m)
+    (hMD : Λ.IsInvertible M.Dblock.det)
+    (hND : Λ.IsInvertible N.Dblock.det)
+    (hMND : Λ.IsInvertible (M * N).Dblock.det)
+    (h1 : (1 : Λ.carrier) ∈ Λ.even) (h0even : (0 : Λ.carrier) ∈ Λ.even)
+    (h0odd : (0 : Λ.carrier) ∈ Λ.odd)
+    (hBDinvM : ∀ i j, (M.Bblock * M.Dblock⁻¹) i j ∈ Λ.odd)
+    (hDinvCM : ∀ i j, (M.Dblock⁻¹ * M.Cblock) i j ∈ Λ.odd)
+    (hBDinvN : ∀ i j, (N.Bblock * N.Dblock⁻¹) i j ∈ Λ.odd)
+    (hDinvCN : ∀ i j, (N.Dblock⁻¹ * N.Cblock) i j ∈ Λ.odd)
+    (hSchurM : ∀ i j, (schurComplementD M hMD) i j ∈ Λ.even)
+    (hSchurN : ∀ i j, (schurComplementD N hND) i j ∈ Λ.even) :
     (M * N).ber hMND = M.ber hMD * N.ber hND := by
   -- UDL factorizations:
   -- M = U_M · Δ_M · L_M where Δ_M = diag(S_D^M, D_M)
@@ -2458,43 +2676,47 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- STEP 0: Establish basic determinant conditions for the triangular/diagonal matrices
   -- ═══════════════════════════════════════════════════════════════════════════
 
-  -- U_M.Dblock = I, so det = 1 ≠ 0
-  have hU_M_D : U_M.Dblock.det ≠ 0 := by
-    show (SuperMatrix.upperTriangular B_M h1 h0even h0odd hBDinvM).Dblock.det ≠ 0
-    simp only [SuperMatrix.upperTriangular]
-    rw [Matrix.det_one]
+  -- U_M.Dblock = I, so det = 1 and body(1) = 1 ≠ 0
+  have hU_M_D : Λ.IsInvertible U_M.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.upperTriangular B_M h1 h0even h0odd hBDinvM).Dblock.det
+    simp only [SuperMatrix.upperTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
 
-  -- L_M.Dblock = I, so det = 1 ≠ 0
-  have hL_M_D : L_M.Dblock.det ≠ 0 := by
-    show (SuperMatrix.lowerTriangular C_M h1 h0even h0odd hDinvCM).Dblock.det ≠ 0
-    simp only [SuperMatrix.lowerTriangular]
-    rw [Matrix.det_one]
+  -- L_M.Dblock = I, so det = 1 and body(1) = 1 ≠ 0
+  have hL_M_D : Λ.IsInvertible L_M.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.lowerTriangular C_M h1 h0even h0odd hDinvCM).Dblock.det
+    simp only [SuperMatrix.lowerTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
 
-  -- Δ_M.Dblock = M.Dblock, so det ≠ 0 by assumption
-  have hΔ_M_D : Δ_M.Dblock.det ≠ 0 := by
-    show (SuperMatrix.diagonal S_M M.Dblock h0odd hSchurM M.Dblock_even).Dblock.det ≠ 0
+  -- Δ_M.Dblock = M.Dblock, so det is invertible by assumption
+  have hΔ_M_D : Λ.IsInvertible Δ_M.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.diagonal S_M M.Dblock h0odd hSchurM M.Dblock_even).Dblock.det
     simp only [SuperMatrix.diagonal]
     exact hMD
 
-  -- U_N.Dblock = I, so det = 1 ≠ 0
-  have hU_N_D : U_N.Dblock.det ≠ 0 := by
-    show (SuperMatrix.upperTriangular B_N h1 h0even h0odd hBDinvN).Dblock.det ≠ 0
-    simp only [SuperMatrix.upperTriangular]
-    rw [Matrix.det_one]
+  -- U_N.Dblock = I, so det = 1 and body(1) = 1 ≠ 0
+  have hU_N_D : Λ.IsInvertible U_N.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.upperTriangular B_N h1 h0even h0odd hBDinvN).Dblock.det
+    simp only [SuperMatrix.upperTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
 
-  -- L_N.Dblock = I, so det = 1 ≠ 0
-  have hL_N_D : L_N.Dblock.det ≠ 0 := by
-    show (SuperMatrix.lowerTriangular C_N h1 h0even h0odd hDinvCN).Dblock.det ≠ 0
-    simp only [SuperMatrix.lowerTriangular]
-    rw [Matrix.det_one]
+  -- L_N.Dblock = I, so det = 1 and body(1) = 1 ≠ 0
+  have hL_N_D : Λ.IsInvertible L_N.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.lowerTriangular C_N h1 h0even h0odd hDinvCN).Dblock.det
+    simp only [SuperMatrix.lowerTriangular, Matrix.det_one]
+    unfold GrassmannAlgebra.IsInvertible
+    rw [Λ.body_one]
     exact one_ne_zero
 
-  -- Δ_N.Dblock = N.Dblock, so det ≠ 0 by assumption
-  have hΔ_N_D : Δ_N.Dblock.det ≠ 0 := by
-    show (SuperMatrix.diagonal S_N N.Dblock h0odd hSchurN N.Dblock_even).Dblock.det ≠ 0
+  -- Δ_N.Dblock = N.Dblock, so det is invertible by assumption
+  have hΔ_N_D : Λ.IsInvertible Δ_N.Dblock.det := by
+    show Λ.IsInvertible (SuperMatrix.diagonal S_N N.Dblock h0odd hSchurN N.Dblock_even).Dblock.det
     simp only [SuperMatrix.diagonal]
     exact hND
 
@@ -2503,7 +2725,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- ═══════════════════════════════════════════════════════════════════════════
 
   -- Δ_M · L_M has Dblock = M.Dblock
-  have hΔL_M_D : (Δ_M * L_M).Dblock.det ≠ 0 := by
+  have hΔL_M_D : Λ.IsInvertible (Δ_M * L_M).Dblock.det := by
     have : (Δ_M * L_M).Dblock = M.Dblock := by
       show (SuperMatrix.diagonal S_M M.Dblock h0odd hSchurM M.Dblock_even *
             SuperMatrix.lowerTriangular C_M h1 h0even h0odd hDinvCM).Dblock = M.Dblock
@@ -2513,7 +2735,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     exact hMD
 
   -- U_M · (Δ_M · L_M) has Dblock = M.Dblock (since U_M.C = 0, U_M.D = I)
-  have hUΔL_M_D : (U_M * (Δ_M * L_M)).Dblock.det ≠ 0 := by
+  have hUΔL_M_D : Λ.IsInvertible (U_M * (Δ_M * L_M)).Dblock.det := by
     have : (U_M * (Δ_M * L_M)).Dblock = M.Dblock := by
       show (SuperMatrix.upperTriangular B_M h1 h0even h0odd hBDinvM *
             (SuperMatrix.diagonal S_M M.Dblock h0odd hSchurM M.Dblock_even *
@@ -2542,7 +2764,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
       _ = Δ_M.ber hΔ_M_D := hUDL
 
   -- Similarly for N: Δ_N · L_N has Dblock = N.Dblock
-  have hΔL_N_D : (Δ_N * L_N).Dblock.det ≠ 0 := by
+  have hΔL_N_D : Λ.IsInvertible (Δ_N * L_N).Dblock.det := by
     have : (Δ_N * L_N).Dblock = N.Dblock := by
       show (SuperMatrix.diagonal S_N N.Dblock h0odd hSchurN N.Dblock_even *
             SuperMatrix.lowerTriangular C_N h1 h0even h0odd hDinvCN).Dblock = N.Dblock
@@ -2551,7 +2773,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     rw [this]
     exact hND
 
-  have hUΔL_N_D : (U_N * (Δ_N * L_N)).Dblock.det ≠ 0 := by
+  have hUΔL_N_D : Λ.IsInvertible (U_N * (Δ_N * L_N)).Dblock.det := by
     have : (U_N * (Δ_N * L_N)).Dblock = N.Dblock := by
       show (SuperMatrix.upperTriangular B_N h1 h0even h0odd hBDinvN *
             (SuperMatrix.diagonal S_N N.Dblock h0odd hSchurN N.Dblock_even *
@@ -2585,8 +2807,8 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- For stripping, we need det conditions on various intermediate products.
   -- Key fact: For products of triangular matrices, the D-block structure is preserved.
 
-  -- The innermost product U_N * (Δ_N * L_N) = N, so it has Dblock.det = N.D.det ≠ 0
-  have hUΔL_N : (U_N * (Δ_N * L_N)).Dblock.det ≠ 0 := hUΔL_N_D
+  -- The innermost product U_N * (Δ_N * L_N) = N, so it has Dblock.det = Λ.IsInvertible N.D.det
+  have hUΔL_N : Λ.IsInvertible (U_N * (Δ_N * L_N)).Dblock.det := hUΔL_N_D
 
   -- ═══════════════════════════════════════════════════════════════════════════
   -- STEP 3: Apply stripping lemmas
@@ -2609,7 +2831,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- Step 1: Strip U_M from left
   -- Ber(U_M * X) = Ber(X) where X = Δ_M * L_M * U_N * Δ_N * L_N
 
-  -- For this we need X.Dblock.det ≠ 0
+  -- For this we need Λ.IsInvertible X.Dblock.det
 
   -- Let's define the intermediate products and their det conditions
   let X₁ := Δ_N * L_N  -- = Δ_N * L_N
@@ -2619,13 +2841,13 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   let X₅ := U_M * X₄   -- = U_M * Δ_M * L_M * U_N * Δ_N * L_N = M * N
 
   -- X₁.D = N.D (since Δ_N.D = N.D and L_N.D = I)
-  have hX₁_D : X₁.Dblock.det ≠ 0 := by
-    show (Δ_N * L_N).Dblock.det ≠ 0
+  have hX₁_D : Λ.IsInvertible X₁.Dblock.det := by
+    show Λ.IsInvertible (Δ_N * L_N).Dblock.det
     exact hΔL_N_D
 
   -- X₂.D = N.D (since U_N.C = 0, U_N.D = I)
-  have hX₂_D : X₂.Dblock.det ≠ 0 := by
-    show (U_N * (Δ_N * L_N)).Dblock.det ≠ 0
+  have hX₂_D : Λ.IsInvertible X₂.Dblock.det := by
+    show Λ.IsInvertible (U_N * (Δ_N * L_N)).Dblock.det
     exact hUΔL_N_D
 
   -- X₃.D = L_M.C * X₂.B + L_M.D * X₂.D = C_M * X₂.B + X₂.D
@@ -2636,7 +2858,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- (since C_M odd, N.B odd, so C_M * N.B even nilpotent)
   -- Therefore det(C_M * N.B + N.D) ≠ 0
 
-  have hX₃_D : X₃.Dblock.det ≠ 0 := by
+  have hX₃_D : Λ.IsInvertible X₃.Dblock.det := by
     -- X₃ = L_M * X₂ where X₂ = N
     -- The key observation: X₅ = M * N, so X₅.D = (M * N).D, which has det ≠ 0 by hMND.
     -- And X₅.D = X₄.D (since U_M strips without changing D), X₄.D = M.D * X₃.D
@@ -2664,12 +2886,18 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
     -- det((M*N).D) ≠ 0, and X₅.D = (M*N).D, so det(X₅.D) ≠ 0
     -- det(X₅.D) = det(M.D * X₃.D) = det(M.D) * det(X₃.D) ≠ 0
     -- Since det(M.D) ≠ 0, we get det(X₃.D) ≠ 0
-    have hX₅_det : X₅.Dblock.det ≠ 0 := by rw [hX₅_D_eq2]; exact hMND
+    have hX₅_det : Λ.IsInvertible X₅.Dblock.det := by rw [hX₅_D_eq2]; exact hMND
+    -- hX₅_det : Λ.IsInvertible (M.Dblock.det * X₃.Dblock.det)
+    -- We need to extract that X₃.Dblock.det is invertible
+    -- body(det(M.D) * det(X₃.D)) = body(det(M.D)) * body(det(X₃.D)) ≠ 0
+    -- Since body(det(M.D)) ≠ 0 (hMD) and the product is ≠ 0, we get body(det(X₃.D)) ≠ 0
     rw [hX₅_D_eq, Matrix.det_mul] at hX₅_det
+    unfold GrassmannAlgebra.IsInvertible at hX₅_det hMD ⊢
+    rw [Λ.body_mul] at hX₅_det
     exact (mul_ne_zero_iff.mp hX₅_det).2
 
   -- X₄.D = Δ_M.C * X₃.B + Δ_M.D * X₃.D = 0 * X₃.B + M.D * X₃.D = M.D * X₃.D
-  have hX₄_D : X₄.Dblock.det ≠ 0 := by
+  have hX₄_D : Λ.IsInvertible X₄.Dblock.det := by
     -- Δ_M.C = 0, Δ_M.D = M.D
     -- X₄.D = M.D * X₃.D
     -- det(M.D * X₃.D) = det(M.D) * det(X₃.D) ≠ 0
@@ -2681,10 +2909,10 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
            M.Dblock * X₃.Dblock
       simp only [SuperMatrix.diagonal, Matrix.zero_mul, zero_add]
     rw [hX₄_D_eq, Matrix.det_mul]
-    exact mul_ne_zero hMD hX₃_D
+    exact Λ.mul_invertible _ _ hMD hX₃_D
 
   -- X₅.D = U_M.C * X₄.B + U_M.D * X₄.D = 0 * X₄.B + I * X₄.D = X₄.D
-  have hX₅_D : X₅.Dblock.det ≠ 0 := by
+  have hX₅_D : Λ.IsInvertible X₅.Dblock.det := by
     -- U_M.C = 0, U_M.D = I
     -- X₅.D = X₄.D
     have hX₅_D_eq : X₅.Dblock = X₄.Dblock := by
@@ -2729,13 +2957,13 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
       rw [← mul_assoc, hN_UDL]
     -- Now use ber_mul_lowerTriangular_left
     -- We need to cast the hypotheses
-    have hX₂_BDinv : ∀ i j, (X₂.Bblock * X₂.Dblock⁻¹) i j ∈ A.odd := by
+    have hX₂_BDinv : ∀ i j, (X₂.Bblock * X₂.Dblock⁻¹) i j ∈ Λ.odd := by
       rw [hX₂_eq_N]
       exact hBDinvN
-    have hX₂_DinvC : ∀ i j, (X₂.Dblock⁻¹ * X₂.Cblock) i j ∈ A.odd := by
+    have hX₂_DinvC : ∀ i j, (X₂.Dblock⁻¹ * X₂.Cblock) i j ∈ Λ.odd := by
       rw [hX₂_eq_N]
       exact hDinvCN
-    have hX₂_Schur : ∀ i j, (schurComplementD X₂ hX₂_D) i j ∈ A.even := by
+    have hX₂_Schur : ∀ i j, (schurComplementD X₂ hX₂_D) i j ∈ Λ.even := by
       -- schurComplementD X₂ = schurComplementD N (the matrix blocks are equal)
       -- schurComplementD M hD = M.A - M.B * M.D⁻¹ * M.C only depends on the blocks
       intro i j
@@ -2769,7 +2997,7 @@ theorem SuperMatrix.ber_mul {R : Type*} [CommRing R] {A : FieldSuperAlgebra R}
   -- ═══════════════════════════════════════════════════════════════════════════
 
   -- Need to reconcile hX₅_D with hMND
-  have hMN_D_eq : (M * N).Dblock.det ≠ 0 := hMND
+  have hMN_D_eq : Λ.IsInvertible (M * N).Dblock.det := hMND
 
   -- X₅ = M * N, so we can convert
   calc (M * N).ber hMND
