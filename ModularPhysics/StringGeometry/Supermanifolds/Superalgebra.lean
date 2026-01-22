@@ -1,6 +1,7 @@
 import Mathlib.Algebra.Ring.Basic
 import Mathlib.Algebra.Module.Basic
 import Mathlib.Algebra.Algebra.Basic
+import Mathlib.Algebra.Algebra.Rat
 import Mathlib.LinearAlgebra.ExteriorAlgebra.Basic
 import Mathlib.RingTheory.GradedAlgebra.Basic
 import Mathlib.Data.Real.Basic
@@ -781,6 +782,47 @@ theorem even_inv_even (x : Λ.carrier) (hx : Λ.IsInvertible x) (heven : x ∈ �
 
   rw [hy_eq_z]
   exact hz_even
+
+/-! ### Rational Algebra Structure
+
+For a Grassmann algebra over a field k with characteristic zero, the carrier
+inherits an `Algebra ℚ` structure. This is essential for using exponential
+and logarithm identities that require rational coefficients.
+
+The `Algebra ℚ Λ.carrier` structure is obtained by composing:
+1. `Algebra ℚ k` (from `Rat._root_.DivisionRing.toRatAlgebra` when k has CharZero)
+2. `Algebra k Λ.carrier` (from the GrassmannAlgebra structure)
+
+This composition gives `Algebra ℚ Λ.carrier` via `Algebra.compHom`.
+-/
+
+/-- A Grassmann algebra over a CharZero field has `Algebra ℚ` structure on its carrier.
+    This is the composition of `Algebra ℚ k` and `Algebra k Λ.carrier`. -/
+noncomputable instance ratAlgebra [CharZero k] : Algebra ℚ Λ.carrier :=
+  -- For Field k with CharZero k, we have Algebra ℚ k from DivisionRing.toRatAlgebra
+  -- Compose with Algebra k Λ.carrier to get Algebra ℚ Λ.carrier
+  Algebra.compHom Λ.carrier (algebraMap ℚ k)
+
+/-- The scalar tower ℚ → k → Λ.carrier holds for CharZero fields.
+    This ensures that `(q : ℚ) • (c : k) • x = (q * c : k) • x` for x ∈ Λ.carrier. -/
+instance isScalarTower_rat [CharZero k] : IsScalarTower ℚ k Λ.carrier where
+  smul_assoc q c x := by
+    -- q • (c • x) = (q • c) • x
+    -- LHS: q • (c • x) = algebraMap ℚ Λ.carrier q * (algebraMap k Λ.carrier c * x)
+    -- RHS: (q • c) • x = algebraMap k Λ.carrier (q • c) * x
+    --                  = algebraMap k Λ.carrier (algebraMap ℚ k q * c) * x
+    simp only [Algebra.smul_def]
+    rw [← mul_assoc]
+    congr 1
+    -- Need: algebraMap k Λ.carrier (algebraMap ℚ k q * c) = algebraMap ℚ Λ.carrier q * algebraMap k Λ.carrier c
+    rw [(algebraMap k Λ.carrier).map_mul]
+    -- algebraMap ℚ Λ.carrier q = algebraMap k Λ.carrier (algebraMap ℚ k q) by definition of compHom
+    rfl
+
+/-- In a Grassmann algebra over a CharZero field, the algebraMap from ℚ factors
+    through the base field k. -/
+theorem algebraMap_rat_eq [CharZero k] (q : ℚ) :
+    algebraMap ℚ Λ.carrier q = algebraMap k Λ.carrier (algebraMap ℚ k q) := rfl
 
 end GrassmannAlgebra
 
