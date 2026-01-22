@@ -39,7 +39,7 @@ open Supermanifolds
 
     We use GrassmannAlgebra (where the carrier IS a field) instead of SuperAlgebra
     with a separate [Field Λ.carrier] hypothesis to avoid typeclass diamonds. -/
-structure SuperMatrix {k : Type*} [Field k] (Λ : GrassmannAlgebra k) (n m : ℕ) where
+structure SuperMatrix {k : Type*} [Field k] [CharZero k] (Λ : GrassmannAlgebra k) (n m : ℕ) where
   /-- Even-even block (n×n) with entries in Λ.even -/
   Ablock : Matrix (Fin n) (Fin n) Λ.carrier
   /-- Even-odd block (n×m) with entries in Λ.odd -/
@@ -59,7 +59,7 @@ structure SuperMatrix {k : Type*} [Field k] (Λ : GrassmannAlgebra k) (n m : ℕ
 
 namespace SuperMatrix
 
-variable {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n m : ℕ}
+variable {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k} {n m : ℕ}
 
 /-- Extensionality for SuperMatrix -/
 @[ext]

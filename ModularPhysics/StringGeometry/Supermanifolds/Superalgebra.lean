@@ -306,56 +306,90 @@ that Λ is a field.
 
 /-- A Grassmann algebra over a base field k.
 
-    This is the mathematically correct structure for supermatrix theory.
-    Unlike `FieldSuperAlgebra`, this does NOT assume the carrier is a field.
+    **Mathematical Structure**: Λ = Λ₀ ⊕ Λ₁ where:
+    - Λ₀ (even part) is a COMMUTATIVE subalgebra
+    - Λ₁ (odd part) anticommutes: θη = -ηθ for θ, η ∈ Λ₁
+    - The full algebra Λ is NOT commutative
 
-    Key components:
-    - `baseField`: The field k (e.g., ℂ) embedded in the even part
-    - `body`: The projection Λ → k extracting the constant term
-    - Invertibility is determined by `body x ≠ 0`, not `x ≠ 0`
+    **Implementation**: We provide TWO carrier types:
+    - `carrier`: The full algebra Λ with `Ring` structure (non-commutative)
+    - `evenCarrier`: The even part Λ₀ with `CommRing` structure (commutative)
+
+    This separation is essential because:
+    - Mathlib's `Matrix.det` requires `CommRing`
+    - All determinant computations involve ONLY even elements
+    - We need `CommRing` for the Berezinian formula
+
+    The `SuperCommutative` typeclass enforces anticommutativity of odd elements.
+
+    **Invertibility**: An element x ∈ Λ₀ is invertible iff `body x ≠ 0` in k.
 
     Example: For Λ = ℂ[θ₁, θ₂]:
-    - body(3 + 2θ₁θ₂) = 3 ∈ ℂ, so 3 + 2θ₁θ₂ is invertible
-    - body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible (even though θ₁θ₂ ≠ 0) -/
-structure GrassmannAlgebra (k : Type*) [Field k] where
-  /-- The full Grassmann algebra Λ -/
+    - body(3 + 2θ₁θ₂) = 3 ∈ ℂ, so 3 + 2θ₁θ₂ is invertible in Λ₀
+    - body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible (even though θ₁θ₂ ≠ 0)
+    - θ₁ ∈ Λ₁ is odd, lives in carrier but not in evenCarrier -/
+structure GrassmannAlgebra (k : Type*) [Field k] [CharZero k] where
+  /-- The full Grassmann algebra Λ = Λ₀ ⊕ Λ₁ (non-commutative when Λ₁ ≠ 0) -/
   carrier : Type*
-  /-- Ring structure on carrier (NOT a field!) -/
-  [ring : CommRing carrier]
+  /-- Ring structure on the full algebra (NOT CommRing - odd elements anticommute) -/
+  [carrierRing : Ring carrier]
   /-- k embeds into Λ -/
-  [algebra : Algebra k carrier]
-  /-- Even subspace Λ₀ -/
+  [carrierAlgebra : Algebra k carrier]
+  /-- The even part Λ₀ as a separate type with CommRing structure.
+      This is where determinants are computed. -/
+  evenCarrier : Type*
+  /-- CommRing structure on the even part (essential for Matrix.det) -/
+  [evenRing : CommRing evenCarrier]
+  /-- k embeds into Λ₀ -/
+  [evenAlgebra : Algebra k evenCarrier]
+  /-- Embedding of even part into full algebra -/
+  evenToCarrier : evenCarrier →+* carrier
+  /-- The embedding is injective -/
+  evenToCarrier_injective : Function.Injective evenToCarrier
+  /-- The embedding preserves the k-algebra structure -/
+  evenToCarrier_algebraMap : ∀ c : k, evenToCarrier (algebraMap k evenCarrier c) = algebraMap k carrier c
+  /-- Even submodule (image of evenCarrier in carrier) -/
   even : Submodule k carrier
+  /-- Every element of even comes from evenCarrier -/
+  even_mem_iff : ∀ x : carrier, x ∈ even ↔ ∃ y : evenCarrier, evenToCarrier y = x
   /-- Odd subspace Λ₁ -/
   odd : Submodule k carrier
-  /-- The body map: projection to the constant (k) part.
+  /-- The body map on even part: projection to the constant (k) part.
       For x = c + n where c ∈ k and n is nilpotent, body(x) = c. -/
-  body : carrier → k
+  body : evenCarrier → k
   /-- body is a k-algebra homomorphism -/
-  body_algebraMap : ∀ c : k, body (algebraMap k carrier c) = c
+  body_algebraMap : ∀ c : k, body (algebraMap k evenCarrier c) = c
   body_add : ∀ x y, body (x + y) = body x + body y
   body_mul : ∀ x y, body (x * y) = body x * body y
   body_one : body 1 = 1
-  /-- Nilpotent part: x - body(x) is nilpotent -/
-  nilpotent_part : ∀ x : carrier, ∃ N : ℕ, (x - algebraMap k carrier (body x))^(N + 1) = 0
-  /-- Grading properties -/
+  /-- Nilpotent part: x - body(x) is nilpotent in evenCarrier -/
+  nilpotent_part : ∀ x : evenCarrier, ∃ N : ℕ, (x - algebraMap k evenCarrier (body x))^(N + 1) = 0
+  /-- Odd elements are nilpotent in carrier.
+      In a finite-dimensional Grassmann algebra, any odd element θ satisfies θ² = 0
+      due to anticommutativity (when combined with SuperCommutative). -/
+  odd_nilpotent : ∀ x : carrier, x ∈ odd → ∃ N : ℕ, x^(N + 1) = 0
+  /-- Grading: direct sum decomposition -/
   direct_sum : ∀ v : carrier, ∃ (v₀ : even) (v₁ : odd), v = v₀.val + v₁.val
+  /-- Grading: even × even → even -/
   even_mul_even : ∀ a b : carrier, a ∈ even → b ∈ even → a * b ∈ even
+  /-- Grading: odd × odd → even -/
   odd_mul_odd : ∀ a b : carrier, a ∈ odd → b ∈ odd → a * b ∈ even
+  /-- Grading: even × odd → odd -/
   even_mul_odd : ∀ a b : carrier, a ∈ even → b ∈ odd → a * b ∈ odd
+  /-- Grading: odd × even → odd -/
   odd_mul_even : ∀ a b : carrier, a ∈ odd → b ∈ even → a * b ∈ odd
-  /-- Odd elements have zero body -/
-  body_odd_zero : ∀ x : carrier, x ∈ odd → body x = 0
 
-attribute [instance] GrassmannAlgebra.ring GrassmannAlgebra.algebra
+attribute [instance] GrassmannAlgebra.carrierRing GrassmannAlgebra.carrierAlgebra
+attribute [instance] GrassmannAlgebra.evenRing GrassmannAlgebra.evenAlgebra
 
 namespace GrassmannAlgebra
 
-variable {k : Type*} [Field k] (Λ : GrassmannAlgebra k)
+variable {k : Type*} [Field k] [CharZero k] (Λ : GrassmannAlgebra k)
 
-/-- Invertible elements have inverses (existence) -/
-private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
-    ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1 := by
+/-- Invertible elements in evenCarrier have inverses (existence).
+    This works on evenCarrier (CommRing) where determinants are computed. -/
+private theorem invertible_has_inverse (x : Λ.evenCarrier) (hx : Λ.body x ≠ 0) :
+    ∃ y : Λ.evenCarrier, x * y = 1 ∧ y * x = 1 := by
   -- The proof constructs the inverse via geometric series:
   -- Let c = body(x) ≠ 0, n = x - c (nilpotent with n^(N+1) = 0)
   -- Then x = c(1 + n/c) and x⁻¹ = c⁻¹ · Σₖ₌₀ᴺ (-n/c)ᵏ
@@ -364,11 +398,11 @@ private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
   -- Get the nilpotency bound for n = x - c
   obtain ⟨N, hnil⟩ := Λ.nilpotent_part x
   -- Define n = x - c (nilpotent part)
-  let n := x - algebraMap k Λ.carrier c
+  let n := x - algebraMap k Λ.evenCarrier c
   have hn_nil : n^(N + 1) = 0 := hnil
   let c_inv := c⁻¹
   -- Key identity: x = algebraMap c + n
-  have hx_decomp : x = algebraMap k Λ.carrier c + n := by
+  have hx_decomp : x = algebraMap k Λ.evenCarrier c + n := by
     simp only [n]
     ring
   -- Define r = c⁻¹ • n (the "ratio" n/c as a scalar action)
@@ -468,9 +502,9 @@ private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
     rw [← this]; exact h_geom
   constructor
   · -- x * y = 1
-    calc x * y = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
-      _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
-      _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+    calc x * y = (algebraMap k Λ.evenCarrier c + n) * (c_inv • s) := by rw [hx_decomp]
+      _ = c_inv • ((algebraMap k Λ.evenCarrier c + n) * s) := by rw [mul_smul_comm]
+      _ = c_inv • (algebraMap k Λ.evenCarrier c * s + n * s) := by rw [add_mul]
       _ = c_inv • (c • s + n * s) := by
         congr 1
         rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
@@ -487,9 +521,9 @@ private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
       _ = 1 := by rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ hc, one_smul]
   · -- y * x = 1 (by commutativity of Λ.carrier)
     rw [mul_comm]
-    calc x * y = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
-      _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
-      _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
+    calc x * y = (algebraMap k Λ.evenCarrier c + n) * (c_inv • s) := by rw [hx_decomp]
+      _ = c_inv • ((algebraMap k Λ.evenCarrier c + n) * s) := by rw [mul_smul_comm]
+      _ = c_inv • (algebraMap k Λ.evenCarrier c * s + n * s) := by rw [add_mul]
       _ = c_inv • (c • s + n * s) := by
         congr 1
         rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
@@ -503,30 +537,30 @@ private theorem invertible_has_inverse (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
       _ = c_inv • (c • 1) := by rw [h4]
       _ = 1 := by rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ hc, one_smul]
 
-/-- Inverse operation on a Grassmann algebra carrier.
+/-- Inverse operation on the even part of a Grassmann algebra.
     For x with body(x) ≠ 0, this gives the actual inverse via geometric series.
     For x with body(x) = 0 (non-invertible), this returns 0 by convention.
 
-    This allows using `x⁻¹` notation and matrix inverse operations. -/
-noncomputable instance instInv : Inv Λ.carrier where
+    This allows using `x⁻¹` notation and matrix inverse operations on evenCarrier. -/
+noncomputable instance instInvEven : Inv Λ.evenCarrier where
   inv x := @dite _ (Λ.body x ≠ 0) (Classical.dec _)
     (fun h => Classical.choose (invertible_has_inverse Λ x h))
     (fun _ => 0)
 
-/-- x * x⁻¹ = 1 for invertible x -/
-theorem mul_inv_cancel (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
+/-- x * x⁻¹ = 1 for invertible x in evenCarrier -/
+theorem mul_inv_cancel (x : Λ.evenCarrier) (hx : Λ.body x ≠ 0) :
     x * x⁻¹ = 1 := by
   have hinv : x⁻¹ = Classical.choose (invertible_has_inverse Λ x hx) := by
-    unfold Inv.inv instInv
+    unfold Inv.inv instInvEven
     exact dif_pos hx
   rw [hinv]
   exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).1
 
-/-- x⁻¹ * x = 1 for invertible x -/
-theorem inv_mul_cancel (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
+/-- x⁻¹ * x = 1 for invertible x in evenCarrier -/
+theorem inv_mul_cancel (x : Λ.evenCarrier) (hx : Λ.body x ≠ 0) :
     x⁻¹ * x = 1 := by
   have hinv : x⁻¹ = Classical.choose (invertible_has_inverse Λ x hx) := by
-    unfold Inv.inv instInv
+    unfold Inv.inv instInvEven
     exact dif_pos hx
   rw [hinv]
   exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).2
@@ -535,8 +569,8 @@ theorem inv_mul_cancel (x : Λ.carrier) (hx : Λ.body x ≠ 0) :
     This forgets the body map and nilpotency structure, keeping only the grading. -/
 def toSuperAlgebra : SuperAlgebra k where
   carrier := Λ.carrier
-  ring := Λ.ring.toRing
-  algebra := Λ.algebra
+  ring := Λ.carrierRing
+  algebra := Λ.carrierAlgebra
   even := Λ.even
   odd := Λ.odd
   direct_sum := Λ.direct_sum
@@ -545,12 +579,17 @@ def toSuperAlgebra : SuperAlgebra k where
   even_mul_odd := Λ.even_mul_odd
   odd_mul_even := Λ.odd_mul_even
 
-/-- An element is invertible iff its body is nonzero in k.
+/-- An even element is invertible iff its body is nonzero in k.
     This is the CORRECT notion of invertibility for Grassmann algebras.
 
-    Example: θ₁θ₂ ≠ 0 in Λ, but body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible.
+    Invertibility is defined on evenCarrier (the commutative part) because:
+    - Determinants are computed on matrices with even entries
+    - The body map is defined on evenCarrier
+    - The inverse of an even element is even
+
+    Example: θ₁θ₂ ∈ Λ₀ with body(θ₁θ₂) = 0, so θ₁θ₂ is NOT invertible.
     In contrast, 1 + θ₁θ₂ has body(1 + θ₁θ₂) = 1 ≠ 0, so it IS invertible. -/
-def IsInvertible (x : Λ.carrier) : Prop := Λ.body x ≠ 0
+def IsInvertible (x : Λ.evenCarrier) : Prop := Λ.body x ≠ 0
 
 /-- 1 is invertible (body(1) = 1 ≠ 0) -/
 theorem one_invertible : Λ.IsInvertible 1 := by
@@ -559,7 +598,7 @@ theorem one_invertible : Λ.IsInvertible 1 := by
   exact one_ne_zero
 
 /-- Product of invertible elements is invertible -/
-theorem mul_invertible (x y : Λ.carrier)
+theorem mul_invertible (x y : Λ.evenCarrier)
     (hx : Λ.IsInvertible x) (hy : Λ.IsInvertible y) :
     Λ.IsInvertible (x * y) := by
   unfold IsInvertible at *
@@ -568,34 +607,27 @@ theorem mul_invertible (x y : Λ.carrier)
 
 /-- Scalars from k are invertible iff nonzero in k -/
 theorem scalar_invertible (c : k) :
-    Λ.IsInvertible (algebraMap k Λ.carrier c) ↔ c ≠ 0 := by
+    Λ.IsInvertible (algebraMap k Λ.evenCarrier c) ↔ c ≠ 0 := by
   unfold IsInvertible
   rw [Λ.body_algebraMap]
 
-/-- The inverse of an invertible element, computed via geometric series.
+/-- The inverse of an invertible element in evenCarrier, computed via geometric series.
     For x = c + n where body(x) = c ≠ 0 and n is nilpotent:
     x⁻¹ = c⁻¹ · (1 - n/c + (n/c)² - ... ) -/
-noncomputable def inv (x : Λ.carrier) (hx : Λ.IsInvertible x) : Λ.carrier :=
-  -- This would be defined via the geometric series
-  -- For now, we leave it abstract
-  Classical.choose (invertible_has_inverse x hx)
-where
-  /-- Invertible elements have inverses (existence) -/
-  invertible_has_inverse (x : Λ.carrier) (hx : Λ.IsInvertible x) :
-      ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1 :=
-    GrassmannAlgebra.invertible_has_inverse Λ x hx
+noncomputable def inv (x : Λ.evenCarrier) (hx : Λ.IsInvertible x) : Λ.evenCarrier :=
+  Classical.choose (invertible_has_inverse Λ x hx)
 
-/-- x * inv(x) = 1 for invertible x -/
-theorem mul_inv (x : Λ.carrier) (hx : Λ.IsInvertible x) :
+/-- x * inv(x) = 1 for invertible x in evenCarrier -/
+theorem mul_inv (x : Λ.evenCarrier) (hx : Λ.IsInvertible x) :
     x * Λ.inv x hx = 1 := by
-  exact (Classical.choose_spec (inv.invertible_has_inverse Λ x hx)).1
+  exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).1
 
-/-- inv(x) * x = 1 for invertible x -/
-theorem inv_mul (x : Λ.carrier) (hx : Λ.IsInvertible x) :
+/-- inv(x) * x = 1 for invertible x in evenCarrier -/
+theorem inv_mul (x : Λ.evenCarrier) (hx : Λ.IsInvertible x) :
     Λ.inv x hx * x = 1 := by
-  exact (Classical.choose_spec (inv.invertible_has_inverse Λ x hx)).2
+  exact (Classical.choose_spec (invertible_has_inverse Λ x hx)).2
 
-/-- **Key theorem**: In a Grassmann algebra, `IsUnit x ↔ body(x) ≠ 0`.
+/-- **Key theorem**: In a Grassmann algebra evenCarrier, `IsUnit x ↔ body(x) ≠ 0`.
 
     This connects Mathlib's `IsUnit` (existence of inverse) to our
     `IsInvertible` (body ≠ 0).
@@ -603,7 +635,7 @@ theorem inv_mul (x : Λ.carrier) (hx : Λ.IsInvertible x) :
     - Forward: If x has an inverse y, then body(x)·body(y) = body(1) = 1,
       so body(x) ≠ 0.
     - Backward: If body(x) ≠ 0, construct inverse via geometric series. -/
-theorem isUnit_iff_body_ne_zero (x : Λ.carrier) :
+theorem isUnit_iff_body_ne_zero (x : Λ.evenCarrier) :
     IsUnit x ↔ Λ.IsInvertible x := by
   constructor
   · -- IsUnit → body ≠ 0
@@ -612,7 +644,7 @@ theorem isUnit_iff_body_ne_zero (x : Λ.carrier) :
     rw [← hu]
     -- u * u⁻¹ = 1, so body(u) * body(u⁻¹) = 1
     have h : Λ.body u * Λ.body u.inv = 1 := by
-      have hmul : (u : Λ.carrier) * u.inv = 1 := Units.mul_inv u
+      have hmul : (u : Λ.evenCarrier) * u.inv = 1 := Units.mul_inv u
       rw [← Λ.body_mul, hmul]
       exact Λ.body_one
     exact left_ne_zero_of_mul_eq_one h
@@ -620,168 +652,125 @@ theorem isUnit_iff_body_ne_zero (x : Λ.carrier) :
     intro hx
     exact ⟨⟨x, Λ.inv x hx, Λ.mul_inv x hx, Λ.inv_mul x hx⟩, rfl⟩
 
-/-- 1⁻¹ = 1 in a Grassmann algebra (since body(1) = 1 ≠ 0). -/
+/-- 1⁻¹ = 1 in evenCarrier (since body(1) = 1 ≠ 0). -/
 @[simp]
-theorem one_inv : (1 : Λ.carrier)⁻¹ = 1 := by
-  have h1 : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
-  have hmul : (1 : Λ.carrier) * (1 : Λ.carrier)⁻¹ = 1 := Λ.mul_inv_cancel 1 h1
+theorem one_inv_even : (1 : Λ.evenCarrier)⁻¹ = 1 := by
+  have h1 : Λ.body (1 : Λ.evenCarrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+  have hmul : (1 : Λ.evenCarrier) * (1 : Λ.evenCarrier)⁻¹ = 1 := Λ.mul_inv_cancel 1 h1
   rw [one_mul] at hmul
   exact hmul
 
-/-- 1 * 1⁻¹ = 1 in a Grassmann algebra. -/
+/-- 1 * 1⁻¹ = 1 in evenCarrier. -/
 @[simp]
-theorem one_mul_one_inv : (1 : Λ.carrier) * (1 : Λ.carrier)⁻¹ = 1 := by
-  have h1 : Λ.body (1 : Λ.carrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
+theorem one_mul_one_inv_even : (1 : Λ.evenCarrier) * (1 : Λ.evenCarrier)⁻¹ = 1 := by
+  have h1 : Λ.body (1 : Λ.evenCarrier) ≠ 0 := by rw [Λ.body_one]; exact one_ne_zero
   exact Λ.mul_inv_cancel 1 h1
 
-/-- Determinant invertibility: det(M) is a unit iff body(det(M)) ≠ 0.
+/-- Determinant invertibility: det(M) over evenCarrier is a unit iff body(det(M)) ≠ 0.
     This is the correct condition for Berezinian to be well-defined. -/
-theorem det_isUnit_iff {n : ℕ} (M : Matrix (Fin n) (Fin n) Λ.carrier) :
-    IsUnit M.det ↔ Λ.body M.det ≠ 0 :=
+theorem det_isUnit_iff {n : ℕ} (M : Matrix (Fin n) (Fin n) Λ.evenCarrier) :
+    IsUnit M.det ↔ Λ.IsInvertible M.det :=
   Λ.isUnit_iff_body_ne_zero M.det
 
-/-- The inverse of an invertible even element is even.
-    In a Grassmann algebra, if x ∈ Λ₀ and body(x) ≠ 0, then x⁻¹ ∈ Λ₀.
+/-! ### Lifting from carrier to evenCarrier
 
-    Proof idea: Write x = c + n where c = body(x) ∈ k and n is nilpotent even.
-    Then x⁻¹ = c⁻¹ · (1 - n/c + (n/c)² - ...) is a finite sum of even elements. -/
-theorem even_inv_even (x : Λ.carrier) (hx : Λ.IsInvertible x) (heven : x ∈ Λ.even)
-    (h1 : (1 : Λ.carrier) ∈ Λ.even) (hscalar : ∀ c : k, algebraMap k Λ.carrier c ∈ Λ.even) :
-    Λ.inv x hx ∈ Λ.even := by
-  -- The inverse y satisfies x * y = 1
-  -- We show the constructed inverse is even
-  have hinv_spec := Classical.choose_spec (inv.invertible_has_inverse Λ x hx)
+For elements x ∈ Λ.even (the even submodule of carrier), we can lift them to evenCarrier.
+This is essential for computing determinants, which require CommRing. -/
 
-  let c := Λ.body x
-  have hc : c ≠ 0 := hx
-  obtain ⟨N, hnil⟩ := Λ.nilpotent_part x
-  let n := x - algebraMap k Λ.carrier c
-  let c_inv := c⁻¹
-  let s := ∑ i ∈ Finset.range (N + 1), ((-1 : k)^i * c_inv^i) • n^i
-  let z := c_inv • s
+/-- Lift an element of carrier that is in Λ.even to evenCarrier.
+    This is the inverse of evenToCarrier restricted to even elements. -/
+noncomputable def liftEven (x : Λ.carrier) (hx : x ∈ Λ.even) : Λ.evenCarrier :=
+  Classical.choose ((Λ.even_mem_iff x).mp hx)
 
-  -- z is even: n = x - algebraMap c ∈ even (since x ∈ even, algebraMap c ∈ even)
-  have hn_even : n ∈ Λ.even := Λ.even.sub_mem heven (hscalar c)
+/-- The lifted element maps back to the original under evenToCarrier. -/
+theorem liftEven_spec (x : Λ.carrier) (hx : x ∈ Λ.even) :
+    Λ.evenToCarrier (Λ.liftEven x hx) = x :=
+  Classical.choose_spec ((Λ.even_mem_iff x).mp hx)
 
-  -- nⁱ ∈ even by induction
-  have hn_pow_even : ∀ i, n^i ∈ Λ.even := by
-    intro i
-    induction i with
-    | zero => simp only [pow_zero]; exact h1
-    | succ i ih => rw [pow_succ]; exact Λ.even_mul_even _ _ ih hn_even
+/-- Lifting preserves addition (when both elements are even). -/
+theorem liftEven_add (x y : Λ.carrier) (hx : x ∈ Λ.even) (hy : y ∈ Λ.even) :
+    Λ.liftEven (x + y) (Λ.even.add_mem hx hy) = Λ.liftEven x hx + Λ.liftEven y hy := by
+  apply Λ.evenToCarrier_injective
+  rw [Λ.evenToCarrier.map_add, liftEven_spec, liftEven_spec, liftEven_spec]
 
-  -- s ∈ even (sum of even elements, scaled by scalars)
-  have hs_even : s ∈ Λ.even := by
-    apply Λ.even.sum_mem
-    intro i _
-    rw [Algebra.smul_def]
-    exact Λ.even_mul_even _ _ (hscalar _) (hn_pow_even i)
+/-- Lifting preserves multiplication (when both elements are even). -/
+theorem liftEven_mul (x y : Λ.carrier) (hx : x ∈ Λ.even) (hy : y ∈ Λ.even) :
+    Λ.liftEven (x * y) (Λ.even_mul_even x y hx hy) = Λ.liftEven x hx * Λ.liftEven y hy := by
+  apply Λ.evenToCarrier_injective
+  rw [Λ.evenToCarrier.map_mul, liftEven_spec, liftEven_spec, liftEven_spec]
 
-  -- z = c_inv • s ∈ even
-  have hz_even : z ∈ Λ.even := by
-    simp only [z]
-    rw [Algebra.smul_def]
-    exact Λ.even_mul_even _ _ (hscalar c_inv) hs_even
+/-- 1 is even (since algebraMap 1 = 1 and algebraMap lands in even). -/
+theorem one_mem_even (h : (1 : Λ.carrier) ∈ Λ.even) : Λ.liftEven 1 h = 1 := by
+  apply Λ.evenToCarrier_injective
+  rw [liftEven_spec, Λ.evenToCarrier.map_one]
 
-  -- z is an inverse of x - we prove this directly using the geometric series argument
-  have hz_inv : x * z = 1 ∧ z * x = 1 := by
-    have hx_decomp : x = algebraMap k Λ.carrier c + n := by simp only [n]; ring
-    -- Key identity: (1 + r) * s = 1 where r = c_inv • n
-    let r := c_inv • n
-    have h_geom : (1 + r) * s = 1 := by
-      simp only [s, r, add_mul, one_mul, Finset.mul_sum]
-      have h_r_term : ∀ i, c_inv • n * (((-1 : k)^i * c_inv^i) • n^i) =
-          ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) := by
-        intro i; rw [smul_mul_smul_comm]; congr 1
-        · rw [pow_succ c_inv i]; ring
-        · rw [pow_succ n i]; ring
-      -- Split the combined sum into two sums
-      have h_split : ∀ i, ((-1 : k)^i * c_inv^i) • n^i + c_inv • n * (((-1 : k)^i * c_inv^i) • n^i) =
-          ((-1 : k)^i * c_inv^i) • n^i + ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) := by
-        intro i; rw [h_r_term]
-      rw [Finset.sum_congr rfl (fun i _ => h_split i)]
-      -- Now split the sum of (a + b) into sum of a + sum of b
-      rw [Finset.sum_add_distrib]
-      rw [Finset.sum_range_succ' (fun i => ((-1 : k)^i * c_inv^i) • n^i)]
-      simp only [pow_zero, one_mul, one_smul]
-      rw [Finset.sum_range_succ (fun i => ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))]
-      have h_cancel : ∀ i, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) +
-          ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) = 0 := by
-        intro i; rw [← add_smul]
-        have hcoef : (-1 : k)^(i+1) * c_inv^(i+1) + (-1)^i * c_inv^(i+1) = 0 := by
-          rw [← add_mul, pow_succ]; ring
-        rw [hcoef, zero_smul]
-      have h_paired : (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
-          (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1)) = 0 := by
-        rw [← Finset.sum_add_distrib]
-        simp only [h_cancel, Finset.sum_const_zero]
-      have h_neg : ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) =
-          -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by
-        rw [← neg_smul]; congr 1; rw [pow_succ]; ring
-      have h_nil : n^(N+1) = 0 := hnil
-      calc (∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1) + 1) +
-           (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1) +
-            ((-1 : k)^N * c_inv^(N+1)) • n^(N+1))
-        = 1 + ((∑ i ∈ Finset.range N, ((-1 : k)^(i+1) * c_inv^(i+1)) • n^(i+1)) +
-           (∑ i ∈ Finset.range N, ((-1 : k)^i * c_inv^(i+1)) • n^(i+1))) +
-            ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
-        _ = 1 + 0 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by rw [h_paired]
-        _ = 1 + ((-1 : k)^N * c_inv^(N+1)) • n^(N+1) := by ring
-        _ = 1 + -(((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1)) := by rw [h_neg]
-        _ = 1 - ((-1 : k)^(N+1) * c_inv^(N+1)) • n^(N+1) := by ring
-        _ = 1 - 0 := by rw [h_nil, smul_zero]
-        _ = 1 := by ring
-    have h4 : s + r * s = 1 := by
-      have heq : (1 + r) * s = 1 * s + r * s := add_mul 1 r s
-      rw [one_mul] at heq
-      rw [← heq]; exact h_geom
-    have hn_eq : n = c • r := by
-      simp only [r]
-      rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ hc, one_smul]
-    have h3 : n * s = c • (r * s) := by rw [hn_eq, smul_mul_assoc]
-    have h_cinv_c : c_inv * c = 1 := inv_mul_cancel₀ hc
-    constructor
-    · -- x * z = 1
-      calc x * z = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
-        _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
-        _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
-        _ = c_inv • (c • s + n * s) := by
-          congr 1
-          rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
-        _ = c_inv • (c • s + c • (r * s)) := by rw [h3]
-        _ = c_inv • (c • (s + r * s)) := by rw [← smul_add]
-        _ = c_inv • (c • 1) := by rw [h4]
-        _ = (c_inv * c) • (1 : Λ.carrier) := by rw [← smul_eq_mul, smul_assoc]
-        _ = (1 : k) • (1 : Λ.carrier) := by rw [h_cinv_c]
-        _ = 1 := one_smul k 1
-    · -- z * x = 1 by commutativity
-      rw [mul_comm]
-      calc x * z = (algebraMap k Λ.carrier c + n) * (c_inv • s) := by rw [hx_decomp]
-        _ = c_inv • ((algebraMap k Λ.carrier c + n) * s) := by rw [mul_smul_comm]
-        _ = c_inv • (algebraMap k Λ.carrier c * s + n * s) := by rw [add_mul]
-        _ = c_inv • (c • s + n * s) := by
-          congr 1
-          rw [Algebra.algebraMap_eq_smul_one, smul_mul_assoc, one_mul]
-        _ = c_inv • (c • s + c • (r * s)) := by rw [h3]
-        _ = c_inv • (c • (s + r * s)) := by rw [← smul_add]
-        _ = c_inv • (c • 1) := by rw [h4]
-        _ = (c_inv * c) • (1 : Λ.carrier) := by rw [← smul_eq_mul, smul_assoc]
-        _ = (1 : k) • (1 : Λ.carrier) := by rw [h_cinv_c]
-        _ = 1 := one_smul k 1
+/-- 0 is even (since 0 is in every submodule). -/
+theorem zero_mem_even : (0 : Λ.carrier) ∈ Λ.even := Λ.even.zero_mem
 
-  -- Actually, we need to show z equals the constructed inverse. But by uniqueness...
-  -- In a ring, if x * y = 1 and y * x = 1 and x * z = 1 and z * x = 1, then y = z
-  -- y = y * 1 = y * (x * z) = (y * x) * z = 1 * z = z
-  have hy_eq_z : Λ.inv x hx = z := by
-    have hy_spec : x * (Λ.inv x hx) = 1 ∧ (Λ.inv x hx) * x = 1 := hinv_spec
-    calc Λ.inv x hx = (Λ.inv x hx) * 1 := (mul_one _).symm
-      _ = (Λ.inv x hx) * (x * z) := by rw [hz_inv.1]
-      _ = ((Λ.inv x hx) * x) * z := (mul_assoc _ x z).symm
-      _ = 1 * z := by rw [hy_spec.2]
-      _ = z := one_mul z
+/-- Lifting 0 gives 0. -/
+theorem liftEven_zero : Λ.liftEven 0 Λ.zero_mem_even = 0 := by
+  apply Λ.evenToCarrier_injective
+  rw [liftEven_spec, Λ.evenToCarrier.map_zero]
 
-  rw [hy_eq_z]
-  exact hz_even
+/-- Lifting preserves negation. -/
+theorem liftEven_neg (x : Λ.carrier) (hx : x ∈ Λ.even) :
+    Λ.liftEven (-x) (Λ.even.neg_mem hx) = -Λ.liftEven x hx := by
+  apply Λ.evenToCarrier_injective
+  rw [Λ.evenToCarrier.map_neg, liftEven_spec, liftEven_spec]
+
+/-- Lifting preserves subtraction. -/
+theorem liftEven_sub (x y : Λ.carrier) (hx : x ∈ Λ.even) (hy : y ∈ Λ.even) :
+    Λ.liftEven (x - y) (Λ.even.sub_mem hx hy) = Λ.liftEven x hx - Λ.liftEven y hy := by
+  apply Λ.evenToCarrier_injective
+  rw [Λ.evenToCarrier.map_sub, liftEven_spec, liftEven_spec, liftEven_spec]
+
+/-- Lift a matrix with even entries to a matrix over evenCarrier. -/
+noncomputable def liftEvenMatrix {n m : ℕ}
+    (M : Matrix (Fin n) (Fin m) Λ.carrier) (hM : ∀ i j, M i j ∈ Λ.even) :
+    Matrix (Fin n) (Fin m) Λ.evenCarrier :=
+  fun i j => Λ.liftEven (M i j) (hM i j)
+
+/-- The lifted matrix maps back to the original under evenToCarrier. -/
+theorem liftEvenMatrix_spec {n m : ℕ}
+    (M : Matrix (Fin n) (Fin m) Λ.carrier) (hM : ∀ i j, M i j ∈ Λ.even)
+    (i : Fin n) (j : Fin m) :
+    Λ.evenToCarrier ((Λ.liftEvenMatrix M hM) i j) = M i j :=
+  Λ.liftEven_spec (M i j) (hM i j)
+
+/-- Lifting preserves matrix multiplication (when all entries are even). -/
+theorem liftEvenMatrix_mul {n m p : ℕ}
+    (M : Matrix (Fin n) (Fin m) Λ.carrier) (N : Matrix (Fin m) (Fin p) Λ.carrier)
+    (hM : ∀ i j, M i j ∈ Λ.even) (hN : ∀ i j, N i j ∈ Λ.even)
+    (hMN : ∀ i j, (M * N) i j ∈ Λ.even) :
+    Λ.liftEvenMatrix (M * N) hMN = Λ.liftEvenMatrix M hM * Λ.liftEvenMatrix N hN := by
+  ext i j
+  apply Λ.evenToCarrier_injective
+  rw [liftEvenMatrix_spec]
+  simp only [Matrix.mul_apply]
+  rw [map_sum]
+  apply Finset.sum_congr rfl
+  intro k _
+  rw [Λ.evenToCarrier.map_mul, liftEvenMatrix_spec, liftEvenMatrix_spec]
+
+/-- Lifting preserves the identity matrix. -/
+theorem liftEvenMatrix_one {n : ℕ}
+    (hI : ∀ i j, (1 : Matrix (Fin n) (Fin n) Λ.carrier) i j ∈ Λ.even) :
+    Λ.liftEvenMatrix (1 : Matrix (Fin n) (Fin n) Λ.carrier) hI = 1 := by
+  ext i j
+  apply Λ.evenToCarrier_injective
+  rw [liftEvenMatrix_spec]
+  simp only [Matrix.one_apply]
+  split_ifs with h
+  · rw [Λ.evenToCarrier.map_one]
+  · rw [Λ.evenToCarrier.map_zero]
+
+/-! ### Note on Even Inverse
+
+The inverse of an invertible element in evenCarrier is automatically even because
+`inv : Λ.evenCarrier → Λ.evenCarrier`. The type system guarantees this property.
+
+In the old design where inv was on carrier, we needed to prove the inverse of
+an even element is even. Now this is built into the type structure. -/
 
 /-! ### Rational Algebra Structure
 
@@ -808,13 +797,13 @@ noncomputable instance ratAlgebra [CharZero k] : Algebra ℚ Λ.carrier :=
 instance isScalarTower_rat [CharZero k] : IsScalarTower ℚ k Λ.carrier where
   smul_assoc q c x := by
     -- q • (c • x) = (q • c) • x
-    -- LHS: q • (c • x) = algebraMap ℚ Λ.carrier q * (algebraMap k Λ.carrier c * x)
+    -- LHS: q • (c • x) = algebraMap ℚ Λ.carrier q * (algebraMap k Λ.evenCarrier c * x)
     -- RHS: (q • c) • x = algebraMap k Λ.carrier (q • c) * x
     --                  = algebraMap k Λ.carrier (algebraMap ℚ k q * c) * x
     simp only [Algebra.smul_def]
     rw [← mul_assoc]
     congr 1
-    -- Need: algebraMap k Λ.carrier (algebraMap ℚ k q * c) = algebraMap ℚ Λ.carrier q * algebraMap k Λ.carrier c
+    -- Need: algebraMap k Λ.carrier (algebraMap ℚ k q * c) = algebraMap ℚ Λ.carrier q * algebraMap k Λ.evenCarrier c
     rw [(algebraMap k Λ.carrier).map_mul]
     -- algebraMap ℚ Λ.carrier q = algebraMap k Λ.carrier (algebraMap ℚ k q) by definition of compHom
     rfl
@@ -829,22 +818,27 @@ end GrassmannAlgebra
 /-! ## Grassmann Invertibility
 
 These definitions work with the proper `GrassmannAlgebra` structure.
-An element x is invertible iff body(x) ≠ 0 in the base field k.
+An element x ∈ evenCarrier is invertible iff body(x) ≠ 0 in the base field k.
+
+Note: Invertibility is defined on evenCarrier (the commutative part) because:
+- Determinants are computed on matrices with even entries
+- The body map is defined on evenCarrier
+- The inverse of an even element is even (and the type system guarantees this)
 -/
 
-/-- Predicate for invertibility in a Grassmann algebra.
-    An element is invertible if it has an inverse in the algebra.
+/-- Predicate for invertibility in the even part of a Grassmann algebra.
+    An element is invertible if it has an inverse in evenCarrier.
     Equivalent to `Λ.IsInvertible x` (body(x) ≠ 0). -/
-def GrassmannInvertible {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
-    (x : Λ.carrier) : Prop := ∃ y : Λ.carrier, x * y = 1 ∧ y * x = 1
+def GrassmannInvertible {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    (x : Λ.evenCarrier) : Prop := ∃ y : Λ.evenCarrier, x * y = 1 ∧ y * x = 1
 
-/-- Version using IsUnit from Mathlib -/
-def GrassmannIsUnit {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
-    (x : Λ.carrier) : Prop := IsUnit x
+/-- Version using IsUnit from Mathlib on evenCarrier -/
+def GrassmannIsUnit {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    (x : Λ.evenCarrier) : Prop := IsUnit x
 
-/-- Invertible elements are closed under multiplication. -/
-theorem grassmann_inv_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
-    (x y : Λ.carrier) (hx : GrassmannInvertible x) (hy : GrassmannInvertible y) :
+/-- Invertible elements in evenCarrier are closed under multiplication. -/
+theorem grassmann_inv_mul {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    (x y : Λ.evenCarrier) (hx : GrassmannInvertible x) (hy : GrassmannInvertible y) :
     GrassmannInvertible (x * y) := by
   obtain ⟨x', hx1, hx2⟩ := hx
   obtain ⟨y', hy1, hy2⟩ := hy
@@ -861,13 +855,13 @@ theorem grassmann_inv_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k}
     _ = y' * y := by ring
     _ = 1 := hy2
 
-/-- 1 is always invertible. -/
-theorem grassmann_inv_one {k : Type*} [Field k] {Λ : GrassmannAlgebra k} :
-    GrassmannInvertible (1 : Λ.carrier) := ⟨1, one_mul 1, mul_one 1⟩
+/-- 1 is always invertible in evenCarrier. -/
+theorem grassmann_inv_one {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k} :
+    GrassmannInvertible (1 : Λ.evenCarrier) := ⟨1, one_mul 1, mul_one 1⟩
 
-/-- GrassmannInvertible is equivalent to IsInvertible (body ≠ 0). -/
-theorem grassmann_invertible_iff_isInvertible {k : Type*} [Field k] (Λ : GrassmannAlgebra k)
-    (x : Λ.carrier) : GrassmannInvertible x ↔ Λ.IsInvertible x := by
+/-- GrassmannInvertible is equivalent to IsInvertible (body ≠ 0) on evenCarrier. -/
+theorem grassmann_invertible_iff_isInvertible {k : Type*} [Field k] [CharZero k] (Λ : GrassmannAlgebra k)
+    (x : Λ.evenCarrier) : GrassmannInvertible x ↔ Λ.IsInvertible x := by
   constructor
   · -- GrassmannInvertible → body ≠ 0
     intro ⟨y, hxy, _⟩
@@ -880,13 +874,14 @@ theorem grassmann_invertible_iff_isInvertible {k : Type*} [Field k] (Λ : Grassm
     intro hx
     exact ⟨Λ.inv x hx, Λ.mul_inv x hx, Λ.inv_mul x hx⟩
 
-/-- Abbreviation for "determinant is invertible" (has nonzero body). -/
-abbrev DetInvertible {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ}
-    (M : Matrix (Fin n) (Fin n) Λ.carrier) : Prop := Λ.IsInvertible M.det
+/-- Abbreviation for "determinant is invertible" (has nonzero body).
+    Matrices are over evenCarrier since determinants require CommRing. -/
+abbrev DetInvertible {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k} {n : ℕ}
+    (M : Matrix (Fin n) (Fin n) Λ.evenCarrier) : Prop := Λ.IsInvertible M.det
 
 /-- Product of matrices with invertible determinants has invertible determinant. -/
-theorem det_invertible_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ}
-    (M N : Matrix (Fin n) (Fin n) Λ.carrier)
+theorem det_invertible_mul {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k} {n : ℕ}
+    (M N : Matrix (Fin n) (Fin n) Λ.evenCarrier)
     (hM : DetInvertible M) (hN : DetInvertible N) :
     DetInvertible (M * N) := by
   unfold DetInvertible GrassmannAlgebra.IsInvertible at *
@@ -894,8 +889,8 @@ theorem det_invertible_mul {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : 
   exact mul_ne_zero hM hN
 
 /-- Identity matrix has invertible determinant. -/
-theorem det_invertible_one {k : Type*} [Field k] {Λ : GrassmannAlgebra k} {n : ℕ} :
-    DetInvertible (1 : Matrix (Fin n) (Fin n) Λ.carrier) := by
+theorem det_invertible_one {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k} {n : ℕ} :
+    DetInvertible (1 : Matrix (Fin n) (Fin n) Λ.evenCarrier) := by
   unfold DetInvertible GrassmannAlgebra.IsInvertible
   rw [Matrix.det_one, Λ.body_one]
   exact one_ne_zero
