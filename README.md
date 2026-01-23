@@ -39,13 +39,23 @@ ModularPhysics/
 │       ├── RG/
 │       └── BV/
 ├── Papers/
+│   └── GlimmJaffe/
+│       ├── ClusterExpansion/
+│       ├── Griffiths/
+│       ├── Hypercontractivity/
+│       └── ReflectionPositivity/
 └── StringGeometry/
     ├── RiemannSurfaces/
+    │   ├── Helpers/
     │   ├── Algebraic/
+    │   │   └── Helpers/
     │   ├── Analytic/
+    │   │   └── Helpers/
     │   ├── Combinatorial/
+    │   │   └── Helpers/
     │   └── Moduli/
     ├── Supermanifolds/
+    │   └── Helpers/
     └── SuperRiemannSurfaces/
 ```
 
