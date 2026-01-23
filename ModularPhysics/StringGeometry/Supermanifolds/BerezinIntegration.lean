@@ -1,5 +1,5 @@
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
-import ModularPhysics.StringGeometry.Supermanifolds.Helpers.Berezinian
+import ModularPhysics.StringGeometry.Supermanifolds.Helpers.BerezinianMul
 import Mathlib.Analysis.Calculus.ContDiff.Basic
 
 /-!

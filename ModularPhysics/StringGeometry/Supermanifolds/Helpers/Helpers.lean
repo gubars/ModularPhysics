@@ -1,5 +1,5 @@
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.GradedRings
-import ModularPhysics.StringGeometry.Supermanifolds.Helpers.Berezinian
+import ModularPhysics.StringGeometry.Supermanifolds.Helpers.BerezinianMul
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.OddDerivations
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.SchurComplement
 
