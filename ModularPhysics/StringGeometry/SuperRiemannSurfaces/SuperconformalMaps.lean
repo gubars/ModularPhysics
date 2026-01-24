@@ -356,11 +356,11 @@ structure LocalHoloSuperDiff (Λ : GrassmannAlgebra ℂ) where
   /-- Even-valued function h(z), coefficient of θ in θ' -/
   h : GrassmannHolomorphicEven Λ
   /-- Invertibility: body(h(z)) ≠ 0 for all z in the domain.
-      **Placeholder**: Full definition requires specifying the domain. -/
-  h_invertible : True
+      This ensures the θ → θ' map is invertible. -/
+  h_invertible : ∀ z, Λ.body (h.toFunEven z) ≠ 0
   /-- Invertibility: body(f'(z)) ≠ 0 (derivative of f has nonzero body).
-      **Placeholder**: Requires derivative on GrassmannHolomorphicEven. -/
-  f_deriv_invertible : True
+      This ensures the z → z' map is locally invertible. -/
+  f_deriv_invertible : ∀ z, Λ.body (f.derivative.toFunEven z) ≠ 0
 
 /-- The transformed z-coordinate: z' = f(z) + θ · r(z) -/
 noncomputable def LocalHoloSuperDiff.zTransform {Λ : GrassmannAlgebra ℂ}
@@ -383,8 +383,12 @@ noncomputable def LocalHoloSuperDiff.id (Λ : GrassmannAlgebra ℂ) :
   r := GrassmannHolomorphicOdd.zero Λ
   g := GrassmannHolomorphicOdd.zero Λ
   h := GrassmannHolomorphicEven.const Λ 1  -- h(z) = 1, so θ' = 0 + θ·1 = θ
-  h_invertible := trivial
-  f_deriv_invertible := trivial
+  h_invertible := fun _ => by
+    simp only [GrassmannHolomorphicEven.const_toFunEven, Λ.body_algebraMap]
+    exact one_ne_zero
+  f_deriv_invertible := fun _ => by
+    simp only [GrassmannHolomorphicEven.id_derivative_toFunEven, Λ.body_one]
+    exact one_ne_zero
 
 /-!
 ## Local Superconformal Transformations
@@ -509,8 +513,15 @@ noncomputable def LocalSuperconformalMap.compHoloSuperDiff {Λ : GrassmannAlgebr
          · exact φ₂.g.property z⟩
   h := ⟨GrassmannHolomorphic.mk (fun z => Λ.evenToCarrier (compH φ₁ φ₂ z)) sorry sorry trivial,
        fun z => Λ.even_mem_iff _ |>.mpr ⟨compH φ₁ φ₂ z, rfl⟩⟩
-  h_invertible := trivial
-  f_deriv_invertible := trivial
+  h_invertible := fun z => by
+    -- compH φ₁ φ₂ z = h₁(f₂(z)) * h₂(z)
+    -- body(h₁(f₂(z)) * h₂(z)) = body(h₁(f₂(z))) * body(h₂(z)) ≠ 0
+    -- by invertibility of φ₁.h and φ₂.h
+    sorry
+  f_deriv_invertible := fun z => by
+    -- (f₁ ∘ f₂)' = f₁'(f₂) · f₂' by chain rule
+    -- body nonzero by invertibility of φ₁.f' and φ₂.f'
+    sorry
 
 /-- Composition of superconformal maps preserves the structural constraint r = g·h.
 
