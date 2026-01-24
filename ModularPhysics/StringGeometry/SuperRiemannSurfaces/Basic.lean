@@ -1,4 +1,5 @@
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
+import ModularPhysics.StringGeometry.Supermanifolds.Superalgebra
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
 
 /-!
@@ -293,17 +294,32 @@ structure SuperconformalCoordinates (SRS : SuperRiemannSurface) where
   /-- D_θ = ∂/∂θ + θ ∂/∂z generates the superconformal distribution -/
   generates_D : True
 
-/-- Transition functions between superconformal coordinates -/
-structure SuperconformalTransition (SRS : SuperRiemannSurface)
+/-- Transition functions between superconformal coordinates over a Grassmann algebra.
+
+    For Λ a GrassmannAlgebra over ℂ, the transition functions have proper grading:
+    - f : Λ.evenCarrier → Λ.evenCarrier (even, holomorphic on body)
+    - ψ : Λ.evenCarrier → Λ.carrier with values in Λ.odd
+    - η : Λ.evenCarrier → Λ.evenCarrier (even, holomorphic on body)
+
+    The transition is:
+    - z' = f(z) + θ · ψ(z) · η(z)
+    - θ' = ψ(z) + θ · η(z)
+
+    The superconformal constraint η² = f' + ψψ' ensures D-preservation. -/
+structure SuperconformalTransition (Λ : GrassmannAlgebra ℂ) (SRS : SuperRiemannSurface)
     (chart₁ chart₂ : SuperconformalCoordinates SRS) where
-  /-- z' = f(z) + θψ(z)η(z) for holomorphic f, ψ, η -/
-  f : ℂ → ℂ  -- Holomorphic
-  ψ : ℂ → ℂ  -- Holomorphic, odd under grading
-  η : ℂ → ℂ  -- Holomorphic, odd under grading
+  /-- Even coordinate transformation f(z) -/
+  f : Λ.evenCarrier → Λ.evenCarrier
+  /-- Odd-valued function ψ(z) -/
+  ψ : Λ.evenCarrier → Λ.carrier
+  /-- Even-valued function η(z) -/
+  η : Λ.evenCarrier → Λ.evenCarrier
+  /-- ψ(z) is in the odd part for all z -/
+  ψ_odd : ∀ z, ψ z ∈ Λ.odd
   /-- θ' = ψ(z) + θη(z) -/
   theta_transition : True
-  /-- f' = η² (superconformal constraint from D-preservation) -/
-  superconformal_constraint : ∀ z, deriv f z = (η z)^2
+  /-- Superconformal integrability constraint: η² = f' + ψψ' -/
+  superconformal_constraint : True  -- Placeholder: requires derivatives on Λ.evenCarrier
 
 /-!
 ## The Spin Structure - Superconformal Structure Correspondence
@@ -401,21 +417,31 @@ def SuperRiemannSurface.isSplit (_ : SuperRiemannSurface) : Prop :=
 Infinitesimal superconformal transformations form the super Virasoro algebra.
 -/
 
-/-- A superconformal vector field on ℂ^{1|1} -/
-structure SuperconformalVectorField where
-  /-- Even component v(z) ∂/∂z -/
-  v : ℂ → ℂ
-  /-- Odd component χ(z) D_θ where D_θ = ∂/∂θ + θ∂/∂z -/
-  χ : ℂ → ℂ
-  /-- Superconformal constraint: v' = 2χ' χ (infinitesimal version) -/
-  constraint : ∀ z, deriv v z = 2 * deriv χ z * χ z
+/-- The super Virasoro algebra as an abstract Lie superalgebra.
 
-/-- The super Virasoro generators L_n and G_r -/
+    This is a ℤ/2-graded Lie algebra with:
+    - Even generators L_n (n ∈ ℤ) forming the Virasoro subalgebra
+    - Odd generators G_r where:
+      - NS sector: r ∈ ℤ + 1/2 (half-integers: ..., -3/2, -1/2, 1/2, 3/2, ...)
+      - R sector: r ∈ ℤ (integers)
+      - Spectral flowed sectors: r shifted by any real amount
+
+    Commutation relations (NS sector with central charge c):
+    - [L_m, L_n] = (m-n) L_{m+n} + (c/12)(m³-m) δ_{m+n,0}
+    - [L_m, G_r] = (m/2 - r) G_{m+r}
+    - {G_r, G_s} = 2 L_{r+s} + (c/3)(r² - 1/4) δ_{r+s,0}
+
+    The representation as differential operators on superspace uses GrassmannAlgebra
+    (see InfinitesimalSuperconformal in SuperconformalMaps.lean). -/
 structure SuperVirasoroAlgebra where
-  /-- Even generators L_n for n ∈ ℤ -/
-  L : ℤ → SuperconformalVectorField
-  /-- Odd generators G_r for r ∈ ℤ + 1/2 (Neveu-Schwarz) or r ∈ ℤ (Ramond) -/
-  G : ℤ → SuperconformalVectorField  -- Simplified indexing
+  /-- Central charge -/
+  centralCharge : ℂ
+  /-- The sector: NS (r ∈ ℤ + 1/2) or R (r ∈ ℤ) -/
+  sector : SpinStructure
+  /-- Even generators L_n for n ∈ ℤ (abstract basis elements) -/
+  L_generators : ℤ → Type*
+  /-- Odd generators G_r indexed by ℝ (r ∈ ℤ for R, r ∈ ℤ+1/2 for NS, general for spectral flow) -/
+  G_generators : ℝ → Type*
 
 /-- The super Virasoro commutation relations (NS sector) -/
 structure SuperVirasoroRelations (c : ℂ) where
@@ -442,12 +468,18 @@ Integration of superforms over a SRS uses Berezin integration for the
 odd direction. The measure involves the Berezinian of the supermetric.
 -/
 
-/-- A (1|1)-form on a super Riemann surface -/
-structure SuperOneForm (SRS : SuperRiemannSurface) where
+/-- A (1|1)-form on a super Riemann surface over a Grassmann algebra.
+
+    Components:
+    - evenPart : valued in Λ.evenCarrier (coefficient of dz)
+    - oddPart : valued in Λ.carrier with values in Λ.odd (coefficient of dθ) -/
+structure SuperOneForm (Λ : GrassmannAlgebra ℂ) (SRS : SuperRiemannSurface) where
   /-- Even component ω(z)dz -/
-  evenPart : SRS.body → ℂ
+  evenPart : SRS.body → Λ.evenCarrier
   /-- Odd component χ(z)dθ -/
-  oddPart : SRS.body → ℂ
+  oddPart : SRS.body → Λ.carrier
+  /-- oddPart(z) is in the odd part for all z -/
+  oddPart_odd : ∀ z, oddPart z ∈ Λ.odd
 
 /-- The canonical measure dz dθ̄ |dθ on a SRS (for integration) -/
 structure SuperMeasure (SRS : SuperRiemannSurface) where

@@ -76,38 +76,17 @@ structure SuperJacobian (p q : ℕ) where
   /-- ∂θ'ᵃ/∂θᵇ: odd-odd block (q×q), the "fermionic Jacobian" -/
   dθ'_dθ : Matrix (Fin q) (Fin q) (SmoothFunction p)
 
-/-- A ℂ-valued block matrix for Jacobian evaluation (not a full supermatrix over a superalgebra).
-    This is used for evaluating super-Jacobians at specific points where the odd coordinates
-    are set to zero, giving a ℂ-valued matrix. -/
-structure JacobianMatrix (p q : ℕ) where
-  /-- Even-even block (p×p) -/
-  A : Matrix (Fin p) (Fin p) ℂ
-  /-- Even-odd block (p×q) -/
-  B : Matrix (Fin p) (Fin q) ℂ
-  /-- Odd-even block (q×p) -/
-  C : Matrix (Fin q) (Fin p) ℂ
-  /-- Odd-odd block (q×q) -/
-  D : Matrix (Fin q) (Fin q) ℂ
+/-! **TODO**: The super-Jacobian and its Berezinian need proper definition.
 
-/-- Evaluate the super-Jacobian at a point x in the body.
-    This gives a ℂ-valued matrix (evaluating at θ=0). -/
-def SuperJacobian.evalAt {p q : ℕ} (J : SuperJacobian p q) (x : Fin p → ℝ) :
-    JacobianMatrix p q :=
-  ⟨Matrix.of (fun i j => J.dx'_dx i j x),
-   Matrix.of (fun i a => J.dx'_dθ i a x),
-   Matrix.of (fun a j => J.dθ'_dx a j x),
-   Matrix.of (fun a b => J.dθ'_dθ a b x)⟩
+    The structure sheaf of ℝ^{p|q} is `C^∞(ℝ^p) ⊗ Λ[θ₁,...,θ_q]`, which should be
+    modeled as a `GrassmannAlgebra ℝ`. The super-Jacobian of a coordinate transformation
+    should then be a `SuperMatrix` over this algebra, with Berezinian via `SuperMatrix.ber`.
 
-/-- The Berezinian of a ℂ-valued Jacobian matrix: det(A - BD⁻¹C) / det(D) -/
-noncomputable def JacobianMatrix.berezinian {p q : ℕ} (M : JacobianMatrix p q)
-    (hD : M.D.det ≠ 0) : ℂ :=
-  (M.A - M.B * M.D⁻¹ * M.C).det * (M.D.det)⁻¹
-
-/-- The Berezinian of a super-Jacobian at a point, assuming the odd-odd block is invertible.
-    Returns ℂ since the underlying JacobianMatrix uses complex numbers. -/
-noncomputable def SuperJacobian.berezinianAt {p q : ℕ} (J : SuperJacobian p q)
-    (x : Fin p → ℝ) (hD : (J.evalAt x).D.det ≠ 0) : ℂ :=
-  JacobianMatrix.berezinian (J.evalAt x) hD
+    The current `SuperJacobian` with `SmoothFunction` entries doesn't connect to the
+    Grassmann algebra framework. A proper implementation requires:
+    1. Define `SuperDomainFunction p q` as the carrier of a `GrassmannAlgebra ℝ`
+    2. Super-Jacobian entries live in this algebra with proper parity
+    3. Berezinian computed via `SuperMatrix.ber` -/
 
 /-!
 ## Integral Forms on Super Domains
@@ -385,31 +364,17 @@ theorem berezinian_transformation_law {p q : ℕ}
     True := by  -- [Dy Dη] = Ber(J_φ) · [Dx Dθ]
   trivial
 
-/-- The Berezinian is multiplicative: Ber(J₁ · J₂) = Ber(J₁) · Ber(J₂).
+/-! **Berezinian properties** (TODO: implement with proper SuperMatrix framework)
 
-    This is essential for the change of variables formula to be consistent
+    Once the super-Jacobian is properly defined as a `SuperMatrix` over a `GrassmannAlgebra ℝ`,
+    the following properties follow from `SuperMatrix.ber_mul`:
+
+    - **Multiplicativity**: Ber(J₁ · J₂) = Ber(J₁) · Ber(J₂)
+    - **Identity**: Ber(I) = 1
+    - **Inverse**: Ber(J⁻¹) = Ber(J)⁻¹
+
+    These are essential for the change of variables formula to be consistent
     under composition of coordinate changes. -/
-theorem berezinian_multiplicative {p q : ℕ}
-    (J₁ J₂ : SuperJacobian p q) (x : Fin p → ℝ)
-    (hD₁ : (J₁.evalAt x).D.det ≠ 0) (hD₂ : (J₂.evalAt x).D.det ≠ 0)
-    (_ : True) :  -- The product Jacobian's D block is also invertible
-    True := by  -- Ber(J₁ · J₂) = Ber(J₁) · Ber(J₂)
-  trivial
-
-/-- The Berezinian of the identity is 1. -/
-theorem berezinian_identity {p q : ℕ} :
-    True := by  -- Ber(I) = 1
-  trivial
-
-/-- The Berezinian of an inverse: Ber(J⁻¹) = Ber(J)⁻¹.
-
-    For an invertible super-Jacobian (diffeomorphism). -/
-theorem berezinian_inverse {p q : ℕ}
-    (J : SuperJacobian p q) (x : Fin p → ℝ)
-    (hD : (J.evalAt x).D.det ≠ 0)
-    (_ : True) :  -- J is invertible (diffeomorphism)
-    True := by  -- Ber(J⁻¹) = Ber(J)⁻¹
-  trivial
 
 /-- Sign convention for Berezin integration: ∫dθ²dθ¹ = -∫dθ¹dθ² .
 
@@ -784,34 +749,14 @@ theorem super_stokes {p q : ℕ} (hM : True)  -- M is a compact supermanifold wi
 For a super Riemann surface of genus g, the superperiod matrix generalizes
 the classical period matrix to include odd differentials. This is foundational
 for the theory of integration on supermoduli spaces.
+
+**TODO**: The super period matrix should be defined as a `SuperMatrix` over a
+`GrassmannAlgebra ℝ` (or ℂ). The current ℂ-valued block structure doesn't capture
+the proper superalgebra structure. Once defined properly:
+- It should be a `SuperMatrix Λ g (g-1)` for genus g ≥ 2
+- The Berezinian would be computed via `SuperMatrix.ber`
+- Symmetry and positive definiteness conditions need proper formulation
 -/
-
-/-- The super period matrix for a genus g super Riemann surface.
-
-    The super period matrix generalizes the ordinary period matrix to include
-    contributions from odd 1-forms. It is a symmetric (g|g-1) × (g|g-1)
-    supermatrix for g ≥ 2. -/
-structure SuperPeriodMatrix (g : ℕ) where
-  /-- The even-even block: ordinary period matrix (g × g) -/
-  evenEven : Matrix (Fin g) (Fin g) ℂ
-  /-- Symmetry of the even-even block -/
-  evenEven_symm : evenEven.transpose = evenEven
-  /-- Positive definiteness of Im(τ) -/
-  evenEven_posdef : True  -- Placeholder: Im(evenEven) is positive definite
-  /-- The even-odd block (g × (g-1) for g ≥ 2) -/
-  evenOdd : Matrix (Fin g) (Fin (g - 1)) ℂ
-  /-- The odd-even block ((g-1) × g for g ≥ 2) -/
-  oddEven : Matrix (Fin (g - 1)) (Fin g) ℂ
-  /-- The odd-odd block ((g-1) × (g-1)) -/
-  oddOdd : Matrix (Fin (g - 1)) (Fin (g - 1)) ℂ
-
-/-- The Berezinian of the imaginary part of the super period matrix.
-
-    Ber(Im Ω) = det(Im τ - Im ψ · (Im Ωodd)⁻¹ · Im ψ̃) / det(Im Ωodd) -/
-noncomputable def superPeriodBerezinian {g : ℕ} (Ω : SuperPeriodMatrix g)
-    (_ : True) :  -- Im(Ω.oddOdd) is invertible
-    ℂ :=
-  1  -- Placeholder: full computation requires the super structure
 
 /-!
 ## Compactly Supported Integration

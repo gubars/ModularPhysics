@@ -1006,31 +1006,32 @@ theorem superCommutator_zero {R : Type*} [CommRing R] {A : SuperAlgebra R} [Supe
   rw [SuperCommutative.super_comm a b pa pb ha hb]
   simp only [sub_self]
 
-/-- Supertrace: for a matrix with block form [A B; C D] where A, D are even and B, C are odd,
-    str(M) = tr(A) - tr(D) -/
-def supertrace {n m : ℕ} (M : Matrix (Fin n ⊕ Fin m) (Fin n ⊕ Fin m) ℝ) : ℝ :=
-  (Finset.univ.sum fun i => M (Sum.inl i) (Sum.inl i)) -
-  (Finset.univ.sum fun j => M (Sum.inr j) (Sum.inr j))
-
-/-- Helper: supertrace is additive -/
-theorem supertrace_sub {n m : ℕ}
-    (M N : Matrix (Fin n ⊕ Fin m) (Fin n ⊕ Fin m) ℝ) :
-    supertrace (M - N) = supertrace M - supertrace N := by
-  unfold supertrace
-  simp only [Matrix.sub_apply, Finset.sum_sub_distrib]
-  ring
-
 /-- Helper lemma: diagonal sum of MN equals diagonal sum of NM (trace cyclicity).
     This is equivalent to Matrix.trace_mul_comm from Mathlib. -/
 theorem diag_sum_mul_comm {α : Type*} [Fintype α] [DecidableEq α]
-    (M N : Matrix α α ℝ) :
+    {R : Type*} [CommRing R] (M N : Matrix α α R) :
     (∑ i, (M * N) i i) = (∑ i, (N * M) i i) := by
-  -- This follows from Matrix.trace_mul_comm in Mathlib
-  -- tr(MN) = tr(NM) because ∑_i ∑_j M_ij N_ji = ∑_i ∑_j N_ij M_ji
-  -- by swapping summation order and using commutativity of ℝ
   have h := Matrix.trace_mul_comm M N
   simp only [Matrix.trace] at h
   exact h
+
+/-- Supertrace for a SuperMatrix: str(M) = tr(A) - tr(D).
+    This is defined for any supermatrix over a Grassmann algebra.
+    Note: The full SuperMatrix type is in Helpers.SuperMatrix; this definition
+    works with the block matrices directly. -/
+def supertrace {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (Ablock : Matrix (Fin n) (Fin n) Λ.carrier)
+    (Dblock : Matrix (Fin m) (Fin m) Λ.carrier) : Λ.carrier :=
+  (Finset.univ.sum fun i => Ablock i i) - (Finset.univ.sum fun j => Dblock j j)
+
+/-- Supertrace is additive: str(A₁ + A₂, D₁ + D₂) = str(A₁, D₁) + str(A₂, D₂). -/
+theorem supertrace_add {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (A₁ A₂ : Matrix (Fin n) (Fin n) Λ.carrier)
+    (D₁ D₂ : Matrix (Fin m) (Fin m) Λ.carrier) :
+    supertrace (A₁ + A₂) (D₁ + D₂) = supertrace A₁ D₁ + supertrace A₂ D₂ := by
+  unfold supertrace
+  simp only [Matrix.add_apply, Finset.sum_add_distrib]
+  abel
 
 /-! ### Supertrace Cyclicity
 
@@ -1046,18 +1047,5 @@ give str(MN) - str(NM) = 2*(tr(B₁C₂) - tr(C₁B₂)) ≠ 0 in general.
 See `Helpers.Berezinian.supertrace_commutator` for the formal proof
 using the `GrassmannTraceProperty` hypothesis.
 -/
-
-/-- Superdeterminant (Berezinian) for an even invertible supermatrix
-    For M = [A B; C D], Ber(M) = det(A - BD⁻¹C) / det(D) -/
-noncomputable def berezinian {n m : ℕ}
-    (A : Matrix (Fin n) (Fin n) ℝ)
-    (B : Matrix (Fin n) (Fin m) ℝ)
-    (C : Matrix (Fin m) (Fin n) ℝ)
-    (D : Matrix (Fin m) (Fin m) ℝ)
-    (_hD : D.det ≠ 0) : ℝ :=
-  (A - B * D⁻¹ * C).det / D.det
-
-/-! Berezinian multiplicativity is stated in `Helpers.Berezinian.berezinian_mul`
-with the proper supermatrix formulation. -/
 
 end Supermanifolds

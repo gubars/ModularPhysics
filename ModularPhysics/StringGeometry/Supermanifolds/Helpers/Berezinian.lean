@@ -412,17 +412,6 @@ theorem SuperMatrix.ber_eq_berAlt {k : Type*} [Field k] [CharZero k] {Λ : Grass
   rw [h_inv_schurA, h_inv_prod, hInvXY]
   ring
 
-/-- The two Berezinian formulas agree when B = C = 0 (diagonal supermatrices). -/
-theorem berezinian_formulas_agree_diagonal {n m : ℕ}
-    (Amat : Matrix (Fin n) (Fin n) ℂ) (Dmat : Matrix (Fin m) (Fin m) ℂ)
-    (_hA : Amat.det ≠ 0) (_hD : Dmat.det ≠ 0) :
-    let B : Matrix (Fin n) (Fin m) ℂ := 0
-    let C : Matrix (Fin m) (Fin n) ℂ := 0
-    let schurD := Amat - B * Dmat⁻¹ * C
-    let schurA := Dmat - C * Amat⁻¹ * B
-    schurD.det * Dmat.det⁻¹ = Amat.det * schurA.det⁻¹ := by
-  simp only [Matrix.zero_mul, Matrix.mul_zero, sub_zero]
-
 /-! ## Schur Complements -/
 
 /-- D-based Schur complement: A - BD⁻¹C (uses evenCarrier inverse) -/
@@ -511,32 +500,6 @@ noncomputable def diagonalFactorA {k : Type*} [Field k] [CharZero k] {Λ : Grass
    hSchur⟩
 
 /-! ## Berezinian of Special Matrices -/
-
-/-- Ber([I B; 0 I]) = 1 for ℂ-valued matrices. -/
-theorem berezinian_upper_triangular_complex {n m : ℕ} (B : Matrix (Fin n) (Fin m) ℂ)
-    (_hDdet : (1 : Matrix (Fin m) (Fin m) ℂ).det ≠ 0) :
-    let C : Matrix (Fin m) (Fin n) ℂ := 0
-    let schur := (1 : Matrix (Fin n) (Fin n) ℂ) - B * (1 : Matrix (Fin m) (Fin m) ℂ)⁻¹ * C
-    schur.det * ((1 : Matrix (Fin m) (Fin m) ℂ).det)⁻¹ = 1 := by
-  simp only [Matrix.mul_zero, sub_zero, Matrix.det_one, inv_one, mul_one]
-
-/-- Ber([I 0; C I]) = 1 for ℂ-valued matrices. -/
-theorem berezinian_lower_triangular_complex {n m : ℕ} (C : Matrix (Fin m) (Fin n) ℂ)
-    (_hDdet : (1 : Matrix (Fin m) (Fin m) ℂ).det ≠ 0) :
-    let B : Matrix (Fin n) (Fin m) ℂ := 0
-    let schur := (1 : Matrix (Fin n) (Fin n) ℂ) - B * (1 : Matrix (Fin m) (Fin m) ℂ)⁻¹ * C
-    schur.det * ((1 : Matrix (Fin m) (Fin m) ℂ).det)⁻¹ = 1 := by
-  simp only [Matrix.zero_mul, sub_zero, Matrix.det_one, inv_one, mul_one]
-
-/-- Ber([A 0; 0 D]) = det(A) · det(D)⁻¹ for ℂ-valued matrices. -/
-theorem berezinian_diagonal_complex {n m : ℕ}
-    (Amat : Matrix (Fin n) (Fin n) ℂ) (Dmat : Matrix (Fin m) (Fin m) ℂ)
-    (_hDdet : Dmat.det ≠ 0) :
-    let B : Matrix (Fin n) (Fin m) ℂ := 0
-    let C : Matrix (Fin m) (Fin n) ℂ := 0
-    let schur := Amat - B * Dmat⁻¹ * C
-    schur.det * (Dmat.det)⁻¹ = Amat.det * (Dmat.det)⁻¹ := by
-  simp only [Matrix.zero_mul, Matrix.mul_zero, sub_zero]
 
 /-! ## Berezinian Multiplicativity -/
 

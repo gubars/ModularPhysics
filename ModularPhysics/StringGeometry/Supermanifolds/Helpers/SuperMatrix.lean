@@ -205,6 +205,21 @@ theorem toMatrix_mul (M N : SuperMatrix Λ n m) :
   conv_rhs => rw [Matrix.fromBlocks_multiply]
   simp only [HMul.hMul, Mul.mul, mul]
 
+/-- Supertrace of a supermatrix: str(M) = tr(A) - tr(D).
+    For M = [A B; C D], the supertrace is the trace of the even-even block
+    minus the trace of the odd-odd block. -/
+noncomputable def supertrace (M : SuperMatrix Λ n m) : Λ.carrier :=
+  Supermanifolds.supertrace M.Ablock M.Dblock
+
+/-- Supertrace of the identity supermatrix. -/
+theorem supertrace_id (h1 : (1 : Λ.carrier) ∈ Λ.even)
+    (h0even : (0 : Λ.carrier) ∈ Λ.even) (h0odd : (0 : Λ.carrier) ∈ Λ.odd) :
+    (SuperMatrix.id h1 h0even h0odd : SuperMatrix Λ n m).supertrace =
+      (n : Λ.carrier) - (m : Λ.carrier) := by
+  unfold supertrace Supermanifolds.supertrace SuperMatrix.id
+  simp only [Matrix.one_apply, ite_true, Finset.sum_const, Finset.card_univ,
+    Fintype.card_fin, nsmul_eq_mul, mul_one]
+
 end SuperMatrix
 
 end Supermanifolds.Helpers

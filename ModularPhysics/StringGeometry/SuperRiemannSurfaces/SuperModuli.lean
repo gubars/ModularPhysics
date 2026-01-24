@@ -798,21 +798,33 @@ structure PictureChangingFormalism (g n : ℕ) where
 
 /-- A super chart on the supermoduli space parameterized by PCO locations.
 
-    Given PCO insertion points {w₁, ..., w_{2g-2}} on the worldsheet Σ,
-    one obtains local coordinates on a neighborhood in 𝔐_{g,n}:
+    Given PCO insertion points on the worldsheet Σ, one obtains local
+    coordinates on a neighborhood in 𝔐_{g,n}:
     - Even coordinates: moduli of the underlying curve and vertex positions
     - Odd coordinates: specified by the PCO locations
 
+    The PCOs provide a delta function gauge condition for the gravitino,
+    which locally splits the projection from supermoduli to moduli space.
+
+    The number of odd coordinates depends on genus and puncture types
+    (NS vs R sectors contribute differently).
+
     Different choices of PCO locations give different (overlapping) charts.
-    The transition functions between charts involve the PCO algebra. -/
-structure SuperChartFromPCO (g n : ℕ) where
+    The transition functions between charts involve the PCO algebra.
+
+    Over a Grassmann algebra Λ, the odd coordinates are elements of Λ.odd. -/
+structure SuperChartFromPCO (Λ : GrassmannAlgebra ℂ) (g nNS nR : ℕ) where
   /-- The PCO insertion points on the worldsheet -/
-  pcoLocations : Fin (2 * g - 2) → Type*  -- Points on Σ
-  /-- The even (bosonic) coordinates -/
-  evenCoords : True  -- Moduli of curve + vertex positions
-  /-- The odd coordinates from PCO modes -/
-  oddCoords : True  -- Gravitino zero mode coefficients
-  /-- The chart domain in 𝔐_{g,n} -/
+  pcoLocations : Type*  -- Points on Σ
+  /-- Number of PCO insertions -/
+  numPCO : ℕ
+  /-- The even (bosonic) coordinates in Λ.evenCarrier -/
+  evenCoords : Type*
+  /-- The odd coordinates from PCOs -/
+  oddCoords : Fin numPCO → Λ.carrier
+  /-- oddCoords are in the odd part -/
+  oddCoords_odd : ∀ i, oddCoords i ∈ Λ.odd
+  /-- The chart domain in 𝔐_{g,nNS,nR} -/
   domain : Type*
   /-- Local trivialization (splitting) in this chart -/
   localSplitting : True
