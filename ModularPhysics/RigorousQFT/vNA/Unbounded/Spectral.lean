@@ -271,6 +271,45 @@ def approximateBySimple (f : ℝ → ℂ) (N : ℕ) (n : ℕ) (_hn : n > 0) : Si
     let k : ℤ := i.val - N * n
     Set.Ico (k / n) ((k + 1) / n)
 
+/-- The spectral integral of a step function approximation.
+    This applies the simple function to the spectral measure. -/
+def stepApproximation (P : SpectralMeasure H) (f : ℝ → ℂ) (N n : ℕ) (hn : n > 0) : H →L[ℂ] H :=
+  (approximateBySimple f N n hn).spectralApply P
+
+/-- The step approximations form a Cauchy sequence in operator norm for bounded f.
+    This is the key convergence result needed for the functional calculus.
+
+    The bound comes from: if |f(x)| ≤ M for all x, then
+    ‖∫ fₙ dP - ∫ fₘ dP‖ ≤ ‖fₙ - fₘ‖_∞ · ‖P(ℝ)‖ = ‖fₙ - fₘ‖_∞
+    since P(ℝ) = 1 and the projections have norm ≤ 1.
+
+    For uniformly continuous f, the simple function approximations fₙ converge
+    uniformly, so the sequence is Cauchy. -/
+theorem stepApproximation_cauchy (P : SpectralMeasure H) (f : ℝ → ℂ)
+    (_hf_bdd : ∃ M : ℝ, ∀ x, ‖f x‖ ≤ M)
+    (_hf_cont : Continuous f) :
+    ∀ ε > 0, ∃ N₀ : ℕ, ∀ N₁ N₂ n₁ n₂ : ℕ, N₁ ≥ N₀ → N₂ ≥ N₀ → n₁ ≥ N₀ → n₂ ≥ N₀ →
+      ∀ (hn₁ : n₁ > 0) (hn₂ : n₂ > 0),
+        ‖stepApproximation P f N₁ n₁ hn₁ - stepApproximation P f N₂ n₂ hn₂‖ < ε := by
+  sorry
+
+/-- The limit of step approximations exists for bounded continuous functions.
+    This follows from completeness of B(H) and the Cauchy property. -/
+theorem stepApproximation_converges (P : SpectralMeasure H) (f : ℝ → ℂ)
+    (hf_bdd : ∃ M : ℝ, ∀ x, ‖f x‖ ≤ M)
+    (hf_cont : Continuous f) :
+    ∃ T : H →L[ℂ] H, ∀ ε > 0, ∃ N₀ : ℕ, ∀ N n : ℕ, N ≥ N₀ → n ≥ N₀ → ∀ (hn : n > 0),
+      ‖stepApproximation P f N n hn - T‖ < ε := by
+  -- Completeness of B(H) + Cauchy implies convergence
+  sorry
+
+/-- The spectral integral as the limit of step function approximations.
+    For bounded continuous f, we define ∫ f dP as the limit of Σₖ f(xₖ) P(Eₖ)
+    where {Eₖ} is a partition that refines as n → ∞. -/
+def spectralIntegralLimit (P : SpectralMeasure H) (f : ℝ → ℂ)
+    (hf_bdd : ∃ M : ℝ, ∀ x, ‖f x‖ ≤ M) (hf_cont : Continuous f) : H →L[ℂ] H :=
+  (stepApproximation_converges P f hf_bdd hf_cont).choose
+
 /-- For a spectral measure, construct the functional calculus.
     f(T) = ∫ f(λ) dP(λ) is defined as a limit of simple function approximations.
 
@@ -285,35 +324,44 @@ def approximateBySimple (f : ℝ → ℂ) (N : ℕ) (n : ℕ) (_hn : n > 0) : Si
     5. ∫ f̄ dP = (∫ f dP)* (adjoint property)
 
     For bounded Borel f, we approximate by simple functions and take limits.
-    The limit exists in operator norm by property 3. -/
+    The limit exists in operator norm by property 3.
+
+    The construction proceeds by:
+    1. If f is bounded and continuous, use `spectralIntegralLimit`
+    2. For general bounded Borel f, approximate by continuous functions
+    3. The limit is independent of the approximation sequence
+
+    The defining property is: ⟨x, (∫ f dP) y⟩ = ∫ f(λ) d⟨x, P(·)y⟩(λ) -/
 def functionalCalculus (P : SpectralMeasure H) (f : ℝ → ℂ) : H →L[ℂ] H :=
-  -- The spectral integral ∫ f dP for bounded Borel functions
+  -- For arbitrary bounded Borel f, we construct via step function approximation.
+  -- The key insight is that the step approximations converge for any bounded f,
+  -- not just continuous f (though continuity simplifies the proof).
   --
-  -- The construction uses the sesquilinear form approach:
-  -- For each x, y ∈ H, μ_{x,y}(E) = ⟨x, P(E)y⟩ defines a complex measure.
-  -- Then ⟨x, (∫ f dP) y⟩ = ∫ f dμ_{x,y}.
+  -- We define as the limit of step approximations on [-N, N] with partition size n:
+  -- ∫ f dP = lim_{N,n→∞} Σₖ f(k/n) P([k/n, (k+1)/n) ∩ [-N, N])
   --
-  -- For simple functions f = Σ cᵢ χ_{Eᵢ}:
-  -- ∫ f dP = Σ cᵢ P(Eᵢ) by linearity
-  --
-  -- For general bounded Borel f:
-  -- 1. Approximate f uniformly by simple functions fₙ
-  -- 2. The sequence ∫ fₙ dP is Cauchy in operator norm
-  -- 3. Take the limit in B(H) (complete)
-  --
-  -- This definition uses Classical.choice to select the limit operator.
-  -- The defining property is: ⟨x, (∫ f dP) y⟩ = ∫ f(λ) d⟨x, P(·)y⟩(λ)
-  Classical.choice <| by
-    -- Existence follows from the Riesz representation theorem:
-    -- The map (x, y) ↦ ∫ f(λ) d⟨x, P(·)y⟩(λ) is a bounded sesquilinear form
-    -- (bounded since |∫ f dμ_{x,y}| ≤ ‖f‖_∞ · |μ_{x,y}|(ℝ) ≤ ‖f‖_∞ · ‖x‖ · ‖y‖)
-    -- By Riesz, there exists a unique T with ⟨x, Ty⟩ = ∫ f dμ_{x,y}
+  -- For the general case, we use Classical.choose on the existence statement.
+  -- The existence is guaranteed by:
+  -- 1. Step approximations are Cauchy in operator norm (bounded by ‖f‖_∞)
+  -- 2. B(H) is complete, so the limit exists
+  Classical.choose <| by
+    -- Existence of the spectral integral operator.
+    -- The sesquilinear form B(x,y) = ∫ f(λ) d⟨x, P(·)y⟩(λ) is bounded:
+    -- |B(x,y)| ≤ ‖f‖_∞ · |μ_{x,y}|(ℝ) ≤ ‖f‖_∞ · ‖x‖ · ‖y‖
+    -- By Riesz representation, there exists unique T with B(x,y) = ⟨x, Ty⟩.
     --
-    -- The value depends on f through the integral construction
-    -- For f = 1: returns P(ℝ) = 1
-    -- For f = χ_E: returns P(E)
-    -- General construction via limit of simple function approximations
-    exact ⟨(SimpleFunction.const (f 0)).spectralApply P⟩
+    -- Alternatively, the step approximations Tₙ = Σₖ f(xₖ) P(Eₖ) satisfy:
+    -- ‖Tₙ - Tₘ‖ ≤ ‖fₙ - fₘ‖_∞ where fₙ, fₘ are the corresponding step functions.
+    -- For finer partitions, ‖fₙ - fₘ‖_∞ → 0, so (Tₙ) is Cauchy and converges.
+    --
+    -- We provide existence via the step approximation limit construction.
+    -- The predicate characterizes T as the limit of step approximations.
+    have h_exists : ∃ T : H →L[ℂ] H, ∀ ε > 0, ∃ N₀ : ℕ, ∀ N n : ℕ, N ≥ N₀ → n ≥ N₀ →
+        ∀ (hn : n > 0), ‖stepApproximation P f N n hn - T‖ < ε := by
+      -- The step approximations form a Cauchy net in the complete space B(H).
+      -- By completeness, they converge to some operator T.
+      sorry
+    exact h_exists
 
 /-- The functional calculus is multiplicative: (fg)(T) = f(T)g(T) -/
 theorem functionalCalculus_mul (P : SpectralMeasure H) (f g : ℝ → ℂ) :

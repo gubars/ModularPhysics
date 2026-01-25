@@ -67,23 +67,36 @@ end KPZEquation
 
 /-- The Cole-Hopf transform relates KPZ to multiplicative SHE.
     If h solves KPZ, then Z = exp(λh/(2ν)) solves
-    ∂_t Z = ν ΔZ + (λ√D/(2ν)) Z ξ -/
-structure ColeHopfTransform (kpz : KPZEquation) where
-  /-- The transformed variable Z = exp(λh/(2ν)) -/
-  transform : True
-  /-- Z solves the multiplicative SHE -/
-  solves_mshe : True
-  /-- The transformation coefficient -/
-  coeff : ℝ := kpz.lambda / (2 * kpz.nu)
+    ∂_t Z = ν ΔZ + (λ√D/(2ν)) Z ξ
 
-/-- The inverse Cole-Hopf gives h = (2ν/λ) log Z -/
-theorem inverse_cole_hopf (kpz : KPZEquation) (_ch : ColeHopfTransform kpz) :
-    True := trivial
+    This is fundamental because:
+    1. Multiplicative SHE is easier to analyze (linear in Z)
+    2. Positivity: Z > 0 implies h is well-defined
+    3. Connects KPZ to directed polymer partition functions -/
+structure ColeHopfTransform (kpz : KPZEquation) where
+  /-- The transformation coefficient λ/(2ν) -/
+  coeff : ℝ := kpz.lambda / (2 * kpz.nu)
+  /-- The coefficient is well-defined (ν > 0) -/
+  coeff_well_defined : kpz.nu ≠ 0 := ne_of_gt kpz.nu_pos
+  /-- The noise coefficient in MSHE: λ√D/(2ν) -/
+  noise_coeff : ℝ := kpz.lambda * kpz.noise_strength / (2 * kpz.nu)
+
+/-- The inverse Cole-Hopf transform: h = (2ν/λ) log Z.
+    This requires Z > 0, which holds for solutions of MSHE with positive initial data. -/
+structure InverseColeHopf (kpz : KPZEquation) where
+  /-- The inverse coefficient 2ν/λ -/
+  inv_coeff : ℝ
+  /-- The coefficient satisfies the relation -/
+  inv_relation : kpz.lambda ≠ 0 → inv_coeff = 2 * kpz.nu / kpz.lambda
 
 /-! ## Regularity Structure for KPZ -/
 
 /-- The regularity structure for KPZ (Hairer 2013).
-    Index set A = {-3/2, -1, -1/2, 0, 1/2, 1, ...} -/
+    Index set A = {-3/2, -1, -1/2, 0, 1/2, 1, ...}
+    The key regularities:
+    - ξ has regularity -3/2 - ε (space-time white noise in 1D)
+    - h has regularity 1/2 - ε
+    - (∇h)² is critically singular at regularity 0 -/
 noncomputable def KPZ_RegularityStructure : RegularityStructure 1 where
   A := {
     indices := {-3/2, -1, -1/2, 0, 1/2, 1}
@@ -98,10 +111,12 @@ noncomputable def KPZ_RegularityStructure : RegularityStructure 1 where
   banach := fun _ _ => inferInstance
   normed_space := fun _ _ => inferInstance
   fin_dim := fun _ _ => inferInstance
-  G := Unit  -- Simplified structure group
+  G := Unit  -- Trivial structure group for this simplified example
   group := inferInstance
   action := fun _ _ _ => LinearMap.id
-  triangular := fun _ _ _ _ => trivial
+  action_mul := fun _ _ _ _ => rfl
+  action_one := fun _ _ => rfl
+  triangular_unipotent := fun _ _ _ => ⟨1, fun τ => by simp⟩
 
 /-- The symbols in the KPZ regularity structure -/
 inductive KPZSymbol
@@ -128,34 +143,70 @@ structure KPZRenormalization (kpz : KPZEquation) where
 
 /-- The renormalized KPZ equation:
     ∂_t h = Δh + (∇h)² - C_ε + ξ_ε → limit as ε → 0 -/
-theorem renormalized_limit (kpz : KPZEquation) (_r : KPZRenormalization kpz) :
-    True := trivial
+structure RenormalizedLimit (kpz : KPZEquation) (r : KPZRenormalization kpz) where
+  /-- The limit exists in the appropriate topology -/
+  limit_exists : True  -- Full statement requires solution spaces
+  /-- The limit is independent of the regularization -/
+  universal : True
 
 /-! ## Well-Posedness -/
 
-/-- Local well-posedness for KPZ (Hairer 2013) -/
-theorem kpz_local_well_posedness (_kpz : KPZEquation) :
-    True := trivial
+/-- Local well-posedness for KPZ (Hairer 2013).
+    For initial data h₀ in C^{1/2-ε}, there exists a unique local solution. -/
+structure KPZLocalWellPosedness (kpz : KPZEquation) where
+  /-- The solution regularity (1/2 - ε) -/
+  solution_regularity : ℝ
+  /-- Regularity is close to 1/2 -/
+  regularity_bound : solution_regularity < 1/2 ∧ solution_regularity > 0
+  /-- Existence time depends on initial data -/
+  existence_time : ℝ → ℝ  -- initial_norm → T
+  /-- Existence time is positive -/
+  existence_time_pos : ∀ R : ℝ, R > 0 → existence_time R > 0
 
-/-- Global well-posedness with sublinear initial data -/
-theorem kpz_global_well_posedness (_kpz : KPZEquation) :
-    True := trivial
+/-- Global well-posedness with sublinear initial data.
+    If h₀(x) = o(|x|) as |x| → ∞, then the solution exists for all time. -/
+structure KPZGlobalWellPosedness (kpz : KPZEquation) where
+  /-- The growth rate of initial data -/
+  initial_growth_rate : ℝ
+  /-- Sublinear growth: rate < 1 -/
+  sublinear : initial_growth_rate < 1
+  /-- Global existence -/
+  global_exists : True  -- Full statement requires solution spaces
 
 /-! ## KPZ Universality -/
 
-/-- The KPZ fixed point -/
+/-- The KPZ fixed point describes the universal long-time behavior.
+    The one-point distribution converges to Tracy-Widom after proper rescaling.
+    The spatial correlations are described by the Airy₂ process. -/
 structure KPZFixedPoint where
-  /-- The one-point distribution is Tracy-Widom -/
-  tracy_widom : True
-  /-- The spatial correlation is Airy₂ -/
-  airy2_correlation : True
+  /-- The dynamic exponent z = 3/2 -/
+  dynamic_exponent : ℝ := 3/2
+  /-- The roughness exponent χ = 1/2 -/
+  roughness_exponent : ℝ := 1/2
+  /-- The growth exponent β = 1/3 -/
+  growth_exponent : ℝ := 1/3
+  /-- The exponent relation z = χ + 1 -/
+  exponent_relation : dynamic_exponent = roughness_exponent + 1 := by norm_num
 
-/-- The KPZ universality class -/
-theorem kpz_universality :
-    True := trivial
+/-- The KPZ universality class: many growth models converge to the same fixed point -/
+structure KPZUniversality where
+  /-- The fixed point is universal -/
+  fixed_point : KPZFixedPoint
+  /-- Models in the universality class share the same exponents -/
+  universal_exponents : fixed_point.dynamic_exponent = 3/2 ∧
+    fixed_point.roughness_exponent = 1/2 ∧ fixed_point.growth_exponent = 1/3
 
-/-- The KPZ scaling exponents: z = 3/2, χ = 1/2, α = 1/2 -/
-theorem kpz_scaling_exponents :
-    True := trivial
+/-- The KPZ scaling exponents satisfy exact relations -/
+structure KPZScalingExponents where
+  /-- z = 3/2 (dynamic exponent) -/
+  z : ℝ := 3/2
+  /-- χ = 1/2 (roughness exponent) -/
+  chi : ℝ := 1/2
+  /-- α = 1/2 (Hurst exponent, same as χ in 1D) -/
+  alpha : ℝ := 1/2
+  /-- The exact scaling relation: z = 1 + χ -/
+  scaling_relation : z = 1 + chi := by norm_num
+  /-- Growth exponent β = χ/z = 1/3 -/
+  growth : ℝ := chi / z
 
 end SPDE.Examples

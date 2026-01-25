@@ -62,17 +62,33 @@ theorem solution_distribution_d2 (she : StochasticHeatEquation 2) :
 noncomputable def regularity_structure_d2 : RegularityStructure 2 :=
   RegularityStructure.polynomial 2
 
-/-- The mild formulation: u(t) = e^{tΔ} u₀ + ∫₀ᵗ e^{(t-s)Δ} dW_s -/
-theorem mild_formulation (_she : StochasticHeatEquation d) :
-    True := trivial
+/-- The mild formulation: u(t) = e^{tΔ} u₀ + ∫₀ᵗ e^{(t-s)Δ} dW_s
+    This is the integral form of the SHE, where e^{tΔ} is the heat semigroup. -/
+structure MildFormulation (she : StochasticHeatEquation d) where
+  /-- The heat semigroup decay rate -/
+  semigroup_decay : ℝ
+  /-- The semigroup decays exponentially for bounded domains -/
+  decay_pos : semigroup_decay > 0
+  /-- The stochastic convolution is well-defined -/
+  convolution_exists : True  -- Full statement requires stochastic integration
 
-/-- The Hölder regularity is α < 1/2 - d/4 in space -/
-theorem spatial_holder_regularity (_she : StochasticHeatEquation d) :
-    ∃ α : ℝ, α < 1/2 - (d : ℝ)/4 ∧ True := ⟨1/2 - (d : ℝ)/4 - 1, by linarith, trivial⟩
+/-- The Hölder regularity in space: solutions are C^α in space for α < 1/2 - d/4 -/
+structure SpatialHolderRegularity (she : StochasticHeatEquation d) where
+  /-- The spatial Hölder exponent -/
+  spatial_exponent : ℝ
+  /-- The exponent satisfies the bound α < 1/2 - d/4 -/
+  exponent_bound : spatial_exponent < 1/2 - (d : ℝ)/4
+  /-- The exponent is positive (for d ≤ 1) -/
+  exponent_pos : d ≤ 1 → spatial_exponent > 0
 
-/-- The Hölder regularity is β < 1/4 - d/8 in time -/
-theorem temporal_holder_regularity (_she : StochasticHeatEquation d) :
-    ∃ β : ℝ, β < 1/4 - (d : ℝ)/8 ∧ True := ⟨1/4 - (d : ℝ)/8 - 1, by linarith, trivial⟩
+/-- The Hölder regularity in time: solutions are C^β in time for β < 1/4 - d/8 -/
+structure TemporalHolderRegularity (she : StochasticHeatEquation d) where
+  /-- The temporal Hölder exponent -/
+  temporal_exponent : ℝ
+  /-- The exponent satisfies the bound β < 1/4 - d/8 -/
+  exponent_bound : temporal_exponent < 1/4 - (d : ℝ)/8
+  /-- The exponent is positive (for d ≤ 1) -/
+  exponent_pos : d ≤ 1 → temporal_exponent > 0
 
 end StochasticHeatEquation
 
@@ -87,24 +103,47 @@ structure NonlinearSHE (d : ℕ) where
   drift : ℝ → ℝ
   /-- The multiplicative noise coefficient g -/
   noise_coeff : ℝ → ℝ
+  /-- The Lipschitz constant for f -/
+  drift_lipschitz_const : ℝ
+  /-- The Lipschitz constant is non-negative -/
+  lipschitz_nonneg : drift_lipschitz_const ≥ 0
   /-- Lipschitz condition on f -/
-  drift_lipschitz : ∃ L : ℝ, ∀ x y : ℝ, |drift x - drift y| ≤ L * |x - y|
+  drift_lipschitz : ∀ x y : ℝ, |drift x - drift y| ≤ drift_lipschitz_const * |x - y|
 
 namespace NonlinearSHE
 
-/-- Additive noise case: g(u) = 1 -/
-def additive (d : ℕ) (f : ℝ → ℝ) : NonlinearSHE d where
+/-- Additive noise case: g(u) = 1.
+    The drift f must be provided along with its Lipschitz constant. -/
+def additive (d : ℕ) (f : ℝ → ℝ) (L : ℝ) (hL : L ≥ 0)
+    (hf : ∀ x y : ℝ, |f x - f y| ≤ L * |x - y|) : NonlinearSHE d where
   domain := Set.univ
   drift := f
   noise_coeff := fun _ => 1
-  drift_lipschitz := sorry
+  drift_lipschitz_const := L
+  lipschitz_nonneg := hL
+  drift_lipschitz := hf
 
-/-- Multiplicative noise case: g(u) = u -/
-def multiplicative (d : ℕ) (f : ℝ → ℝ) : NonlinearSHE d where
+/-- Multiplicative noise case: g(u) = u.
+    The drift f must be provided along with its Lipschitz constant. -/
+def multiplicative (d : ℕ) (f : ℝ → ℝ) (L : ℝ) (hL : L ≥ 0)
+    (hf : ∀ x y : ℝ, |f x - f y| ≤ L * |x - y|) : NonlinearSHE d where
   domain := Set.univ
   drift := f
   noise_coeff := id
-  drift_lipschitz := sorry
+  drift_lipschitz_const := L
+  lipschitz_nonneg := hL
+  drift_lipschitz := hf
+
+/-- Linear drift: f(u) = au has Lipschitz constant |a| -/
+def linearDrift (d : ℕ) (a : ℝ) (multiplicative_noise : Bool) : NonlinearSHE d where
+  domain := Set.univ
+  drift := fun u => a * u
+  noise_coeff := if multiplicative_noise then id else fun _ => 1
+  drift_lipschitz_const := |a|
+  lipschitz_nonneg := abs_nonneg a
+  drift_lipschitz := fun x y => by
+    show |a * x - a * y| ≤ |a| * |x - y|
+    rw [← mul_sub, abs_mul]
 
 end NonlinearSHE
 

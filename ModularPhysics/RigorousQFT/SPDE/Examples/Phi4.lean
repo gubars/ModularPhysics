@@ -88,22 +88,47 @@ theorem cubic_well_defined (_phi : Phi4_2) :
     _phi.toPhi4Model.cubicWellDefined := by
   simp [Phi4Model.cubicWellDefined, Phi4Model.solutionRegularity]
 
-/-- The Da Prato-Debussche trick: write u = Z + v where Z solves linear SHE -/
+/-- The Da Prato-Debussche trick: write u = Z + v where Z solves linear SHE.
+    This decomposition allows treating the singular terms :Z²:, :Z³: separately
+    from the regular remainder v. -/
 structure DaPratoDebussche (phi : Phi4_2) where
-  /-- The linear part Z: ∂_t Z = ΔZ + ξ -/
-  linearPart : True
-  /-- The remainder v: ∂_t v = Δv - :Z³: - 3:Z²:v - 3Z v² - v³ -/
-  remainder : True
-  /-- The Wick-ordered powers :Z²:, :Z³: -/
-  wickOrdering : True
+  /-- The Hölder regularity of the linear solution Z (α < 0 in 2D) -/
+  linear_regularity : ℝ
+  /-- Z has negative Hölder regularity in 2D -/
+  linear_regularity_neg : linear_regularity < 0
+  /-- The Hölder regularity of the remainder v (β > 0) -/
+  remainder_regularity : ℝ
+  /-- The remainder has positive regularity -/
+  remainder_regularity_pos : remainder_regularity > 0
+  /-- The regularity gain: v is more regular than Z -/
+  regularity_gain : remainder_regularity > -linear_regularity
+  /-- The Wick renormalization constant for :Z²:.
+      In 2D, 𝔼[Z(x)²] is logarithmically divergent and :Z²: = Z² - 𝔼[Z²] -/
+  wick_constant_2 : ℝ
+  /-- The Wick renormalization constant for :Z³: -/
+  wick_constant_3 : ℝ
 
-/-- The invariant measure is the Φ⁴₂ Euclidean QFT measure -/
-theorem invariant_measure_is_qft (_phi : Phi4_2) :
-    True := trivial
+/-- The invariant measure for Φ⁴₂ is characterized by the Euclidean QFT measure.
+    This measure is formally dμ = (1/Z) exp(-∫ (1/2)|∇φ|² + (m²/2)φ² + (λ/4)φ⁴ dx) Dφ -/
+structure InvariantMeasureQFT (phi : Phi4_2) where
+  /-- The partition function (normalization constant) -/
+  partition_function : ℝ
+  /-- The partition function is positive -/
+  partition_pos : partition_function > 0
+  /-- The measure is a probability measure -/
+  is_probability : True  -- Full formalization requires constructive QFT
 
-/-- Global well-posedness in 2D -/
-theorem global_well_posedness (_phi : Phi4_2) :
-    True := trivial
+/-- Global well-posedness for Φ⁴₂: existence, uniqueness, and continuous dependence
+    for all time and all initial data in appropriate spaces. -/
+structure GlobalWellPosedness2D (phi : Phi4_2) where
+  /-- The solution regularity (α < 0 in 2D) -/
+  solution_regularity : ℝ
+  /-- Negative regularity -/
+  regularity_bound : solution_regularity < 0
+  /-- Existence: for any initial data, a solution exists for all time -/
+  global_existence : ∀ T : ℝ, T > 0 → True  -- Placeholder for solution existence
+  /-- Uniqueness: solutions are unique in the appropriate class -/
+  uniqueness : True  -- Placeholder for uniqueness statement
 
 end Phi4_2
 
@@ -122,7 +147,11 @@ theorem cubic_requires_renormalization (phi : Phi4_3) :
   simp [Phi4Model.cubicWellDefined, Phi4Model.solutionRegularity]
   norm_num
 
-/-- The regularity structure for Φ⁴₃ -/
+/-- The regularity structure for Φ⁴₃.
+    The index set contains the regularities needed for the solution theory:
+    - ξ has regularity α = -5/2 - ε
+    - Φ has regularity 1/2 - ε
+    - Products like Φ², Φ³ have correspondingly lower regularities -/
 noncomputable def regularity_structure : RegularityStructure 3 where
   A := {
     indices := {-5/2, -3/2, -1/2, -1, 0, 1/2, 1}
@@ -130,37 +159,63 @@ noncomputable def regularity_structure : RegularityStructure 3 where
     locally_finite := fun _ => Set.toFinite _
     contains_zero := by simp
   }
-  T := fun α _ => ℝ  -- Simplified
+  T := fun α _ => ℝ  -- Simplified: in full theory, T_α is spanned by abstract symbols
   banach := fun _ _ => inferInstance
   normed_space := fun _ _ => inferInstance
   fin_dim := fun _ _ => inferInstance
-  G := Unit
+  G := Unit  -- Trivial structure group for this simplified example
   group := inferInstance
   action := fun _ _ _ => LinearMap.id
-  triangular := fun _ _ _ _ => trivial
+  action_mul := fun _ _ _ _ => rfl
+  action_one := fun _ _ => rfl
+  triangular_unipotent := fun _ _ _ => ⟨1, fun τ => by simp⟩
 
-/-- Renormalization constants for Φ⁴₃ -/
+/-- Renormalization constants for Φ⁴₃.
+    The mass counterterm diverges logarithmically as the UV cutoff ε → 0. -/
 structure Renormalization (phi : Phi4_3) where
-  /-- The mass counterterm δm²(ε) -/
+  /-- The mass counterterm δm²(ε) as a function of the UV cutoff ε > 0 -/
   mass_counterterm : ℝ → ℝ
-  /-- The mass diverges logarithmically: δm² ~ log(1/ε) -/
-  log_divergence : True
+  /-- Coefficient of the logarithmic divergence in mass counterterm -/
+  log_coefficient : ℝ
+  /-- The mass diverges logarithmically: |δm²(ε) - c log(1/ε)| bounded as ε → 0 -/
+  log_divergence : ∃ C ε₀ : ℝ, C > 0 ∧ ε₀ > 0 ∧
+    ∀ ε : ℝ, 0 < ε → ε < ε₀ →
+    |mass_counterterm ε - log_coefficient * Real.log (1/ε)| ≤ C
   /-- The coupling constant renormalization (finite in 3D) -/
   coupling_renorm : ℝ → ℝ
-  /-- Coupling renormalization is finite -/
-  coupling_finite : True
+  /-- Coupling renormalization has a finite limit as ε → 0 -/
+  coupling_finite : ∃ coupling_limit : ℝ,
+    Filter.Tendsto coupling_renorm (nhdsWithin 0 (Set.Ioi 0)) (nhds coupling_limit)
 
-/-- The renormalized equation is well-posed locally -/
-theorem local_well_posedness (_phi : Phi4_3) (_r : Renormalization _phi) :
-    True := trivial
+/-- Local well-posedness for Φ⁴₃: the renormalized equation has unique local solutions -/
+structure LocalWellPosedness3D (phi : Phi4_3) (r : Renormalization phi) where
+  /-- The solution regularity (1/2 - ε in 3D) -/
+  solution_regularity : ℝ
+  /-- The regularity is close to 1/2 -/
+  regularity_bound : solution_regularity < 1/2 ∧ solution_regularity > 0
+  /-- Local existence time depends on initial data norm -/
+  existence_time : ℝ → ℝ  -- initial_norm → existence_time
+  /-- Existence time is positive for bounded data -/
+  existence_time_pos : ∀ R : ℝ, R > 0 → existence_time R > 0
 
-/-- Coming down from infinity (Mourrat-Weber) -/
-theorem coming_down_from_infinity (_phi : Phi4_3) :
-    True := trivial
+/-- Coming down from infinity (Mourrat-Weber): solutions starting from rough initial
+    data instantaneously regularize. The solution at any positive time t > 0 is
+    independent of the precise initial condition in the class of "coming from infinity". -/
+structure ComingDownFromInfinity (phi : Phi4_3) where
+  /-- The regularization time: solutions become regular after time ε -/
+  regularization : ∀ ε : ℝ, ε > 0 → True  -- Solutions at time ε are well-defined
+  /-- Independence of initial condition in the limit: two solutions with different
+      "infinite" initial conditions agree for t > 0 -/
+  independence : True  -- Full statement requires abstract initial conditions
 
-/-- The invariant measure exists and is unique -/
-theorem invariant_measure_exists (_phi : Phi4_3) :
-    True := trivial
+/-- The invariant measure for Φ⁴₃ exists and is unique -/
+structure InvariantMeasure3D (phi : Phi4_3) where
+  /-- Existence: there is an invariant probability measure -/
+  existence : True  -- Full statement requires constructive proof
+  /-- Uniqueness: the invariant measure is unique -/
+  uniqueness : True  -- Follows from "coming down from infinity"
+  /-- The measure is related to the Φ⁴₃ Euclidean QFT (if it exists) -/
+  qft_relation : True
 
 end Phi4_3
 

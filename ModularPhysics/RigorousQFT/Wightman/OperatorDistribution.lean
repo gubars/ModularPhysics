@@ -88,7 +88,12 @@ theorem smul_mem (D : DenseSubspace H) {x : H} (hx : x ∈ D) (c : ℂ) : c • 
 end DenseSubspace
 
 /-- An operator-valued distribution is a map from Schwartz test functions to
-    operators on a Hilbert space, with a common dense domain. -/
+    operators on a Hilbert space, with a common dense domain.
+
+    The key property distinguishing this from arbitrary operator-valued maps is
+    the continuity requirement: for any χ, ψ in the domain, the matrix element
+    f ↦ ⟨χ, φ(f)ψ⟩ must be a tempered distribution (continuous linear functional
+    on the Schwartz space). -/
 structure OperatorValuedDistribution (d : ℕ) [NeZero d]
     (H : Type*) [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H] where
   /-- The common dense domain for all field operators -/
@@ -103,6 +108,10 @@ structure OperatorValuedDistribution (d : ℕ) [NeZero d]
     operator (c • f) ψ = c • operator f ψ
   /-- Domain invariance: φ(f) maps D to D -/
   operator_domain : ∀ f : SchwartzSpacetime d, ∀ ψ ∈ domain, operator f ψ ∈ domain
+  /-- Temperedness: for any χ, ψ ∈ D, the matrix element f ↦ ⟨χ, φ(f)ψ⟩ is continuous.
+      This makes f ↦ ⟨χ, φ(f)ψ⟩ a tempered distribution on 𝒮(ℝ^{d+1}). -/
+  matrix_element_continuous : ∀ χ ψ : H, χ ∈ domain → ψ ∈ domain →
+    Continuous (fun f : SchwartzSpacetime d => ⟪χ, operator f ψ⟫_ℂ)
 
 namespace OperatorValuedDistribution
 

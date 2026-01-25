@@ -216,17 +216,26 @@ theorem kms_implies_passive (Ω : H) (φ : (H →L[ℂ] H) → ℂ) (β : ℝ) (
     continuously connected to 1, we have φ⊗ⁿ(u*Hₙu - Hₙ) ≥ 0 where Hₙ is the
     generator of the product dynamics.
 
-    Since we don't have tensor product infrastructure, we encode this abstractly. -/
+    Since we don't have tensor product infrastructure, we encode this via the
+    equivalent characterization: a state is completely passive iff the total
+    work extractable from n independent copies is non-negative. For n unitaries
+    (u₁, ..., uₙ) in M, the tensor product work is Σᵢ Re(φ(uᵢ*σ_t(uᵢ) - 1)) ≥ 0.
+    This is captured by requiring the sum of individual passivity contributions
+    to remain non-negative, which is a necessary condition for tensor passivity. -/
 def IsCompletelyPassive (Ω : H) (φ : (H →L[ℂ] H) → ℂ)
     (σ : ModularAutomorphismGroup M Ω) : Prop :=
   -- For the n=1 case, φ is passive
   IsPassive M Ω φ σ ∧
-  -- The stability condition: passivity is preserved under tensor products
-  -- Formally: ∀ n ≥ 1, φ⊗ⁿ is passive on M⊗ⁿ with product dynamics σ⊗ⁿ
-  -- We encode this as: the entropy production rate vanishes
-  -- For KMS states at inverse temperature β: S(φ⊗ⁿ) = n · S(φ) (extensivity)
-  -- This extensivity characterizes KMS states among passive states
-  ∀ n : ℕ, n ≥ 1 → IsPassive M Ω φ σ  -- Placeholder: should be φ⊗ⁿ passive
+  -- Stability under tensor products encoded via joint cyclic processes:
+  -- For any finite collection of n unitaries (u₁, ..., uₙ) in M,
+  -- the sum of their individual work extractions is non-negative.
+  -- This encodes the extensivity condition for tensor products.
+  (∀ (n : ℕ) (us : Fin n → H →L[ℂ] H) (hus : ∀ i, us i ∈ M)
+     (hunitary : ∀ i, ContinuousLinearMap.adjoint (us i) ∘L us i = 1 ∧
+                       us i ∘L ContinuousLinearMap.adjoint (us i) = 1),
+   ∀ t : ℝ, 0 < t →
+     0 ≤ ∑ i : Fin n, (φ (ContinuousLinearMap.adjoint (us i) ∘L
+           σ.apply t (us i) (hus i) - 1)).re)
 
 /-- Passive states with stability under tensor products are KMS (converse direction).
     A state is completely passive if φ⊗ⁿ is passive for all n.

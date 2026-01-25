@@ -59,19 +59,36 @@ variable (d : ℕ) [NeZero d]
 
 /-! ### Spectrum Condition -/
 
-/-- The forward light cone in momentum space: p₀ ≥ 0, p² ≥ 0 -/
+/-- The forward light cone in momentum space: p₀ ≥ 0, p² ≤ 0.
+    In the mostly positive signature, p² = -p₀² + |p⃗|², so p² ≤ 0 means p₀ ≥ |p⃗|.
+    This is the region where timelike and lightlike momenta with positive energy lie. -/
 def ForwardMomentumCone : Set (MinkowskiSpace d) :=
   MinkowskiSpace.ClosedForwardLightCone d
 
 /-- The spectrum condition: the joint spectrum of the energy-momentum operators
-    lies in the closed forward light cone -/
+    lies in the closed forward light cone.
+
+    Mathematically: For any state ψ in the domain of the momentum operators,
+    the spectral support of ψ (the support of its spectral measure) lies in V̄₊.
+
+    Equivalently, for any translation-covariant state:
+      ⟨ψ, U(a) ψ⟩ = ∫_{V̄₊} e^{ip·a} dμ_ψ(p)
+
+    where V̄₊ = {p : p₀ ≥ 0 and p² ≤ 0} is the closed forward light cone
+    (in mostly positive signature, p² = -p₀² + |p⃗|² ≤ 0 means p₀ ≥ |p⃗|).
+
+    We express this via the Fourier transform of the 2-point function having
+    support in the forward cone. -/
 structure SpectralCondition (d : ℕ) [NeZero d]
     {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H]
     (π : PoincareRepresentation d H) : Prop where
-  /-- The spectrum is contained in the forward cone -/
-  spectrum_in_cone : True  -- Placeholder for proper spectral theory formulation
-  -- In a full formalization, this would state that the joint spectrum of
-  -- the momentum operators P_μ lies in the closed forward light cone
+  /-- The energy is non-negative: for all states ψ, ⟨ψ, Hψ⟩ ≥ 0 where H = P₀ -/
+  energy_nonneg : ∀ ψ : H, (⟪ψ, π.hamiltonian ψ⟫_ℂ).re ≥ 0
+  /-- The mass-shell condition: p² ≤ 0 (in mostly positive signature).
+      For any state ψ, the expectation value of P² = -P₀² + Σᵢ Pᵢ² is ≤ 0.
+      This encodes that the spectral support lies in the forward cone. -/
+  mass_shell : ∀ ψ : H, (⟪ψ, π.hamiltonian (π.hamiltonian ψ)⟫_ℂ).re ≥
+    ∑ i : Fin d, (⟪ψ, π.spatialMomentum i (π.spatialMomentum i ψ)⟫_ℂ).re
 
 /-! ### Locality -/
 
@@ -147,8 +164,26 @@ structure WightmanQFT (d : ℕ) [NeZero d] where
   /-- Cyclicity: the algebraic span of field operators on vacuum is dense -/
   cyclicity : @Dense HilbertSpace (instNormedAddCommGroup.toUniformSpace.toTopologicalSpace)
               (field.algebraicSpan vacuum).carrier
-  /-- Covariance: U(g) φ(f) U(g)⁻¹ = φ(f ∘ g⁻¹) expressed via matrix elements -/
-  covariance : True  -- Placeholder; full covariance requires Poincaré action on Schwartz space
+  /-- The action of Poincaré transformations on test functions.
+      (g · f)(x) = f(g⁻¹ · x) where g · x = Λx + a.
+
+      Note: Proving that Poincaré transformations preserve the Schwartz class
+      requires substantial analysis infrastructure. We include this as data
+      with the understanding that the underlying function is poincareActionOnTestFun. -/
+  poincareActionOnSchwartz : PoincareGroup d → SchwartzSpacetime d → SchwartzSpacetime d
+  /-- Covariance: U(g) φ(f) U(g)⁻¹ = φ(g·f) where (g·f)(x) = f(g⁻¹·x).
+
+      Expressed via matrix elements: for all g ∈ ISO(1,d), f ∈ 𝒮, and ψ, χ ∈ D,
+        ⟨U(g)χ, φ(f) U(g)ψ⟩ = ⟨χ, φ(g·f) ψ⟩
+
+      For scalar fields, the field transforms as:
+        U(g) φ(f) U(g)⁻¹ = φ(g·f)
+
+      This is equivalent to: ⟨U(g)χ, φ(f) U(g)ψ⟩ = ⟨χ, φ(g·f) ψ⟩ by unitarity. -/
+  covariance : ∀ (g : PoincareGroup d) (f : SchwartzSpacetime d) (χ ψ : HilbertSpace),
+    χ ∈ field.domain → ψ ∈ field.domain →
+    ⟪poincare_rep.U g χ, field.operator f (poincare_rep.U g ψ)⟫_ℂ =
+    ⟪χ, field.operator (poincareActionOnSchwartz g f) ψ⟫_ℂ
 
   -- W3: Locality
   /-- Locality: spacelike-separated fields commute -/
@@ -209,20 +244,85 @@ end WightmanQFT
 
 /-! ### Wightman Functions as Distributions -/
 
-/-- The Wightman n-point functions satisfy temperedness -/
+/-- The n-point domain: n copies of (d+1)-dimensional spacetime.
+    Points are functions Fin n → Fin (d+1) → ℝ, i.e., n spacetime points. -/
+abbrev NPointSpacetime (d n : ℕ) := Fin n → Fin (d + 1) → ℝ
+
+/-- Schwartz space on n copies of spacetime -/
+abbrev SchwartzNPointSpace (d n : ℕ) := SchwartzMap (NPointSpacetime d n) ℂ
+
+/-- The Wightman n-point function as a distribution on n-point test functions.
+
+    The smeared Wightman function W_n(F) for F ∈ 𝒮(ℝ^{n(d+1)}) is defined by:
+      W_n(F) = ∫ dx₁...dxₙ W_n(x₁,...,xₙ) F(x₁,...,xₙ)
+
+    For product test functions F = f₁ ⊗ ... ⊗ fₙ, this equals ⟨Ω, φ(f₁)...φ(fₙ)Ω⟩.
+    The nuclear theorem guarantees extension to general test functions. -/
+def WightmanDistribution (qft : WightmanQFT d) (n : ℕ) :
+    SchwartzNPointSpace d n → ℂ :=
+  fun F => sorry  -- Would require tensor product infrastructure to properly define
+
+/-- Temperedness of Wightman functions: W_n extends to a continuous linear
+    functional on the Schwartz space 𝒮(ℝ^{n(d+1)}).
+
+    Mathematically, this means f ↦ W_n(f) is a tempered distribution, i.e.,
+    there exist C > 0 and seminorm indices such that |W_n(f)| ≤ C · ‖f‖_{α,β}
+    for all test functions f.
+
+    This is expressed as continuity with respect to the Schwartz topology. -/
 def WightmanTempered (qft : WightmanQFT d) (n : ℕ) : Prop :=
-  -- The n-point function, viewed as a distribution on 𝒮(ℝ^{n(d+1)}),
-  -- extends to a tempered distribution
-  True  -- Placeholder; would need proper multilinear distribution theory
+  Continuous (WightmanDistribution d qft n)
 
 /-! ### Analytic Continuation -/
 
-/-- The Wightman functions have analytic continuation to the forward tube -/
+/-- A vector η ∈ ℝ^{d+1} lies in the open forward light cone V₊ if η₀ > 0 and η² < 0. -/
+def InOpenForwardCone (d : ℕ) [NeZero d] (η : Fin (d + 1) → ℝ) : Prop :=
+  η 0 > 0 ∧ MinkowskiSpace.minkowskiNormSq d η < 0
+
+/-- The forward tube T_n in n copies of complexified spacetime.
+
+    T_n = {(z₁,...,zₙ) ∈ ℂ^{n(d+1)} : Im(z₁) ∈ V₊, Im(z₂-z₁) ∈ V₊, ..., Im(zₙ-zₙ₋₁) ∈ V₊}
+
+    where V₊ is the open forward light cone {η : η₀ > 0, η² < 0}.
+
+    This is the domain to which Wightman functions analytically continue.
+
+    We define the successive difference of imaginary parts η_k and require each
+    to lie in V₊. -/
+def ForwardTube (d n : ℕ) [NeZero d] : Set (Fin n → Fin (d + 1) → ℂ) :=
+  { z | ∀ k : Fin n,
+    let prev : Fin (d + 1) → ℂ := if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩
+    let η : Fin (d + 1) → ℝ := fun μ => (z k μ - prev μ).im
+    InOpenForwardCone d η }
+
+/-- The extended forward tube T_n^{ext} obtained by Lorentz covariance.
+
+    T_n^{ext} = ⋃_{Λ ∈ L₊↑} Λ T_n
+
+    where L₊↑ is the proper orthochronous Lorentz group.
+    The edge-of-the-wedge theorem shows W_n extends to T_n^{ext}. -/
+def ExtendedForwardTube (d n : ℕ) [NeZero d] : Set (Fin n → Fin (d + 1) → ℂ) :=
+  ⋃ Λ : LorentzGroup.Restricted (d := d),
+    { z | ∃ w ∈ ForwardTube d n, z = fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * w k ν }
+
+/-- The Wightman functions have analytic continuation to the forward tube.
+
+    The n-point Wightman function W_n(x₁,...,xₙ), initially defined as a
+    distribution on real spacetime points, extends to a holomorphic function
+    on the forward tube T_n.
+
+    By Lorentz covariance, it further extends to the extended forward tube T_n^{ext}.
+    The edge-of-the-wedge theorem (Bargmann-Hall-Wightman) shows this extension
+    is single-valued. -/
 structure WightmanAnalyticity (qft : WightmanQFT d) where
-  /-- The forward tube domain -/
-  forwardTube : ℕ → Set (Fin n → ℂ → ℂ)
-  /-- Analytic continuation exists -/
-  analytic : True  -- Placeholder for complex analysis formulation
+  /-- The analytic continuation of the n-point function to the forward tube -/
+  analyticContinuation : (n : ℕ) → (ForwardTube d n) → ℂ
+  /-- The continuation is holomorphic (analytic in each complex variable) -/
+  isHolomorphic : ∀ n : ℕ, ∀ z : ForwardTube d n,
+    DifferentiableAt ℂ (fun w => analyticContinuation n ⟨w, sorry⟩) z.val
+  /-- Boundary values recover the Wightman distribution -/
+  boundary_values : ∀ n : ℕ, ∀ f : SchwartzNPointSpace d n,
+    WightmanDistribution d qft n f = sorry  -- ∫ W_n^{analytic}(x - iε) f(x) dx as ε → 0
 
 end
 
