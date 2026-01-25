@@ -4,13 +4,11 @@ A work-in-progress formalization of physics in Lean 4 with Mathlib.
 
 ## Philosophy
 
-The project explores how physical theories can be expressed in a formal proof assistant. The `Core/` module captures the logical structure of physics using Lean's type system, while `StringGeometry/`, `StringAlgebra/`, and `RigorousQFT/` pursue rigorous mathematical foundations without new axioms.
+The project explores how physical theories can be expressed in a formal proof assistant. The `Core/` module captures the logical structure of physics using Lean's type system, while `StringGeometry/`, `StringAlgebra/`, and `RigorousQFT/` pursue rigorous mathematical foundations.
 
-In `Core/`, physical principles are encoded as axioms bundled into structures. For example, the Haag-Kastler axioms for algebraic QFT, the Osterwalder-Schrader axioms for Euclidean field theory, or the properties of modular tensor categories are declared axiomatically, and theorems are derived from these axioms. This approach captures the deductive structure of physical theories without requiring complete mathematical foundations for objects like path integral measures. The axioms are not meant to be provable from first principles; rather, they formalize what physicists assume to be true, allowing one to explore the logical consequences and interrelations between different physical frameworks.
+In `Core/`, physical principles are encoded as axioms bundled into structures. At the moment its use is to parse the logical content of physics papers and to explore the interrelations between different physical frameworks without requiring complete mathematical foundations. Note that the use of "axiom" in the Lean environment is risky; while "axiom" is tolerated for now, eventually we will replace all "axiom" with "structure" or "def".
 
-The use of axioms carries a risk: inconsistent axioms would allow proving anything. To mitigate this, axioms are organized into structures that bundle related assumptions together, making dependencies explicit. When possible, axioms are formulated to match well-established physics results (theorems from constructive QFT, categorical equivalences, etc.) rather than ad hoc assumptions. The goal is not foundational certainty but a useful formal framework for exploring the logical structure of physics.
-
-In `StringGeometry/`, `StringAlgebra/`, and `RigorousQFT/`, the goal is different: all definitions and proofs build purely on Mathlib's foundations, with `sorry` used for incomplete proofs rather than new axioms.
+In `StringGeometry/`, `StringAlgebra/`, and `RigorousQFT/`, the goal is different: all definitions and proofs build purely on Mathlib's foundations, with `sorry` used for incomplete proofs. Here "axiom" is strictly forbidden.
 
 ## Structure
 
@@ -82,7 +80,3 @@ At a beginning stage with many placeholder definitions. Covers L-infinity algebr
 ### RigorousQFT
 
 At an early stage with many placeholders. Covers the Wightman axioms, von Neumann algebras, and stochastic PDE methods for constructive QFT.
-
-## Status
-
-This is an early-stage project. The formalization is incomplete and many parts are placeholders or sketches.
