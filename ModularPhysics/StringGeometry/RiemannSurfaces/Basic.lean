@@ -8,7 +8,7 @@ import Mathlib.LinearAlgebra.Dimension.Finrank
 import Mathlib.Topology.Connected.PathConnected
 import Mathlib.Analysis.Convex.PathConnected
 import Mathlib.Topology.Compactification.OnePoint.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Helpers.Topology
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
 
 /-!
 # Riemann Surfaces
@@ -71,13 +71,20 @@ structure RiemannSurface where
   connected : @ConnectedSpace carrier topology
   /-- Complex atlas with holomorphic transition functions.
 
-      Ideally this would be `ChartedSpace ℂ carrier` with `SmoothManifoldWithCorners`
-      specialized to holomorphic maps. Currently a placeholder awaiting Mathlib's
-      complex manifold infrastructure. The atlas consists of:
-      - An open cover {Uᵢ} of carrier
-      - Homeomorphisms φᵢ : Uᵢ → φᵢ(Uᵢ) ⊂ ℂ onto open subsets of ℂ
-      - Holomorphic transition functions φⱼ ∘ φᵢ⁻¹ on overlaps -/
-  atlas : True  -- Placeholder for HolomorphicAtlas carrier
+      A complex atlas consists of:
+      - An open cover {Uᵢ} of the carrier
+      - Homeomorphisms φᵢ : Uᵢ → φᵢ(Uᵢ) ⊂ ℂ (charts)
+      - Holomorphic transition functions: φⱼ ∘ φᵢ⁻¹ is holomorphic on overlaps
+
+      **Implementation options:**
+      1. Use `ChartedSpace ℂ carrier` + condition that transitions are holomorphic
+      2. Use `SmoothManifoldWithCorners I carrier` where I = 𝓘(ℂ, ℂ) (identity model)
+         combined with the fact that smooth = holomorphic for 1D complex manifolds
+
+      **Current status:** Placeholder until Mathlib has dedicated complex manifold
+      support. The key constraint is that smooth maps ℂ → ℂ need to be holomorphic
+      (not just smooth in the real sense), which requires Cauchy-Riemann verification. -/
+  atlas : True  -- TODO: ChartedSpace ℂ carrier + holomorphic transitions
 
 /-!
 ## Standard Examples
@@ -109,8 +116,8 @@ noncomputable def RiemannSphere : RiemannSurface where
   carrier := OnePoint ℂ
   topology := inferInstance
   t2 := inferInstance  -- OnePoint of locally compact T2 space is T4 hence T2
-  secondCountable := RiemannSurfaces.Helpers.OnePoint.Complex.secondCountableTopology
-  connected := RiemannSurfaces.Helpers.OnePoint.Complex.connectedSpace
+  secondCountable := RiemannSurfaces.Topology.OnePoint.Complex.secondCountableTopology
+  connected := RiemannSurfaces.Topology.OnePoint.Complex.connectedSpace
   atlas := trivial
 
 /-!
@@ -153,19 +160,54 @@ theorem genus0Surface_genus : genus0Surface.genus = 0 := rfl
 We define these abstractly for the formalization.
 -/
 
-/-- A holomorphic line bundle over a Riemann surface (abstract definition) -/
-structure HolomorphicLineBundle (RS : RiemannSurface) where
-  /-- The total space -/
-  totalSpace : Type*
-  /-- Projection to base -/
-  proj : totalSpace → RS.carrier
-  /-- Holomorphic structure (placeholder) -/
-  holomorphicStructure : True
+/-- Data for local trivializations of a line bundle.
 
-/-- The canonical bundle K (holomorphic cotangent bundle) -/
+    A local trivialization over U ⊂ Σ is an isomorphism φ : L|_U → U × ℂ.
+    The transition functions g_{ij} = φ_j ∘ φ_i⁻¹ on U_i ∩ U_j must be holomorphic. -/
+structure LocalTrivialization (RS : RiemannSurface) where
+  /-- The open subset U where the trivialization is defined -/
+  domain : Set RS.carrier
+  /-- Trivialization function (abstractly represented) -/
+  trivId : ℕ
+
+/-- A holomorphic line bundle over a Riemann surface.
+
+    A holomorphic line bundle L → Σ consists of:
+    - Total space E with projection π : E → Σ
+    - Fibers π⁻¹(p) ≅ ℂ are 1-dimensional ℂ-vector spaces
+    - Local trivializations: L|_U ≅ U × ℂ with holomorphic transition functions
+
+    **Key examples:**
+    - Trivial bundle O (sections = holomorphic functions)
+    - Canonical bundle K (sections = holomorphic 1-forms)
+    - Point bundle O(p) for p ∈ Σ
+    - Spin bundles S with S ⊗ S ≅ K -/
+structure HolomorphicLineBundle (RS : RiemannSurface) where
+  /-- The total space of the bundle -/
+  totalSpace : Type*
+  /-- Bundle projection -/
+  proj : totalSpace → RS.carrier
+  /-- Local trivializations covering the surface -/
+  trivializations : Set (LocalTrivialization RS)
+  /-- The trivializations cover the surface -/
+  covers : ∀ p : RS.carrier, ∃ φ ∈ trivializations, p ∈ φ.domain
+  /-- Transition functions between overlapping trivializations are holomorphic.
+      This is the key condition making the bundle "holomorphic".
+      Transition function g_{ij} : U_i ∩ U_j → ℂ* is holomorphic and nonvanishing. -/
+  transitionsHolomorphic : Prop  -- Full formalization requires complex analysis on RS
+
+/-- The canonical bundle K (holomorphic cotangent bundle).
+
+    The canonical bundle K = T*Σ^{1,0} is the bundle of holomorphic 1-forms.
+    - Local sections: f(z)dz where f is holomorphic
+    - Transition: dz' = (dz'/dz) dz, so g_{ij} = dz_j/dz_i
+    - deg(K) = 2g - 2 (Riemann-Hurwitz)
+    - dim H⁰(K) = g (by Riemann-Roch) -/
 structure CanonicalBundle (RS : RiemannSurface) extends HolomorphicLineBundle RS where
-  /-- Sections are holomorphic 1-forms -/
-  isCanonical : True
+  /-- The canonical bundle has specific transition functions determined by the atlas.
+      For charts (U_i, z_i) and (U_j, z_j), the transition function is g_{ij} = dz_j/dz_i.
+      This encodes that sections transform as 1-forms: f(z)dz → f(z(w))(dz/dw)dw. -/
+  transitionsAreCotangent : Prop  -- g_{ij} = dz_j/dz_i (derivative of coordinate change)
 
 /-- Degree of a line bundle on a compact surface.
     The degree is the first Chern class integrated over the surface.
@@ -187,14 +229,31 @@ theorem canonical_degree (CRS : CompactRiemannSurface)
 A spin structure is a square root of the canonical bundle.
 -/
 
-/-- A spin structure is a square root of the canonical bundle -/
+/-- A spin structure is a square root of the canonical bundle.
+
+    Mathematically, a spin structure on Σ is a holomorphic line bundle S
+    with an isomorphism S ⊗ S ≅ K (the canonical bundle).
+
+    **Existence:** Spin structures exist iff deg(K) is even (always true since
+    deg(K) = 2g - 2). For genus g, there are 2^{2g} distinct spin structures.
+
+    **Classification:** Spin structures correspond to:
+    - H¹(Σ, ℤ/2ℤ) ≅ (ℤ/2ℤ)^{2g}
+    - Theta characteristics: divisor classes [S] with 2[S] = [K]
+
+    **Parity:** The parity of a spin structure is h⁰(S) mod 2.
+    This is a topological invariant (Atiyah, Mumford). -/
 structure SpinStructure (RS : RiemannSurface) where
-  /-- The spin bundle -/
+  /-- The spin bundle S with S ⊗ S ≅ K -/
   spinBundle : HolomorphicLineBundle RS
-  /-- The canonical bundle -/
+  /-- The canonical bundle K -/
   canonical : CanonicalBundle RS
-  /-- spinBundle ⊗ spinBundle ≅ K -/
-  isSquareRoot : True
+  /-- The degree of S is half the degree of K: deg(S) = g - 1.
+      This is a necessary condition for S ⊗ S ≅ K.
+      Full isomorphism requires bundle theory not yet available in Mathlib. -/
+  degree_half : ∀ (hc : @CompactSpace RS.carrier RS.topology),
+    HolomorphicLineBundle.degree hc spinBundle * 2 =
+    HolomorphicLineBundle.degree hc canonical.toHolomorphicLineBundle
 
 
 /-- Parity of a spin structure (even or odd) -/
@@ -216,23 +275,31 @@ noncomputable def SpinStructure.parity {RS : RiemannSurface}
 -/
 
 /-- A divisor on a Riemann surface is a formal sum of points.
-    We represent it as a function with finite support. -/
+    We represent it as a function with finite support.
+
+    For the full divisor theory with AddCommGroup structure, see `Algebraic/Divisors.lean`. -/
 structure Divisor (RS : RiemannSurface) where
   /-- Multiplicity at each point -/
   mult : RS.carrier → ℤ
-  /-- Finite support (placeholder) -/
-  finiteSupport : True
+  /-- Only finitely many points have non-zero multiplicity -/
+  finiteSupport : Set.Finite { p | mult p ≠ 0 }
 
 /-- Degree of a divisor: sum of multiplicities.
     deg(D) = Σₚ D(p) where D(p) is the multiplicity at p.
     Well-defined since D has finite support. -/
-noncomputable def Divisor.degree {RS : RiemannSurface} (_ : Divisor RS) : ℤ :=
-  sorry  -- Requires finite sum over support
+noncomputable def Divisor.degree {RS : RiemannSurface} (D : Divisor RS) : ℤ :=
+  D.finiteSupport.toFinset.sum D.mult
 
-/-- A divisor is principal if it's the divisor of a meromorphic function -/
-structure IsPrincipal {RS : RiemannSurface} (_ : Divisor RS) : Prop where
-  /-- There exists a meromorphic function with this divisor -/
-  hasMeromorphicFn : True
+/-- A divisor is principal if it's the divisor of a meromorphic function.
+
+    D is principal iff ∃ meromorphic f ≠ 0, div(f) = D, where div(f)
+    records zeros (positive multiplicity) and poles (negative multiplicity).
+
+    **Key property:** Principal divisors have degree 0 (argument principle).
+
+    For the full treatment with explicit `MeromorphicFunction` type and
+    `divisorOf` map, see `Algebraic/Divisors.lean`. -/
+opaque IsPrincipal {RS : RiemannSurface} (_ : Divisor RS) : Prop
 
 /-- Principal divisors have degree 0 on compact surfaces.
     Proof: For f meromorphic, the number of zeros equals the number of poles

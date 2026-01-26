@@ -1,4 +1,5 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.Meromorphic
 import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.Int.Basic
 import Mathlib.GroupTheory.QuotientGroup.Basic
@@ -316,88 +317,8 @@ end Divisor
 ## Principal Divisors
 
 A principal divisor is the divisor of a meromorphic function.
+The meromorphic function infrastructure is provided by `Algebraic.Helpers.Meromorphic`.
 -/
-
-/-- A meromorphic function on a Riemann surface (placeholder) -/
-structure MeromorphicFunction (RS : RiemannSurface) where
-  /-- The function (partial) -/
-  f : RS.carrier → ℂ ⊕ Unit  -- ℂ ∪ {∞}
-  /-- Meromorphic (holomorphic except for poles) -/
-  meromorphic : True
-
-namespace MeromorphicFunction
-
-variable {RS : RiemannSurface}
-
-/-- The constant function 1 -/
-def one : MeromorphicFunction RS where
-  f := fun _ => Sum.inl 1
-  meromorphic := trivial
-
-/-- Reciprocal of a meromorphic function (exchanges zeros and poles) -/
-noncomputable def inv (g : MeromorphicFunction RS) : MeromorphicFunction RS where
-  f := fun p => match g.f p with
-    | Sum.inl z => if z = 0 then Sum.inr () else Sum.inl z⁻¹
-    | Sum.inr () => Sum.inl 0
-  meromorphic := trivial
-
-/-- Product of meromorphic functions -/
-noncomputable def mul (g h : MeromorphicFunction RS) : MeromorphicFunction RS where
-  f := fun p => match g.f p, h.f p with
-    | Sum.inl z₁, Sum.inl z₂ => Sum.inl (z₁ * z₂)
-    | Sum.inl z, Sum.inr () => if z = 0 then Sum.inl 0 else Sum.inr ()  -- 0 · ∞ = 0, else ∞
-    | Sum.inr (), Sum.inl z => if z = 0 then Sum.inl 0 else Sum.inr ()
-    | Sum.inr (), Sum.inr () => Sum.inr ()  -- ∞ · ∞ = ∞
-  meromorphic := trivial
-
-instance : One (MeromorphicFunction RS) := ⟨MeromorphicFunction.one⟩
-noncomputable instance : Inv (MeromorphicFunction RS) := ⟨MeromorphicFunction.inv⟩
-noncomputable instance : Mul (MeromorphicFunction RS) := ⟨MeromorphicFunction.mul⟩
-
-end MeromorphicFunction
-
-/-- Order of a meromorphic function at a point (positive for zeros, negative for poles).
-
-    The order function ord_p(f) captures the multiplicity of a zero (positive) or
-    pole (negative) of the meromorphic function f at the point p.
-
-    A proper definition requires:
-    1. Coordinate charts on the Riemann surface
-    2. Local power series expansion: f(z) = (z - p)^n · g(z) where g(p) ≠ 0, ∞
-    3. Then ord_p(f) = n
-
-    For this formalization, we use a placeholder until Mathlib's complex analysis
-    infrastructure can be integrated. The key properties are:
-    - ord_p(1) = 0
-    - ord_p(f⁻¹) = -ord_p(f)
-    - ord_p(fg) = ord_p(f) + ord_p(g)
-    - {p | ord_p(f) ≠ 0} is finite (identity theorem)
-
-    See Farkas-Kra "Riemann Surfaces", Miranda "Algebraic Curves and Riemann Surfaces". -/
-noncomputable def orderAt {RS : RiemannSurface} (_ : MeromorphicFunction RS) (_ : RS.carrier) : ℤ :=
-  0  -- Placeholder: proper definition requires local power series
-
-/-- A meromorphic function has finitely many zeros and poles (identity theorem) -/
-theorem orderFiniteSupport {RS : RiemannSurface} (f : MeromorphicFunction RS) :
-    Set.Finite { p | orderAt f p ≠ 0 } := by
-  -- With orderAt := 0, this is trivially true
-  simp only [orderAt, ne_eq, not_true_eq_false]
-  exact Set.finite_empty
-
-/-- The constant function 1 has order 0 everywhere -/
-theorem orderAt_one {RS : RiemannSurface} (p : RS.carrier) :
-    orderAt (1 : MeromorphicFunction RS) p = 0 := by
-  rfl
-
-/-- Order of inverse: ord_p(1/f) = -ord_p(f) -/
-theorem orderAt_inv {RS : RiemannSurface} (f : MeromorphicFunction RS) (p : RS.carrier) :
-    orderAt f⁻¹ p = -orderAt f p := by
-  simp only [orderAt, neg_zero]
-
-/-- Order of product: ord_p(fg) = ord_p(f) + ord_p(g) -/
-theorem orderAt_mul {RS : RiemannSurface} (f g : MeromorphicFunction RS) (p : RS.carrier) :
-    orderAt (f * g) p = orderAt f p + orderAt g p := by
-  simp only [orderAt, add_zero]
 
 /-- The divisor of a meromorphic function -/
 noncomputable def divisorOf {RS : RiemannSurface} (f : MeromorphicFunction RS) :

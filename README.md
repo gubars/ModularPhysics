@@ -46,6 +46,8 @@ ModularPhysics/
 │   ├── SPDE/
 │   │   └── Examples/
 │   ├── vNA/
+│   │   ├── MeasureTheory/
+│   │   └── Unbounded/
 │   └── Wightman/
 │       ├── Groups/
 │       └── Spacetime/
@@ -55,14 +57,13 @@ ModularPhysics/
 │   └── VOA/
 └── StringGeometry/
     ├── RiemannSurfaces/
-    │   ├── Helpers/
     │   ├── Algebraic/
     │   │   └── Helpers/
     │   ├── Analytic/
     │   │   └── Helpers/
     │   ├── Combinatorial/
     │   │   └── Helpers/
-    │   └── Moduli/
+    │   └── Topology/
     ├── Supermanifolds/
     │   ├── Helpers/
     │   └── FPS/

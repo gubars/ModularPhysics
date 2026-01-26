@@ -232,11 +232,11 @@ noncomputable def GrassmannHolomorphicEven.const (Λ : GrassmannAlgebra ℂ) (c 
      taylor_expansion := trivial },
    fun _ => Λ.even_mem_iff _ |>.mpr ⟨algebraMap ℂ Λ.evenCarrier c, rfl⟩⟩
 
-/-- Lemma: the zero partial function has toFun = 0.
-    This is an axiom because partial functions don't reduce definitionally. -/
+/-- Lemma: the zero partial function has toFun = 0. -/
 @[simp]
-axiom GrassmannValuedHolomorphic.zero_toFun {Λ : GrassmannAlgebra ℂ} {U : Set ℂ} (c : ℂ) :
-    (GrassmannValuedHolomorphic.zero Λ U).toFun c = 0
+theorem GrassmannValuedHolomorphic.zero_toFun {Λ : GrassmannAlgebra ℂ} {U : Set ℂ} (c : ℂ) :
+    (GrassmannValuedHolomorphic.zero Λ U).toFun c = 0 := by
+  sorry  -- Requires: partial function reduction
 
 /-- The zero function as Grassmann-holomorphic odd -/
 noncomputable def GrassmannHolomorphicOdd.zero (Λ : GrassmannAlgebra ℂ) :
@@ -295,16 +295,17 @@ theorem GrassmannAlgebra.liftToEvenCarrier_zero {Λ : GrassmannAlgebra ℂ}
   apply Λ.evenToCarrier_injective
   rw [Λ.liftToEvenCarrier_spec, map_zero]
 
-/-- The derivative of the identity function is const 1.
-    This is an axiom as derivative.toFun requires Taylor expansion. -/
+/-- The derivative of the identity function is const 1. -/
 @[simp]
-axiom GrassmannHolomorphicEven.id_derivative_toFunEven {Λ : GrassmannAlgebra ℂ} (z : Λ.evenCarrier) :
-    (GrassmannHolomorphicEven.id Λ).derivative.toFunEven z = 1
+theorem GrassmannHolomorphicEven.id_derivative_toFunEven {Λ : GrassmannAlgebra ℂ} (z : Λ.evenCarrier) :
+    (GrassmannHolomorphicEven.id Λ).derivative.toFunEven z = 1 := by
+  sorry  -- Requires: Taylor expansion for identity function
 
 /-- The derivative of zero is zero -/
 @[simp]
-axiom GrassmannHolomorphicOdd.zero_derivative_toFun {Λ : GrassmannAlgebra ℂ} (z : Λ.evenCarrier) :
-    (GrassmannHolomorphicOdd.zero Λ).derivative z = 0
+theorem GrassmannHolomorphicOdd.zero_derivative_toFun {Λ : GrassmannAlgebra ℂ} (z : Λ.evenCarrier) :
+    (GrassmannHolomorphicOdd.zero Λ).derivative z = 0 := by
+  sorry  -- Requires: derivative of constant zero function
 
 /-- Composition of Grassmann-holomorphic even functions is Grassmann-holomorphic -/
 noncomputable def GrassmannHolomorphicEven.comp {Λ : GrassmannAlgebra ℂ}

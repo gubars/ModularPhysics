@@ -1,7 +1,10 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli
-import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli.VectorBundles
-import ModularPhysics.StringGeometry.RiemannSurfaces.Helpers.Helpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.SimpleCurves
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.PantsDecomposition
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.HatcherThurston
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Algebraic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.VectorBundles
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Analytic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Combinatorial

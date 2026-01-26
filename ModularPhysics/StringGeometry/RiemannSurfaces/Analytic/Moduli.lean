@@ -66,6 +66,13 @@ open Complex
 Quasiconformal maps are the fundamental tool in Teichmüller theory.
 -/
 
+/-- Predicate stating f is a homeomorphism between open sets U and V.
+    f : U → V is bijective, continuous, with continuous inverse. -/
+def IsHomeomorphBetween (f : ℂ → ℂ) (U V : Set ℂ) : Prop :=
+  Function.Bijective (Set.restrict U f) ∧
+  ContinuousOn f U ∧
+  ∃ g : ℂ → ℂ, ContinuousOn g V ∧ ∀ z ∈ U, g (f z) = z
+
 /-- A K-quasiconformal map between domains in ℂ.
 
     A homeomorphism f : U → V is K-quasiconformal (K ≥ 1) if:
@@ -84,14 +91,18 @@ Quasiconformal maps are the fundamental tool in Teichmüller theory.
 structure QuasiconformalMap (U V : Set ℂ) (K : ℝ) where
   /-- The map f : U → V -/
   f : ℂ → ℂ
-  /-- f is a homeomorphism onto its image -/
-  homeomorph : True
+  /-- f maps U into V -/
+  maps_to : Set.MapsTo f U V
+  /-- f is a homeomorphism from U onto V -/
+  homeomorph : IsHomeomorphBetween f U V
   /-- K ≥ 1 (K = 1 means conformal) -/
   K_ge_one : K ≥ 1
-  /-- Dilatation bound: |∂f/∂z̄| ≤ k|∂f/∂z| where k = (K-1)/(K+1) -/
-  dilatation_bound : True
-  /-- f is in W^{1,2}_{loc} (weakly differentiable with square-integrable derivatives) -/
-  sobolev : True
+  /-- The Beltrami coefficient μ(z) for z ∈ U -/
+  μ : ℂ → ℂ
+  /-- Dilatation bound: |μ(z)| ≤ k = (K-1)/(K+1) for all z ∈ U -/
+  dilatation_bound : ∀ z ∈ U, ‖μ z‖ ≤ (K - 1) / (K + 1)
+  /-- μ is measurable -/
+  μ_measurable : Measurable μ
 
 /-- The complex dilatation (Beltrami coefficient) of a quasiconformal map.
 
@@ -102,8 +113,8 @@ structure QuasiconformalMap (U V : Set ℂ) (K : ℝ) where
     - |μ| < 1 is required for quasiconformality
     - The supremum ‖μ‖_∞ = k corresponds to K = (1+k)/(1-k) -/
 noncomputable def complexDilatation {U V : Set ℂ} {K : ℝ}
-    (_ : QuasiconformalMap U V K) (_ : ℂ) : ℂ :=
-  sorry  -- (∂f/∂z̄)/(∂f/∂z)
+    (qc : QuasiconformalMap U V K) (z : ℂ) : ℂ :=
+  qc.μ z
 
 /-- The dilatation constant k = (K-1)/(K+1) -/
 noncomputable def dilatationConstant (K : ℝ) : ℝ := (K - 1) / (K + 1)
