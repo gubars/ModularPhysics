@@ -58,11 +58,13 @@ ModularPhysics/
 └── StringGeometry/
     ├── RiemannSurfaces/
     │   ├── Algebraic/
+    │   │   ├── Cohomology/
     │   │   └── Helpers/
     │   ├── Analytic/
     │   │   └── Helpers/
     │   ├── Combinatorial/
     │   │   └── Helpers/
+    │   ├── GAGA/
     │   └── Topology/
     ├── Supermanifolds/
     │   ├── Helpers/

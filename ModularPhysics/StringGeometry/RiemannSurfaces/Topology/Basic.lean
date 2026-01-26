@@ -106,14 +106,15 @@ structure Surface where
   locallyEuclidean : ∀ p : carrier, ∃ (U : Set carrier) (V : Set (Fin 2 → ℝ)),
     IsOpen U ∧ p ∈ U ∧ IsOpen V ∧ Nonempty (U ≃ₜ V)
 
-/-- The genus of a closed orientable surface.
+/-- Euler characteristic of a surface.
 
-    For a closed orientable surface, the genus g is the number of "handles"
-    and satisfies χ = 2 - 2g where χ is the Euler characteristic.
+    The Euler characteristic is a fundamental topological invariant defined via:
+    - Homology: χ = Σᵢ (-1)ⁱ rank(Hᵢ)
+    - Triangulation: χ = V - E + F (vertices minus edges plus faces)
 
-    This is an abstract definition; concrete computation requires
-    triangulation or homology. -/
-noncomputable def Surface.genus (_ : Surface) : ℕ := sorry
+    For a compact surface, χ is always an integer.
+    This is the primary invariant; genus is derived from it. -/
+noncomputable def Surface.eulerChar (_ : Surface) : ℤ := sorry
 
 /-- The number of boundary components.
 
@@ -121,9 +122,26 @@ noncomputable def Surface.genus (_ : Surface) : ℕ := sorry
     of the boundary ∂S. For a closed surface, this is 0. -/
 noncomputable def Surface.numBoundary (_ : Surface) : ℕ := sorry
 
-/-- Euler characteristic χ = 2 - 2g - n -/
-noncomputable def Surface.eulerChar (S : Surface) : ℤ :=
-  2 - 2 * S.genus - S.numBoundary
+/-- The genus of an orientable surface.
+
+    For an orientable surface with Euler characteristic χ and n boundary components,
+    the genus g is defined by: χ = 2 - 2g - n, i.e., g = (2 - χ - n)/2.
+
+    This is well-defined for orientable surfaces where 2 - χ - n is always even and non-negative. -/
+noncomputable def Surface.genus (S : Surface) : ℕ :=
+  ((2 - S.eulerChar - S.numBoundary) / 2).toNat
+
+/-- The fundamental relation between Euler characteristic, genus, and boundary components.
+
+    **Theorem**: For an orientable surface S with genus g and n boundary components:
+    χ(S) = 2 - 2g - n
+
+    This follows from the classification of surfaces and can be proven via:
+    - Handle decomposition: adding a handle decreases χ by 2
+    - Removing a disk (adding a boundary) decreases χ by 1 -/
+theorem Surface.eulerChar_formula (S : Surface) :
+    S.eulerChar = 2 - 2 * (S.genus : ℤ) - S.numBoundary := by
+  sorry  -- Classification theorem for surfaces
 
 /-- Two surfaces are homeomorphic -/
 def Surface.Homeomorphic (S₁ S₂ : Surface) : Prop :=

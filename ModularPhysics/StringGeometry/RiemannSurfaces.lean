@@ -8,3 +8,4 @@ import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Algebraic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.VectorBundles
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Analytic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Combinatorial
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Basic

@@ -1,4 +1,5 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.SimpleCurves
+import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
 import Mathlib.Data.Finset.Card
 import Mathlib.Tactic.Ring
 
@@ -68,23 +69,30 @@ abbrev PantsDecomposition := Marking
 
 namespace Marking
 
-/-- The number of circles in a marking of Σ_{g,n} -/
-def numCircles (g n : ℕ) : ℕ := 3 * g - 3 + n
+/-!
+### Euler Characteristic and Trinion Counts
 
-/-- The number of complementary trinions in a marking of Σ_{g,n} -/
-def numTrinions (g n : ℕ) : ℕ := 2 * g - 2 + n
+The number of trinions in a pants decomposition is determined by the surface's
+Euler characteristic through additivity:
 
-/-- Euler characteristic formula: χ(Σ_{g,n}) = 2 - 2g - n = -(numTrinions g n)
+**Key facts:**
+1. χ(trinion) = -1 (thrice-punctured sphere)
+2. Euler characteristic is additive for disjoint pieces
+3. Therefore, if a surface decomposes into T trinions: χ(surface) = -T
 
-    Proof: 2 - 2g - n = -(2g - 2 + n) = -2g + 2 - n ✓ -/
-theorem euler_characteristic (g n : ℕ) (_ : 2 * g + n > 2) :
-    (2 : ℤ) - 2 * g - n = -(2 * (g : ℤ) - 2 + n) := by
-  ring
+This gives us: T = -χ(surface)
 
-/-- For closed surfaces (n = 0): 3g - 3 circles, 2g - 2 trinions -/
-theorem closed_surface_count (g : ℕ) (_ : g ≥ 2) :
-    numCircles g 0 = 3 * g - 3 ∧ numTrinions g 0 = 2 * g - 2 := by
-  simp [numCircles, numTrinions]
+Using the classification theorem χ(Σ_{g,n}) = 2 - 2g - n (from Basic.lean):
+  T = -(2 - 2g - n) = 2g - 2 + n
+
+Similarly, curve count is derived from boundary counting:
+  3T = 2·(curves) + n  ⟹  curves = 3g - 3 + n
+-/
+
+/-- Euler characteristic of a trinion (thrice-punctured sphere): χ = -1.
+
+    Proof: χ(S²) = 2, and removing 3 points decreases χ by 3. -/
+def trinionEulerChar : ℤ := -1
 
 /-- Two markings are equivalent if they have the same circles -/
 def equiv (P Q : Marking g n) : Prop := P.circles = Q.circles
@@ -109,15 +117,34 @@ structure Trinion where
   /-- All distinct -/
   distinct : ∀ i j, i ≠ j → boundaries i ≠ boundaries j
 
-/-- The trinions of a pants decomposition -/
-noncomputable def Marking.trinions {g n : ℕ} (_ : Marking g n) : Finset Trinion := by
-  -- The complementary regions form 2g - 2 + n trinions
-  exact sorry
+/-- The trinions of a pants decomposition.
 
-/-- Number of trinions equals 2g - 2 + n -/
-theorem Marking.trinions_card {g n : ℕ} (P : Marking g n) (_ : 2 * g + n > 2) :
+    The complementary regions of a maximal curve system are trinions
+    (thrice-punctured spheres). -/
+noncomputable def Marking.trinions {g n : ℕ} (_ : Marking g n) : Finset Trinion := sorry
+
+/-- **Theorem**: The number of trinions equals -χ(Σ_{g,n}) = 2g - 2 + n.
+
+    **Proof sketch**:
+    1. Each trinion has Euler characteristic -1
+    2. Euler characteristic is additive for disjoint pieces
+    3. When Σ_{g,n} is cut into T trinions: χ(Σ_{g,n}) = T · (-1)
+    4. By Surface.eulerChar_formula: χ(Σ_{g,n}) = 2 - 2g - n
+    5. Therefore: T = -(2 - 2g - n) = 2g - 2 + n -/
+theorem Marking.trinions_card {g n : ℕ} (P : Marking g n) (hstable : 2 * g + n > 2) :
     P.trinions.card = 2 * g - 2 + n := by
-  sorry
+  sorry  -- Follows from Euler characteristic additivity
+
+/-- The curve count also follows from Euler characteristic.
+
+    **Derivation**: Each trinion has 3 boundary curves.
+    - Internal curves are shared by 2 trinions
+    - Surface boundary components bound 1 trinion each
+    So: 3T = 2·(curves) + n, giving curves = (3T - n)/2 = 3g - 3 + n -/
+theorem Marking.circles_card_from_trinions {g n : ℕ} (P : Marking g n)
+    (hstable : 2 * g + n > 2) :
+    3 * P.trinions.card = 2 * P.circles.card + n := by
+  sorry  -- Follows from boundary counting
 
 /-!
 ## Fenchel-Nielsen Coordinates

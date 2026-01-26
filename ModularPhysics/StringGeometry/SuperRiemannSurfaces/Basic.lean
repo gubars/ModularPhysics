@@ -277,7 +277,8 @@ noncomputable def SuperRiemannSurface.reducedSurface (SRS : SuperRiemannSurface)
     t2 := inferInstance
     secondCountable := inferInstance
     connected := inferInstance
-    atlas := trivial
+    chartedSpace := sorry  -- Induced from supermanifold structure
+    complexManifold := sorry  -- Complex structure from SRS
   }
   compact := inferInstance
   genus := SRS.genus
