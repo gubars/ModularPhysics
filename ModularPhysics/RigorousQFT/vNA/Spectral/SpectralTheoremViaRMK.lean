@@ -388,7 +388,138 @@ theorem spectralMeasureDiagonal_integral (U : H →L[ℂ] H) (hU : U ∈ unitary
     ∫ z, f z ∂(spectralMeasureDiagonal U hU x) = (spectralFunctionalCc U hU x) f :=
   RealRMK.integral_rieszMeasure (spectralFunctionalCc U hU x) f
 
+/-- The total measure of Circle equals ‖z‖².
+    This follows from: μ_z(Circle) = ∫ 1 dμ_z = Λ_z(1) = Re⟨z, cfc(1,U)z⟩ = Re⟨z, z⟩ = ‖z‖² -/
+theorem spectralMeasureDiagonal_univ (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (z : H) : (spectralMeasureDiagonal U hU z Set.univ).toReal = ‖z‖ ^ 2 := by
+  haveI : IsStarNormal U := unitary_isStarNormal U hU
+  -- The key is that the spectral functional of the constant 1 gives ‖z‖²
+  -- and the integral of 1 against the measure gives the total mass
+  -- Technical: This requires computing the RMK measure of the full space
+  -- For now, we use the fact that for Circle (compact), μ(Circle) = Λ(1) by RMK
+  -- and Λ_z(1) = Re⟨z, cfc(1,U)z⟩ = Re⟨z, z⟩ = ‖z‖²
+  sorry
+
 /-! ### Polarization to Complex Measure -/
+
+/-- The spectral functional parallelogram identity.
+    Λ_{x+y}(f) + Λ_{x-y}(f) = 2Λ_x(f) + 2Λ_y(f)
+    This is fundamental for the quadratic form structure. -/
+theorem spectralFunctionalAux_parallelogram (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (f : C(Circle, ℝ)) (x y : H) :
+    spectralFunctionalAux U hU (x + y) f + spectralFunctionalAux U hU (x - y) f =
+    2 * spectralFunctionalAux U hU x f + 2 * spectralFunctionalAux U hU y f := by
+  simp only [spectralFunctionalAux, cfcOfCircleReal]
+  haveI : IsStarNormal U := unitary_isStarNormal U hU
+  set A := cfc (circleRealToComplex f) U with hA_def
+  -- Expand inner products using linearity
+  have h1 : @inner ℂ H _ (x + y) (A (x + y)) =
+      @inner ℂ H _ x (A x) + @inner ℂ H _ x (A y) +
+      @inner ℂ H _ y (A x) + @inner ℂ H _ y (A y) := by
+    simp only [map_add, inner_add_left, inner_add_right]
+    ring
+  have h2 : @inner ℂ H _ (x - y) (A (x - y)) =
+      @inner ℂ H _ x (A x) - @inner ℂ H _ x (A y) -
+      @inner ℂ H _ y (A x) + @inner ℂ H _ y (A y) := by
+    simp only [map_sub, inner_sub_left, inner_sub_right]
+    ring
+  -- Adding: the cross terms cancel to give 2*Q(x) + 2*Q(y)
+  have hsum : @inner ℂ H _ (x + y) (A (x + y)) + @inner ℂ H _ (x - y) (A (x - y)) =
+      2 * @inner ℂ H _ x (A x) + 2 * @inner ℂ H _ y (A y) := by
+    rw [h1, h2]; ring
+  -- Take real parts
+  have hre := congrArg Complex.re hsum
+  simp only [Complex.add_re, Complex.mul_re] at hre
+  -- (2 : ℂ) = ofReal 2, so (2 : ℂ).re = 2, (2 : ℂ).im = 0
+  have h2re : (2 : ℂ).re = 2 := rfl
+  have h2im : (2 : ℂ).im = 0 := rfl
+  simp only [h2re, h2im] at hre
+  convert hre using 1 <;> ring
+
+/-- The spectral functional polarization identity.
+    (1/4)[Λ_{x+y}(f) - Λ_{x-y}(f) - i·Λ_{x+iy}(f) + i·Λ_{x-iy}(f)] = ⟨x, cfc(f, U) y⟩
+
+    This uses the polarization identity for symmetric operators from Mathlib. -/
+theorem spectralFunctionalAux_polarization (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (f : C(Circle, ℝ)) (x y : H) :
+    (1/4 : ℂ) * (spectralFunctionalAux U hU (x + y) f - spectralFunctionalAux U hU (x - y) f -
+      Complex.I * spectralFunctionalAux U hU (x + Complex.I • y) f +
+      Complex.I * spectralFunctionalAux U hU (x - Complex.I • y) f) =
+    @inner ℂ H _ x (cfcOfCircleReal U hU f y) := by
+  haveI : IsStarNormal U := unitary_isStarNormal U hU
+  set A := cfc (circleRealToComplex f) U with hA_def
+  have hA_sa : IsSelfAdjoint A := cfcOfCircleReal_isSelfAdjoint U hU f
+  -- For self-adjoint A (continuous), A.toLinearMap is symmetric
+  have hA_sym : A.toLinearMap.IsSymmetric := fun u v => by
+    rw [IsSelfAdjoint, ContinuousLinearMap.star_eq_adjoint] at hA_sa
+    calc @inner ℂ H _ (A u) v
+        = @inner ℂ H _ u (A.adjoint v) := (ContinuousLinearMap.adjoint_inner_right A u v).symm
+      _ = @inner ℂ H _ u (A v) := by rw [hA_sa]
+  -- Apply the polarization identity: for symmetric T,
+  -- ⟨T x, y⟩ = (⟨T(x+y), x+y⟩ - ⟨T(x-y), x-y⟩ - I*⟨T(x+I•y), x+I•y⟩ + I*⟨T(x-I•y), x-I•y⟩)/4
+  have hpol := hA_sym.inner_map_polarization x y
+  -- For self-adjoint A: ⟨x, Ay⟩ = ⟨Ax, y⟩
+  have hAdj : @inner ℂ H _ x (A y) = @inner ℂ H _ (A x) y := by
+    rw [IsSelfAdjoint, ContinuousLinearMap.star_eq_adjoint] at hA_sa
+    calc @inner ℂ H _ x (A y)
+        = @inner ℂ H _ x (A.adjoint y) := by rw [hA_sa]
+      _ = @inner ℂ H _ (A x) y := ContinuousLinearMap.adjoint_inner_right A x y
+  -- The key is that ⟨z, Az⟩ is real for self-adjoint A, so ⟨z, Az⟩ = Re⟨z, Az⟩
+  have hreal_sum : (@inner ℂ H _ (x + y) (A (x + y))).im = 0 :=
+    cfcOfCircleReal_inner_real U hU f (x + y)
+  have hreal_diff : (@inner ℂ H _ (x - y) (A (x - y))).im = 0 :=
+    cfcOfCircleReal_inner_real U hU f (x - y)
+  have hreal_isum : (@inner ℂ H _ (x + Complex.I • y) (A (x + Complex.I • y))).im = 0 :=
+    cfcOfCircleReal_inner_real U hU f (x + Complex.I • y)
+  have hreal_idiff : (@inner ℂ H _ (x - Complex.I • y) (A (x - Complex.I • y))).im = 0 :=
+    cfcOfCircleReal_inner_real U hU f (x - Complex.I • y)
+  -- For real z (im z = 0): z = ofReal (re z)
+  have eq_sum : @inner ℂ H _ (x + y) (A (x + y)) =
+      Complex.ofReal (@inner ℂ H _ (x + y) (A (x + y))).re := by
+    apply Complex.ext
+    · simp only [Complex.ofReal_re]
+    · simp only [Complex.ofReal_im, hreal_sum]
+  have eq_diff : @inner ℂ H _ (x - y) (A (x - y)) =
+      Complex.ofReal (@inner ℂ H _ (x - y) (A (x - y))).re := by
+    apply Complex.ext
+    · simp only [Complex.ofReal_re]
+    · simp only [Complex.ofReal_im, hreal_diff]
+  have eq_isum : @inner ℂ H _ (x + Complex.I • y) (A (x + Complex.I • y)) =
+      Complex.ofReal (@inner ℂ H _ (x + Complex.I • y) (A (x + Complex.I • y))).re := by
+    apply Complex.ext
+    · simp only [Complex.ofReal_re]
+    · simp only [Complex.ofReal_im, hreal_isum]
+  have eq_idiff : @inner ℂ H _ (x - Complex.I • y) (A (x - Complex.I • y)) =
+      Complex.ofReal (@inner ℂ H _ (x - Complex.I • y) (A (x - Complex.I • y))).re := by
+    apply Complex.ext
+    · simp only [Complex.ofReal_re]
+    · simp only [Complex.ofReal_im, hreal_idiff]
+  -- Use symmetry: ⟨Az, z⟩ = ⟨z, Az⟩ for symmetric A
+  have sym_sum : @inner ℂ H _ (A (x + y)) (x + y) = @inner ℂ H _ (x + y) (A (x + y)) :=
+    hA_sym (x + y) (x + y)
+  have sym_diff : @inner ℂ H _ (A (x - y)) (x - y) = @inner ℂ H _ (x - y) (A (x - y)) :=
+    hA_sym (x - y) (x - y)
+  have sym_isum : @inner ℂ H _ (A (x + Complex.I • y)) (x + Complex.I • y) =
+      @inner ℂ H _ (x + Complex.I • y) (A (x + Complex.I • y)) :=
+    hA_sym (x + Complex.I • y) (x + Complex.I • y)
+  have sym_idiff : @inner ℂ H _ (A (x - Complex.I • y)) (x - Complex.I • y) =
+      @inner ℂ H _ (x - Complex.I • y) (A (x - Complex.I • y)) :=
+    hA_sym (x - Complex.I • y) (x - Complex.I • y)
+  -- Unfold spectralFunctionalAux and cfcOfCircleReal, then use the equalities
+  unfold spectralFunctionalAux cfcOfCircleReal
+  simp only [← hA_def]
+  -- Now RHS is ⟨x, A y⟩ = ⟨A x, y⟩ (by hAdj)
+  rw [hAdj]
+  -- Convert ↑(...).re back to full inner products using eq_* lemmas (backwards)
+  rw [← eq_sum, ← eq_diff, ← eq_isum, ← eq_idiff]
+  -- Convert inner (x+y) (A(x+y)) to inner (A(x+y)) (x+y) using sym_*
+  rw [← sym_sum, ← sym_diff, ← sym_isum, ← sym_idiff]
+  -- The goal is now: 1/4 * (...) = inner (A x) y
+  -- hpol says: inner (A x) y = (...) / 4
+  -- Note: 1/4 * z = z / 4, so we just need hpol.symm after adjusting
+  have hmul_div : ∀ z : ℂ, (1 / 4 : ℂ) * z = z / 4 := fun z => by ring
+  rw [hmul_div]
+  exact hpol.symm
 
 /-- Polarization identity for measures.
     μ_{x,y}(E) = (1/4)[μ_{x+y}(E) - μ_{x-y}(E) + i·μ_{x+iy}(E) - i·μ_{x-iy}(E)]
@@ -435,8 +566,27 @@ theorem spectralMeasurePolarized_linear_right (U : H →L[ℂ] H) (hU : U ∈ un
     (E : Set Circle) (hE : MeasurableSet E) (x : H) :
     IsLinearMap ℂ (fun y => spectralMeasurePolarized U hU x y E hE) := by
   -- The polarization formula gives a bilinear form that is linear in y
-  -- This follows from the quadratic form → sesquilinear form construction
-  sorry
+  -- Key: the complex polarization B(x,y) = (1/4)[Q(x+y) - Q(x-y) - iQ(x+iy) + iQ(x-iy)]
+  -- is linear in y when Q is a quadratic form (satisfies Q(cz) = |c|²Q(z))
+  -- For our case, Q(z) = μ_z(E) where μ_z is the spectral measure from RMK
+  -- The spectral functional Λ_z(f) = Re⟨z, cfc(f)z⟩ satisfies Λ_{cz}(f) = |c|²Λ_z(f)
+  -- Hence μ_{cz}(E) = |c|² μ_z(E) by uniqueness of RMK measure
+  -- This makes Q a quadratic form, so polarization gives sesquilinear form, hence linear in y
+  -- Direct proof: we verify additivity and scalar multiplication
+  constructor
+  · -- Additivity: B(x, y₁ + y₂) = B(x, y₁) + B(x, y₂)
+    intro y₁ y₂
+    unfold spectralMeasurePolarized
+    -- Expand: need to show polarization of Q at (x, y₁+y₂) = sum of polarizations
+    -- This is algebraic identity for complex polarization of quadratic forms
+    simp only
+    -- Use that x + (y₁ + y₂) = (x + y₁) + y₂, etc.
+    sorry
+  · -- Scalar multiplication: B(x, c • y) = c * B(x, y)
+    intro c y
+    unfold spectralMeasurePolarized
+    simp only
+    sorry
 
 /-- The polarized spectral measure is conjugate-linear in the first argument (x). -/
 theorem spectralMeasurePolarized_conj_linear_left (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
@@ -508,10 +658,49 @@ theorem spectralProjection_empty (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L
   -- So ⟨P y, P y⟩ = B(P y, y) = 0
   rw [← h (P y) y, hB_zero]
 
+/-- The polarized spectral measure for Circle equals the inner product.
+    This uses μ_z(Circle) = ‖z‖² and the complex polarization identity. -/
+theorem spectralMeasurePolarized_univ (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (x y : H) :
+    spectralMeasurePolarized U hU x y Set.univ MeasurableSet.univ = @inner ℂ H _ x y := by
+  unfold spectralMeasurePolarized
+  -- Using μ_z(Circle) = ‖z‖² (from spectralMeasureDiagonal_univ)
+  rw [spectralMeasureDiagonal_univ U hU (x + y)]
+  rw [spectralMeasureDiagonal_univ U hU (x - y)]
+  rw [spectralMeasureDiagonal_univ U hU (x + Complex.I • y)]
+  rw [spectralMeasureDiagonal_univ U hU (x - Complex.I • y)]
+  -- Now apply the complex polarization identity for norms
+  -- inner_eq_sum_norm_sq_div_four: ⟨x,y⟩ = ((‖x+y‖)² - (‖x-y‖)² + ((‖x-I•y‖)² - (‖x+I•y‖)²)*I)/4
+  rw [inner_eq_sum_norm_sq_div_four x y]
+  -- Note: Complex.I = RCLike.I for the complex numbers
+  simp only [Complex.ofReal_pow]
+  -- The LHS is: (1/4) * (‖x+y‖² - ‖x-y‖² - I*‖x+I•y‖² + I*‖x-I•y‖²)
+  -- The RHS is: ((‖x+y‖)² - (‖x-y‖)² + ((‖x-I•y‖)² - (‖x+I•y‖)²)*I)/4
+  -- Both sides are algebraically equal
+  -- For simplicity, defer to sorry - the algebraic identity is straightforward
+  -- TODO: Complete this proof with careful algebraic manipulation
+  sorry
+
 /-- P(Circle) = 1 -/
 theorem spectralProjection_univ (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H)) :
     spectralProjectionOfUnitary U hU Set.univ MeasurableSet.univ = 1 := by
-  sorry
+  -- P(Circle) is determined by ⟨x, P(Circle) y⟩ = spectralMeasurePolarized x y Circle = ⟨x, y⟩
+  -- This means P(Circle) = 1 (identity)
+  ext y
+  rw [ContinuousLinearMap.one_apply]
+  -- Show P(Circle) y = y by showing ⟨x, P(Circle) y⟩ = ⟨x, y⟩ for all x
+  apply ext_inner_left ℂ
+  intro x
+  unfold spectralProjectionOfUnitary
+  have h := sesquilinearToOperator_inner
+    (fun x y => spectralMeasurePolarized U hU x y Set.univ MeasurableSet.univ)
+    (spectralMeasurePolarized_linear_right U hU Set.univ MeasurableSet.univ)
+    (spectralMeasurePolarized_conj_linear_left U hU Set.univ MeasurableSet.univ)
+    (spectralMeasurePolarized_bounded U hU Set.univ MeasurableSet.univ)
+  -- h says: B x y = ⟨x, P y⟩
+  -- Goal: ⟨x, P y⟩ = ⟨x, y⟩
+  rw [← h x y]
+  exact spectralMeasurePolarized_univ U hU x y
 
 /-- P(E)² = P(E) (idempotent) -/
 theorem spectralProjection_idempotent (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
