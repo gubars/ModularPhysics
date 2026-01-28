@@ -575,6 +575,59 @@ lemma sqrtIndicatorApprox_nonneg (a b ε : ℝ) (hε : ε > 0) (x : ℝ) :
   simp only [ContinuousMap.coe_mk]
   exact Real.sqrt_nonneg _
 
+/-- Indicator approximation is monotone in intervals:
+    If [a, b] ⊆ [c, d], then indicatorApprox a b ε ≤ indicatorApprox c d ε pointwise. -/
+lemma indicatorApprox_mono_interval (a b c d ε : ℝ) (hε : ε > 0)
+    (hca : c ≤ a) (hbd : b ≤ d) (x : ℝ) :
+    indicatorApprox a b ε hε x ≤ indicatorApprox c d ε hε x := by
+  unfold indicatorApprox
+  simp only [ContinuousMap.coe_mk]
+  -- Both are in [0, 1], need to show LHS ≤ RHS
+  apply max_le
+  · -- 0 ≤ RHS is clear
+    exact le_max_left _ _
+  · -- Need: min 1 (min left_a right_b) ≤ max 0 (min 1 (min left_c right_d))
+    apply le_max_of_le_right
+    apply min_le_min_left
+    have h2ε_pos : 0 ≤ 2 * ε := by linarith
+    apply min_le_min
+    · -- (x - (a - ε)) / (2 * ε) ≤ (x - (c - ε)) / (2 * ε)
+      apply div_le_div_of_nonneg_right _ h2ε_pos
+      linarith
+    · -- ((b + ε) - x) / (2 * ε) ≤ ((d + ε) - x) / (2 * ε)
+      apply div_le_div_of_nonneg_right _ h2ε_pos
+      linarith
+
+/-- The difference of indicator approximations for nested intervals is non-negative. -/
+lemma indicatorApprox_diff_nonneg (a b c d ε : ℝ) (hε : ε > 0)
+    (hca : c ≤ a) (hbd : b ≤ d) (x : ℝ) :
+    0 ≤ indicatorApprox c d ε hε x - indicatorApprox a b ε hε x := by
+  have h := indicatorApprox_mono_interval a b c d ε hε hca hbd x
+  linarith
+
+/-- The square root of the difference of indicator approximations. -/
+noncomputable def sqrtIndicatorApproxDiff (a b c d ε : ℝ) (hε : ε > 0)
+    (_hca : c ≤ a) (_hbd : b ≤ d) : C(ℝ, ℝ) :=
+  ⟨fun x => Real.sqrt (indicatorApprox c d ε hε x - indicatorApprox a b ε hε x),
+   by
+     apply Continuous.sqrt
+     exact (indicatorApprox c d ε hε).continuous.sub (indicatorApprox a b ε hε).continuous⟩
+
+/-- Complex version of the square root difference. -/
+noncomputable def sqrtIndicatorApproxDiffComplex (a b c d ε : ℝ) (hε : ε > 0)
+    (hca : c ≤ a) (hbd : b ≤ d) : C(ℝ, ℂ) :=
+  ⟨fun x => (sqrtIndicatorApproxDiff a b c d ε hε hca hbd x : ℂ),
+   Complex.continuous_ofReal.comp (sqrtIndicatorApproxDiff a b c d ε hε hca hbd).continuous⟩
+
+/-- The square root difference squared equals the difference. -/
+lemma sqrtIndicatorApproxDiff_sq (a b c d ε : ℝ) (hε : ε > 0)
+    (hca : c ≤ a) (hbd : b ≤ d) (x : ℝ) :
+    (sqrtIndicatorApproxDiff a b c d ε hε hca hbd x) ^ 2 =
+    indicatorApprox c d ε hε x - indicatorApprox a b ε hε x := by
+  unfold sqrtIndicatorApproxDiff
+  simp only [ContinuousMap.coe_mk]
+  exact Real.sq_sqrt (indicatorApprox_diff_nonneg a b c d ε hε hca hbd x)
+
 /-! ### Spectral measure from functional calculus -/
 
 /-- The bump function operator for a bounded interval [a,b] with approximation parameter ε.
@@ -633,7 +686,33 @@ theorem sqrtBumpOperator_self_adjoint (T : UnboundedOperator H) (hT : T.IsDensel
     rw [Complex.star_def, Complex.conj_ofReal]
   · simp only [star_zero]
 
-/-! ### Unitary properties of Cayley transform -/
+/-- The square root difference operator for interval comparison. -/
+noncomputable def sqrtDiffBumpOperator (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa)
+    (a b c d ε : ℝ) (hε : ε > 0) (hca : c ≤ a) (hbd : b ≤ d) : H →L[ℂ] H :=
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let sqrtDiff := cfcViaInverseCayleyC0 (sqrtIndicatorApproxDiffComplex a b c d ε hε hca hbd)
+  cfc sqrtDiff C.U
+
+/-- The square root difference operator is self-adjoint. -/
+theorem sqrtDiffBumpOperator_self_adjoint (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa)
+    (a b c d ε : ℝ) (hε : ε > 0) (hca : c ≤ a) (hbd : b ≤ d) :
+    (sqrtDiffBumpOperator T hT hsa C a b c d ε hε hca hbd).adjoint =
+    sqrtDiffBumpOperator T hT hsa C a b c d ε hε hca hbd := by
+  unfold sqrtDiffBumpOperator
+  haveI hNormal : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  rw [← ContinuousLinearMap.star_eq_adjoint]
+  rw [← cfc_star]
+  congr 1
+  ext w
+  simp only [cfcViaInverseCayleyC0]
+  split_ifs with h
+  · simp only [sqrtIndicatorApproxDiffComplex, ContinuousMap.coe_mk]
+    rw [Complex.star_def, Complex.conj_ofReal]
+  · simp only [star_zero]
+
+/-! ### Unitary properties of Cayley transform (moved here for forward reference) -/
 
 /-- The Cayley transform is a unitary element (in the sense of unitary submonoid). -/
 lemma cayleyTransform_mem_unitary (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
@@ -752,6 +831,348 @@ lemma inverseCayleyMap_abs_large_near_one (z : ℂ) (hz : z ≠ 1) (hon_circle :
     field_simp [hne]
   rw [step1]
   exact div_lt_div_of_pos_right key h_norm_pos
+
+/-! ### Bump operator monotonicity -/
+
+/-- Key lemma: For nested intervals [a,b] ⊆ [c,d], the bump operator forms satisfy
+    ⟨x, P_ab x⟩ ≤ ⟨x, P_cd x⟩, where the difference is non-negative.
+
+    Proof: The difference P_cd - P_ab = R² where R is self-adjoint, so
+    ⟨x, (P_cd - P_ab) x⟩ = ⟨x, R² x⟩ = ‖Rx‖² ≥ 0. -/
+theorem bumpOperator_inner_mono (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa)
+    (a b c d ε : ℝ) (hε : ε > 0) (hca : c ≤ a) (hbd : b ≤ d) (x : H) :
+    RCLike.re (@inner ℂ H _ x (bumpOperator T hT hsa C a b ε hε x)) ≤
+    RCLike.re (@inner ℂ H _ x (bumpOperator T hT hsa C c d ε hε x)) := by
+  haveI hNormal : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  -- The difference operator P_cd - P_ab corresponds to the difference of bump functions
+  -- which is non-negative by indicatorApprox_mono_interval
+  -- We show this difference equals R² for self-adjoint R, hence is positive
+  let R := sqrtDiffBumpOperator T hT hsa C a b c d ε hε hca hbd
+  have hR_sa := sqrtDiffBumpOperator_self_adjoint T hT hsa C a b c d ε hε hca hbd
+  -- Key: ⟨x, (P_cd - P_ab) x⟩ = ⟨x, R² x⟩ = ‖Rx‖²
+  -- We prove this by showing R² = P_cd - P_ab via CFC
+  -- Define the CFC functions
+  let bump_ab := cfcViaInverseCayleyC0 (indicatorApproxComplex a b ε hε)
+  let bump_cd := cfcViaInverseCayleyC0 (indicatorApproxComplex c d ε hε)
+  let sqrtDiff := cfcViaInverseCayleyC0 (sqrtIndicatorApproxDiffComplex a b c d ε hε hca hbd)
+  -- Key property: sqrtDiff² = bump_cd - bump_ab pointwise
+  have hsqDiff_eq : ∀ w, sqrtDiff w * sqrtDiff w = bump_cd w - bump_ab w := by
+    intro w
+    simp only [sqrtDiff, bump_cd, bump_ab, cfcViaInverseCayleyC0]
+    split_ifs with hw
+    · -- w ≠ 1
+      simp only [sqrtIndicatorApproxDiffComplex, indicatorApproxComplex, ContinuousMap.coe_mk]
+      let t := inverseCayleyMap w hw
+      -- Use sqrtIndicatorApproxDiff_sq: (sqrtDiff t)² = diff t
+      have hsq_real := sqrtIndicatorApproxDiff_sq a b c d ε hε hca hbd t
+      -- Convert to complex: (sqrtDiff t : ℂ) * (sqrtDiff t : ℂ) = (diff t : ℂ)
+      have hsq : (sqrtIndicatorApproxDiff a b c d ε hε hca hbd t : ℂ) *
+                 (sqrtIndicatorApproxDiff a b c d ε hε hca hbd t : ℂ) =
+                 ((indicatorApprox c d ε hε t : ℂ) - (indicatorApprox a b ε hε t : ℂ)) := by
+        rw [← Complex.ofReal_mul, ← Complex.ofReal_sub]
+        congr 1
+        have h2 : sqrtIndicatorApproxDiff a b c d ε hε hca hbd t *
+                  sqrtIndicatorApproxDiff a b c d ε hε hca hbd t =
+                  (sqrtIndicatorApproxDiff a b c d ε hε hca hbd t) ^ 2 := by ring
+        rw [h2, hsq_real]
+      -- t is definitionally equal to inverseCayleyMap w hw
+      exact hsq
+    · -- w = 1
+      ring
+  -- Continuity of the CFC functions on the spectrum
+  -- The key is that cfcViaInverseCayleyC0 functions are continuous on {z | z ≠ 1} and equal 0 at z=1
+  -- with proper limiting behavior (bump functions vanish at infinity)
+  have hcont_sqrtDiff : ContinuousOn sqrtDiff (spectrum ℂ C.U) := by
+    intro w hw
+    by_cases h1 : w = 1
+    · -- At w = 1: need to show continuity at 1
+      subst h1
+      apply Metric.continuousWithinAt_iff.mpr
+      intro ε' hε'
+      -- sqrtDiff(1) = 0, and sqrtDiff(z) → 0 as z → 1 (bump functions vanish at infinity)
+      let R := max (max (|c - ε|) (|a - ε|)) (max (|b + ε|) (|d + ε|)) + 1
+      use min (1/2) (1 / (R + 1))
+      constructor
+      · apply lt_min; linarith; positivity
+      · intro z hz_mem hz_dist
+        have hsqrtDiff1 : sqrtDiff 1 = 0 := by
+          simp only [sqrtDiff, cfcViaInverseCayleyC0, ne_eq, not_true_eq_false, ↓reduceDIte]
+        rw [hsqrtDiff1, dist_zero_right]
+        simp only [sqrtDiff, cfcViaInverseCayleyC0]
+        by_cases hz_ne1 : z ≠ 1
+        · simp only [dif_pos hz_ne1, sqrtIndicatorApproxDiffComplex, ContinuousMap.coe_mk]
+          rw [Complex.norm_real, Real.norm_eq_abs]
+          -- For z close to 1, inverseCayleyMap(z) is large (outside support)
+          have hnorm1 : ‖z‖ = 1 := spectrum.norm_eq_one_of_unitary
+            (cayleyTransform_mem_unitary T hT hsa C) hz_mem
+          have hz_dist_norm : ‖z - 1‖ < min (1/2) (1 / (R + 1)) := by
+            rw [← Complex.dist_eq]; exact hz_dist
+          have hclose : ‖z - 1‖ < 1 := calc ‖z - 1‖ < min (1/2) (1 / (R + 1)) := hz_dist_norm
+            _ ≤ 1/2 := min_le_left _ _
+            _ < 1 := by norm_num
+          have hinv_large := inverseCayleyMap_abs_large_near_one z hz_ne1 hnorm1 hclose
+          have hz_dist_R : ‖z - 1‖ < 1 / (R + 1) := lt_of_lt_of_le hz_dist_norm (min_le_right _ _)
+          have hR_pos : R + 1 > 0 := by positivity
+          have hinv_gt_R : |inverseCayleyMap z hz_ne1| > R := by
+            have h1 : 1 / ‖z - 1‖ > R + 1 := by
+              have hnorm_pos : ‖z - 1‖ > 0 := norm_pos_iff.mpr (sub_ne_zero.mpr hz_ne1)
+              rw [gt_iff_lt, lt_div_iff₀ hnorm_pos]
+              calc (R + 1) * ‖z - 1‖ < (R + 1) * (1 / (R + 1)) := by
+                    apply mul_lt_mul_of_pos_left hz_dist_R hR_pos
+                _ = 1 := mul_one_div_cancel (ne_of_gt hR_pos)
+            linarith
+          -- Show sqrtIndicatorApproxDiff is 0 when |inverseCayleyMap z| > R
+          have hindDiff_zero : indicatorApprox c d ε hε (inverseCayleyMap z hz_ne1) -
+                               indicatorApprox a b ε hε (inverseCayleyMap z hz_ne1) = 0 := by
+            -- R bounds all four corners
+            have hR_c : R > |c - ε| := by
+              have h1 : max (max |c - ε| |a - ε|) (max |b + ε| |d + ε|) ≥ |c - ε| :=
+                le_trans (le_max_left _ _) (le_max_left _ _)
+              linarith
+            have hR_d : R > |d + ε| := by
+              have h1 : max (max |c - ε| |a - ε|) (max |b + ε| |d + ε|) ≥ |d + ε| :=
+                le_trans (le_max_right _ _) (le_max_right _ _)
+              linarith
+            have hR_a : R > |a - ε| := by
+              have h1 : max (max |c - ε| |a - ε|) (max |b + ε| |d + ε|) ≥ |a - ε| :=
+                le_trans (le_max_right _ _) (le_max_left _ _)
+              linarith
+            have hR_b : R > |b + ε| := by
+              have h1 : max (max |c - ε| |a - ε|) (max |b + ε| |d + ε|) ≥ |b + ε| :=
+                le_trans (le_max_left _ _) (le_max_right _ _)
+              linarith
+            set t := inverseCayleyMap z hz_ne1 with ht_def
+            have hind_c_zero : indicatorApprox c d ε hε t = 0 := by
+              apply indicatorApprox_eq_zero_outside
+              by_cases ht_pos : t ≥ 0
+              · right
+                have ht_gt_R : t > R := by
+                  have : |t| = t := abs_of_nonneg ht_pos; linarith
+                have : t > d + ε := calc t > R := ht_gt_R
+                  _ > |d + ε| := hR_d
+                  _ ≥ d + ε := le_abs_self _
+                linarith
+              · left
+                push_neg at ht_pos
+                have ht_lt_neg_R : t < -R := by
+                  have : |t| = -t := abs_of_neg ht_pos; linarith
+                have : t < c - ε := calc t < -R := ht_lt_neg_R
+                  _ < -|c - ε| := by linarith
+                  _ ≤ c - ε := neg_abs_le _
+                linarith
+            have hind_a_zero : indicatorApprox a b ε hε t = 0 := by
+              apply indicatorApprox_eq_zero_outside
+              by_cases ht_pos : t ≥ 0
+              · right
+                have ht_gt_R : t > R := by
+                  have : |t| = t := abs_of_nonneg ht_pos; linarith
+                have : t > b + ε := calc t > R := ht_gt_R
+                  _ > |b + ε| := hR_b
+                  _ ≥ b + ε := le_abs_self _
+                linarith
+              · left
+                push_neg at ht_pos
+                have ht_lt_neg_R : t < -R := by
+                  have : |t| = -t := abs_of_neg ht_pos; linarith
+                have : t < a - ε := calc t < -R := ht_lt_neg_R
+                  _ < -|a - ε| := by linarith
+                  _ ≤ a - ε := neg_abs_le _
+                linarith
+            rw [hind_c_zero, hind_a_zero]; ring
+          unfold sqrtIndicatorApproxDiff
+          simp only [ContinuousMap.coe_mk]
+          rw [hindDiff_zero, Real.sqrt_zero, abs_zero]
+          exact hε'
+        · -- z = 1
+          push_neg at hz_ne1
+          simp only [hz_ne1, ne_eq, not_true_eq_false, not_false_eq_true, dif_neg]
+          simp only [norm_zero]
+          exact hε'
+    · -- At w ≠ 1: f is continuous on the open set {z | z ≠ 1}, so continuous at w
+      have hopen : IsOpen {z : ℂ | z ≠ 1} := isOpen_compl_singleton
+      have haway := cfcViaInverseCayleyC0_continuousOn (sqrtIndicatorApproxDiffComplex a b c d ε hε hca hbd) w h1
+      have hcont_at : ContinuousAt sqrtDiff w := haway.continuousAt (hopen.mem_nhds h1)
+      exact hcont_at.continuousWithinAt
+  have hcont_bump_ab : ContinuousOn bump_ab (spectrum ℂ C.U) := by
+    intro w hw
+    by_cases h1 : w = 1
+    · -- At w = 1: need to show continuity at 1
+      subst h1
+      apply Metric.continuousWithinAt_iff.mpr
+      intro ε' hε'
+      let R_ab := max (|a - ε|) (|b + ε|) + 1
+      use min (1/2) (1 / (R_ab + 1))
+      constructor
+      · apply lt_min; linarith; positivity
+      · intro z hz_mem hz_dist
+        have hbump_ab_1 : bump_ab 1 = 0 := by
+          simp only [bump_ab, cfcViaInverseCayleyC0, ne_eq, not_true_eq_false, ↓reduceDIte]
+        rw [hbump_ab_1, dist_zero_right]
+        simp only [bump_ab, cfcViaInverseCayleyC0]
+        by_cases hz_ne1 : z ≠ 1
+        · simp only [dif_pos hz_ne1, indicatorApproxComplex, ContinuousMap.coe_mk]
+          rw [Complex.norm_real, Real.norm_eq_abs]
+          have hnorm1 : ‖z‖ = 1 := spectrum.norm_eq_one_of_unitary
+            (cayleyTransform_mem_unitary T hT hsa C) hz_mem
+          have hz_dist_norm : ‖z - 1‖ < min (1/2) (1 / (R_ab + 1)) := by
+            rw [← Complex.dist_eq]; exact hz_dist
+          have hclose : ‖z - 1‖ < 1 := calc ‖z - 1‖ < min (1/2) (1 / (R_ab + 1)) := hz_dist_norm
+            _ ≤ 1/2 := min_le_left _ _
+            _ < 1 := by norm_num
+          have hinv_large := inverseCayleyMap_abs_large_near_one z hz_ne1 hnorm1 hclose
+          have hz_dist_R : ‖z - 1‖ < 1 / (R_ab + 1) := lt_of_lt_of_le hz_dist_norm (min_le_right _ _)
+          have hR_pos : R_ab + 1 > 0 := by positivity
+          have hinv_gt_R : |inverseCayleyMap z hz_ne1| > R_ab := by
+            have h1' : 1 / ‖z - 1‖ > R_ab + 1 := by
+              have hnorm_pos : ‖z - 1‖ > 0 := norm_pos_iff.mpr (sub_ne_zero.mpr hz_ne1)
+              rw [gt_iff_lt, lt_div_iff₀ hnorm_pos]
+              calc (R_ab + 1) * ‖z - 1‖ < (R_ab + 1) * (1 / (R_ab + 1)) := by
+                    apply mul_lt_mul_of_pos_left hz_dist_R hR_pos
+                _ = 1 := mul_one_div_cancel (ne_of_gt hR_pos)
+            linarith
+          -- indicatorApprox is 0 outside [-R_ab, R_ab]
+          have hind_zero : indicatorApprox a b ε hε (inverseCayleyMap z hz_ne1) = 0 := by
+            apply indicatorApprox_eq_zero_outside
+            have hR_a : R_ab > |a - ε| := by
+              have h1' : max |a - ε| |b + ε| ≥ |a - ε| := le_max_left _ _; linarith
+            have hR_b : R_ab > |b + ε| := by
+              have h1' : max |a - ε| |b + ε| ≥ |b + ε| := le_max_right _ _; linarith
+            set t := inverseCayleyMap z hz_ne1 with ht_def
+            by_cases ht_pos : t ≥ 0
+            · right
+              have ht_gt_R : t > R_ab := by
+                have : |t| = t := abs_of_nonneg ht_pos; linarith
+              have : t > b + ε := calc t > R_ab := ht_gt_R
+                _ > |b + ε| := hR_b
+                _ ≥ b + ε := le_abs_self _
+              linarith
+            · left
+              push_neg at ht_pos
+              have ht_lt_neg_R : t < -R_ab := by
+                have : |t| = -t := abs_of_neg ht_pos; linarith
+              have : t < a - ε := calc t < -R_ab := ht_lt_neg_R
+                _ < -|a - ε| := by linarith
+                _ ≤ a - ε := neg_abs_le _
+              linarith
+          rw [hind_zero, abs_zero]
+          exact hε'
+        · push_neg at hz_ne1
+          simp only [hz_ne1, ne_eq, not_true_eq_false, ↓reduceDIte, norm_zero]
+          exact hε'
+    · -- w ≠ 1: f is continuous on the open set {z | z ≠ 1}, so continuous at w
+      have hopen : IsOpen {z : ℂ | z ≠ 1} := isOpen_compl_singleton
+      have haway := cfcViaInverseCayleyC0_continuousOn (indicatorApproxComplex a b ε hε) w h1
+      have hcont_at : ContinuousAt bump_ab w := haway.continuousAt (hopen.mem_nhds h1)
+      exact hcont_at.continuousWithinAt
+  have hcont_bump_cd : ContinuousOn bump_cd (spectrum ℂ C.U) := by
+    intro w hw
+    by_cases h1 : w = 1
+    · -- At w = 1: need to show continuity at 1
+      subst h1
+      apply Metric.continuousWithinAt_iff.mpr
+      intro ε' hε'
+      let R_cd := max (|c - ε|) (|d + ε|) + 1
+      use min (1/2) (1 / (R_cd + 1))
+      constructor
+      · apply lt_min; linarith; positivity
+      · intro z hz_mem hz_dist
+        have hbump_cd_1 : bump_cd 1 = 0 := by
+          simp only [bump_cd, cfcViaInverseCayleyC0, ne_eq, not_true_eq_false, ↓reduceDIte]
+        rw [hbump_cd_1, dist_zero_right]
+        simp only [bump_cd, cfcViaInverseCayleyC0]
+        by_cases hz_ne1 : z ≠ 1
+        · simp only [dif_pos hz_ne1, indicatorApproxComplex, ContinuousMap.coe_mk]
+          rw [Complex.norm_real, Real.norm_eq_abs]
+          have hnorm1 : ‖z‖ = 1 := spectrum.norm_eq_one_of_unitary
+            (cayleyTransform_mem_unitary T hT hsa C) hz_mem
+          have hz_dist_norm : ‖z - 1‖ < min (1/2) (1 / (R_cd + 1)) := by
+            rw [← Complex.dist_eq]; exact hz_dist
+          have hclose : ‖z - 1‖ < 1 := calc ‖z - 1‖ < min (1/2) (1 / (R_cd + 1)) := hz_dist_norm
+            _ ≤ 1/2 := min_le_left _ _
+            _ < 1 := by norm_num
+          have hinv_large := inverseCayleyMap_abs_large_near_one z hz_ne1 hnorm1 hclose
+          have hz_dist_R : ‖z - 1‖ < 1 / (R_cd + 1) := lt_of_lt_of_le hz_dist_norm (min_le_right _ _)
+          have hR_pos : R_cd + 1 > 0 := by positivity
+          have hinv_gt_R : |inverseCayleyMap z hz_ne1| > R_cd := by
+            have h1' : 1 / ‖z - 1‖ > R_cd + 1 := by
+              have hnorm_pos : ‖z - 1‖ > 0 := norm_pos_iff.mpr (sub_ne_zero.mpr hz_ne1)
+              rw [gt_iff_lt, lt_div_iff₀ hnorm_pos]
+              calc (R_cd + 1) * ‖z - 1‖ < (R_cd + 1) * (1 / (R_cd + 1)) := by
+                    apply mul_lt_mul_of_pos_left hz_dist_R hR_pos
+                _ = 1 := mul_one_div_cancel (ne_of_gt hR_pos)
+            linarith
+          -- indicatorApprox is 0 outside [-R_cd, R_cd]
+          have hind_zero : indicatorApprox c d ε hε (inverseCayleyMap z hz_ne1) = 0 := by
+            apply indicatorApprox_eq_zero_outside
+            have hR_c : R_cd > |c - ε| := by
+              have h1' : max |c - ε| |d + ε| ≥ |c - ε| := le_max_left _ _; linarith
+            have hR_d : R_cd > |d + ε| := by
+              have h1' : max |c - ε| |d + ε| ≥ |d + ε| := le_max_right _ _; linarith
+            set t := inverseCayleyMap z hz_ne1 with ht_def
+            by_cases ht_pos : t ≥ 0
+            · right
+              have ht_gt_R : t > R_cd := by
+                have : |t| = t := abs_of_nonneg ht_pos; linarith
+              have : t > d + ε := calc t > R_cd := ht_gt_R
+                _ > |d + ε| := hR_d
+                _ ≥ d + ε := le_abs_self _
+              linarith
+            · left
+              push_neg at ht_pos
+              have ht_lt_neg_R : t < -R_cd := by
+                have : |t| = -t := abs_of_neg ht_pos; linarith
+              have : t < c - ε := calc t < -R_cd := ht_lt_neg_R
+                _ < -|c - ε| := by linarith
+                _ ≤ c - ε := neg_abs_le _
+              linarith
+          rw [hind_zero, abs_zero]
+          exact hε'
+        · push_neg at hz_ne1
+          simp only [hz_ne1, ne_eq, not_true_eq_false, ↓reduceDIte, norm_zero]
+          exact hε'
+    · -- w ≠ 1: f is continuous on the open set {z | z ≠ 1}, so continuous at w
+      have hopen : IsOpen {z : ℂ | z ≠ 1} := isOpen_compl_singleton
+      have haway := cfcViaInverseCayleyC0_continuousOn (indicatorApproxComplex c d ε hε) w h1
+      have hcont_at : ContinuousAt bump_cd w := haway.continuousAt (hopen.mem_nhds h1)
+      exact hcont_at.continuousWithinAt
+  -- Show that cfc(sqrtDiff)² = cfc(bump_cd) - cfc(bump_ab)
+  have hdiff_eq_sq : bumpOperator T hT hsa C c d ε hε - bumpOperator T hT hsa C a b ε hε = R * R := by
+    simp only [bumpOperator, sqrtDiffBumpOperator, R]
+    -- cfc(bump_cd) - cfc(bump_ab) = cfc(sqrtDiff) * cfc(sqrtDiff)
+    rw [← cfc_mul sqrtDiff sqrtDiff C.U hcont_sqrtDiff hcont_sqrtDiff]
+    rw [← cfc_sub bump_cd bump_ab C.U hcont_bump_cd hcont_bump_ab]
+    congr 1
+    ext w
+    exact (hsqDiff_eq w).symm
+  -- Now use hdiff_eq_sq to show the inner product inequality
+  have hdiff_inner : @inner ℂ H _ x ((bumpOperator T hT hsa C c d ε hε -
+      bumpOperator T hT hsa C a b ε hε) x) = @inner ℂ H _ x ((R * R) x) := by
+    congr 1
+    rw [hdiff_eq_sq]
+  rw [ContinuousLinearMap.sub_apply, inner_sub_right] at hdiff_inner
+  -- ⟨x, R * R x⟩ = ⟨x, R(Rx)⟩ = ⟨R*x, Rx⟩ = ⟨Rx, Rx⟩ = ‖Rx‖² (using R self-adjoint)
+  have hRsq_inner : @inner ℂ H _ x ((R * R) x) = @inner ℂ H _ (R x) (R x) := by
+    simp only [ContinuousLinearMap.mul_apply]
+    -- ⟨x, R(Rx)⟩ = ⟨R.adjoint x, Rx⟩ = ⟨Rx, Rx⟩ (since R.adjoint = R)
+    have h1 : @inner ℂ H _ (R.adjoint x) (R x) = @inner ℂ H _ x (R (R x)) :=
+      ContinuousLinearMap.adjoint_inner_left R (R x) x
+    rw [hR_sa] at h1
+    exact h1.symm
+  rw [hRsq_inner] at hdiff_inner
+  -- ⟨Rx, Rx⟩ = ‖Rx‖² which has non-negative real part
+  have hRx_nonneg : 0 ≤ RCLike.re (@inner ℂ H _ (R x) (R x)) := by
+    rw [inner_self_eq_norm_sq (R x)]
+    exact sq_nonneg _
+  -- From hdiff_inner: ⟨x, P_cd x⟩ - ⟨x, P_ab x⟩ = ‖Rx‖²
+  -- Taking real parts: re⟨x, P_cd x⟩ - re⟨x, P_ab x⟩ = ‖Rx‖² ≥ 0
+  have hre_diff : RCLike.re (@inner ℂ H _ x (bumpOperator T hT hsa C c d ε hε x)) -
+      RCLike.re (@inner ℂ H _ x (bumpOperator T hT hsa C a b ε hε x)) =
+      RCLike.re (@inner ℂ H _ (R x) (R x)) := by
+    have h := congrArg RCLike.re hdiff_inner
+    simp only [map_sub] at h
+    exact h
+  linarith [hRx_nonneg]
 
 /-- The bump operators are positive contractions (0 ≤ bump ≤ 1 implies 0 ≤ P ≤ 1). -/
 theorem bumpOperator_nonneg (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
@@ -1293,7 +1714,28 @@ theorem spectralFormInterval_diagonal_nonneg (T : UnboundedOperator H) (hT : T.I
   -- The limit of ⟨x, bump_ε(T)x⟩ where bump_ε ≥ 0
   -- Since bump_ε(T) is positive, ⟨x, bump_ε(T)x⟩ ≥ 0
   -- The limit of non-negative reals is non-negative
-  sorry
+  unfold spectralFormInterval
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let seq : ℕ → ℂ := fun n =>
+    if hn : n > 0 then
+      @inner ℂ H _ x (bumpOperator T hT hsa C a b ((1 : ℝ) / n) (by positivity) x)
+    else 0
+  have hcauchy : CauchySeq seq := bumpOperator_inner_cauchy T hT hsa C a b x x
+  let L : ℂ := Classical.choose (cauchySeq_tendsto_of_complete hcauchy)
+  have hlimit : Tendsto seq atTop (nhds L) := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy)
+  -- Each term seq n has non-negative real part (for n > 0, by bumpOperator_nonneg)
+  have hseq_nonneg : ∀ n, 0 ≤ (seq n).re := fun n => by
+    simp only [seq]
+    by_cases hn : n > 0
+    · simp only [dif_pos hn]
+      exact bumpOperator_nonneg T hT hsa C a b (1 / n) (by positivity) x
+    · simp only [dif_neg hn, Complex.zero_re, le_refl]
+  -- The real part function is continuous, so lim re(seq n) = re(lim seq n)
+  have hre_tendsto : Tendsto (fun n => (seq n).re) atTop (nhds L.re) :=
+    (Complex.continuous_re.tendsto L).comp hlimit
+  -- The limit of non-negative reals is non-negative (closed set property)
+  have hclosed : IsClosed {x : ℝ | 0 ≤ x} := isClosed_Ici
+  exact hclosed.mem_of_tendsto hre_tendsto (Filter.Eventually.of_forall hseq_nonneg)
 
 /-- The spectral form is monotone in the interval: [a,b] ⊆ [c,d] implies
     spectralFormInterval a b x x ≤ spectralFormInterval c d x x.
@@ -1301,13 +1743,80 @@ theorem spectralFormInterval_diagonal_nonneg (T : UnboundedOperator H) (hT : T.I
     This follows from P([a,b]) ≤ P([c,d]) when [a,b] ⊆ [c,d]. -/
 theorem spectralFormInterval_mono_interval (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa)
-    (a b c d : ℝ) (hab : a ≤ b) (hcd : c ≤ d) (hac : c ≤ a) (hbd : b ≤ d) (x : H) :
+    (a b c d : ℝ) (_hab : a ≤ b) (_hcd : c ≤ d) (hac : c ≤ a) (hbd : b ≤ d) (x : H) :
     (spectralFormInterval T hT hsa C a b x x).re ≤
     (spectralFormInterval T hT hsa C c d x x).re := by
   -- If [a,b] ⊆ [c,d], then χ_{[a,b]} ≤ χ_{[c,d]} pointwise
   -- By CFC positivity, P([a,b]) ≤ P([c,d]) in the Loewner order
   -- Hence ⟨x, P([a,b])x⟩ ≤ ⟨x, P([c,d])x⟩
-  sorry
+  unfold spectralFormInterval
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  -- Get the two Cauchy sequences and their limits
+  let seq_ab : ℕ → ℂ := fun n =>
+    if hn : n > 0 then @inner ℂ H _ x (bumpOperator T hT hsa C a b ((1:ℝ)/n) (by positivity) x)
+    else 0
+  let seq_cd : ℕ → ℂ := fun n =>
+    if hn : n > 0 then @inner ℂ H _ x (bumpOperator T hT hsa C c d ((1:ℝ)/n) (by positivity) x)
+    else 0
+  have hcauchy_ab := bumpOperator_inner_cauchy T hT hsa C a b x x
+  have hcauchy_cd := bumpOperator_inner_cauchy T hT hsa C c d x x
+  have hspec_ab := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_ab)
+  have hspec_cd := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_cd)
+  -- Each term satisfies the inequality: bump_ab ≤ bump_cd pointwise implies
+  -- ⟨x, P_ab x⟩ ≤ ⟨x, P_cd x⟩ for each n
+  have hpointwise : ∀ n : ℕ, (seq_ab n).re ≤ (seq_cd n).re := by
+    intro n
+    simp only [seq_ab, seq_cd]
+    split_ifs with hn
+    · -- For n > 0, use that bump operators preserve ordering
+      -- The difference P_cd - P_ab corresponds to a non-negative function
+      -- (indicatorApprox c d ε - indicatorApprox a b ε ≥ 0)
+      -- So ⟨x, (P_cd - P_ab) x⟩ ≥ 0, i.e., ⟨x, P_ab x⟩ ≤ ⟨x, P_cd x⟩
+      have hε_pos : (1:ℝ)/n > 0 := by positivity
+      -- Both inner products are real (self-adjoint operators)
+      have hab_real : ((@inner ℂ H _ x (bumpOperator T hT hsa C a b (1/n) hε_pos x)) : ℂ).im = 0 := by
+        have hSA := bumpOperator_self_adjoint T hT hsa C a b (1/n) hε_pos
+        have h2 : @inner ℂ H _ x (bumpOperator T hT hsa C a b (1/n) hε_pos x) =
+                  starRingEnd ℂ (@inner ℂ H _ (bumpOperator T hT hsa C a b (1/n) hε_pos x) x) := by
+          rw [inner_conj_symm]
+        have h3 : @inner ℂ H _ (bumpOperator T hT hsa C a b (1/n) hε_pos x) x =
+                  @inner ℂ H _ x (bumpOperator T hT hsa C a b (1/n) hε_pos x) := by
+          rw [← ContinuousLinearMap.adjoint_inner_right, hSA]
+        rw [h3] at h2
+        exact Complex.conj_eq_iff_im.mp h2.symm
+      have hcd_real : ((@inner ℂ H _ x (bumpOperator T hT hsa C c d (1/n) hε_pos x)) : ℂ).im = 0 := by
+        have hSA := bumpOperator_self_adjoint T hT hsa C c d (1/n) hε_pos
+        have h2 : @inner ℂ H _ x (bumpOperator T hT hsa C c d (1/n) hε_pos x) =
+                  starRingEnd ℂ (@inner ℂ H _ (bumpOperator T hT hsa C c d (1/n) hε_pos x) x) := by
+          rw [inner_conj_symm]
+        have h3 : @inner ℂ H _ (bumpOperator T hT hsa C c d (1/n) hε_pos x) x =
+                  @inner ℂ H _ x (bumpOperator T hT hsa C c d (1/n) hε_pos x) := by
+          rw [← ContinuousLinearMap.adjoint_inner_right, hSA]
+        rw [h3] at h2
+        exact Complex.conj_eq_iff_im.mp h2.symm
+      -- Non-negativity of bump operators
+      have hab_nonneg := bumpOperator_nonneg T hT hsa C a b (1/n) hε_pos x
+      have hcd_nonneg := bumpOperator_nonneg T hT hsa C c d (1/n) hε_pos x
+      -- The difference is also non-negative because bump_cd - bump_ab ≥ 0
+      -- This follows from indicatorApprox_mono_interval
+      -- For now, we use that the cd form includes the ab form plus additional positive contribution
+      -- The key insight: ⟨x, P_cd x⟩ - ⟨x, P_ab x⟩ = ⟨x, (P_cd - P_ab) x⟩
+      -- where P_cd - P_ab ≥ 0 because the underlying functions satisfy bump_cd ≥ bump_ab
+      -- Since both are real, we just need re(ab) ≤ re(cd)
+      -- This follows from the operator ordering, which is proved via the function ordering
+      -- For the formal proof, use that the non-negative difference operator gives non-negative form
+      -- Use bumpOperator_inner_mono: for nested intervals [a,b] ⊆ [c,d], re⟨x, P_ab x⟩ ≤ re⟨x, P_cd x⟩
+      exact bumpOperator_inner_mono T hT hsa C a b c d (1/n) hε_pos hac hbd x
+    · -- n = 0 case: both are 0
+      linarith
+  -- The limit preserves the inequality
+  have hre_ab : Tendsto (fun n => (seq_ab n).re) atTop
+      (nhds (Classical.choose (cauchySeq_tendsto_of_complete hcauchy_ab)).re) :=
+    (Complex.continuous_re.tendsto _).comp hspec_ab
+  have hre_cd : Tendsto (fun n => (seq_cd n).re) atTop
+      (nhds (Classical.choose (cauchySeq_tendsto_of_complete hcauchy_cd)).re) :=
+    (Complex.continuous_re.tendsto _).comp hspec_cd
+  exact le_of_tendsto_of_tendsto hre_ab hre_cd (Filter.Eventually.of_forall hpointwise)
 
 /-- For a bounded interval [a, b], the spectral projection is idempotent: P² = P. -/
 theorem spectralProjectionInterval_idempotent (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
