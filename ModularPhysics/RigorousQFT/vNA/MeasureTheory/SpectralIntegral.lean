@@ -7,6 +7,7 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Measure.Regular
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.Adjoint
+import Mathlib.Analysis.InnerProductSpace.Dual
 import Mathlib.Topology.Algebra.Module.Basic
 
 /-!
@@ -131,14 +132,192 @@ def complexSpectralIntegral (μ : ComplexSpectralMeasure H) (f : ℝ → ℂ) : 
 
 /-- A bounded linear operator defined by a sesquilinear form.
     Given a bounded sesquilinear form B : H × H → ℂ with |B(x,y)| ≤ C‖x‖‖y‖,
-    there exists a unique T ∈ B(H) such that B(x,y) = ⟨x, Ty⟩. -/
+    there exists a unique T ∈ B(H) such that B(x,y) = ⟨x, Ty⟩.
+
+    This is the Riesz representation theorem for bounded sesquilinear forms.
+    The proof uses Mathlib's Fréchet-Riesz theorem:
+    1. For each y, B(·, y) is a bounded conjugate-linear functional
+    2. By Fréchet-Riesz, B(x, y) = ⟨z_y, x⟩ for unique z_y
+    3. The map y ↦ z_y is the desired operator T (after taking adjoint) -/
 theorem sesquilinear_to_operator (B : H → H → ℂ)
     (hB_linear_right : ∀ x, IsLinearMap ℂ (B x))
     (hB_conj_linear_left : ∀ y c x₁ x₂, B (c • x₁ + x₂) y = starRingEnd ℂ c * B x₁ y + B x₂ y)
     (hB_bounded : ∃ C : ℝ, ∀ x y, ‖B x y‖ ≤ C * ‖x‖ * ‖y‖) :
     ∃! T : H →L[ℂ] H, ∀ x y, B x y = @inner ℂ H _ x (T y) := by
-  -- This is the Riesz representation theorem for bounded sesquilinear forms
-  sorry
+  /-
+  PROOF using Fréchet-Riesz theorem (Mathlib's InnerProductSpace.toDual):
+
+  **Construction:**
+  1. For each y ∈ H, the map x ↦ conj(B(x, y)) is linear in x (by hB_conj_linear_left).
+  2. It is bounded: |conj(B(x, y))| = |B(x, y)| ≤ C‖x‖‖y‖.
+  3. By Fréchet-Riesz, there exists unique T(y) with conj(B(x, y)) = ⟨T(y), x⟩ = conj(⟨x, T(y)⟩).
+  4. Therefore B(x, y) = ⟨x, T(y)⟩.
+  5. The map y ↦ T(y) is linear (from linearity of B in y) and bounded.
+
+  **Uniqueness:**
+  If ⟨x, T₁y⟩ = ⟨x, T₂y⟩ for all x, y, then T₁ = T₂.
+  -/
+  obtain ⟨C_bound, hC⟩ := hB_bounded
+  -- Step 1: For each y, construct the bounded linear functional ℓ_y(x) = star(B(x, y))
+  -- This is linear because B is conjugate-linear in x.
+  -- Define ℓ_y as a CLM
+  have hℓ_exists : ∀ y : H, ∃ ℓ : H →L[ℂ] ℂ, ∀ x, ℓ x = star (B x y) := by
+    intro y
+    -- The map x ↦ star(B(x, y)) is linear
+    let ℓ_fun : H → ℂ := fun x => star (B x y)
+    have hℓ_add : ∀ x₁ x₂, ℓ_fun (x₁ + x₂) = ℓ_fun x₁ + ℓ_fun x₂ := by
+      intro x₁ x₂
+      simp only [ℓ_fun]
+      have h := hB_conj_linear_left y 1 x₁ x₂
+      simp only [one_smul, starRingEnd_apply, star_one, one_mul] at h
+      rw [h, star_add]
+    have hℓ_smul : ∀ (c : ℂ) (x : H), ℓ_fun (c • x) = c • ℓ_fun x := by
+      intro c x
+      show star (B (c • x) y) = (c : ℂ) * star (B x y)
+      have h := hB_conj_linear_left y c x 0
+      simp only [add_zero] at h
+      have hB0 : B 0 y = 0 := by
+        -- Use: B(1·0 + 0) = star(1)·B(0) + B(0) = 2·B(0)
+        -- But  B(1·0 + 0) = B(0)
+        -- So B(0) = 2·B(0), hence B(0) = 0
+        have h1 := hB_conj_linear_left y 1 0 0
+        simp only [one_smul, add_zero, starRingEnd_apply, star_one, one_mul] at h1
+        -- h1 : B 0 y = B 0 y + B 0 y, i.e., a = a + a, so a = 0
+        have : B 0 y + B 0 y = B 0 y := h1.symm
+        calc B 0 y = B 0 y + 0 := (add_zero _).symm
+          _ = B 0 y + (B 0 y - B 0 y) := by ring
+          _ = (B 0 y + B 0 y) - B 0 y := by ring
+          _ = B 0 y - B 0 y := by rw [this]
+          _ = 0 := sub_self _
+      rw [hB0, add_zero] at h
+      rw [h]
+      simp only [starRingEnd_apply, star_mul', star_star]
+    let ℓ_lin : H →ₗ[ℂ] ℂ := {
+      toFun := ℓ_fun
+      map_add' := hℓ_add
+      map_smul' := hℓ_smul
+    }
+    -- Show bounded
+    have hℓ_bdd : ∃ M : ℝ, ∀ x, ‖ℓ_lin x‖ ≤ M * ‖x‖ := by
+      use max C_bound 0 * ‖y‖
+      intro x
+      -- ℓ_lin x = ℓ_fun x = star (B x y)
+      show ‖star (B x y)‖ ≤ _
+      rw [norm_star]
+      calc ‖B x y‖ ≤ C_bound * ‖x‖ * ‖y‖ := hC x y
+        _ ≤ max C_bound 0 * ‖x‖ * ‖y‖ := by
+            apply mul_le_mul_of_nonneg_right
+            apply mul_le_mul_of_nonneg_right (le_max_left _ _) (norm_nonneg _)
+            exact norm_nonneg _
+        _ = (max C_bound 0 * ‖y‖) * ‖x‖ := by ring
+    obtain ⟨M, hM⟩ := hℓ_bdd
+    -- Convert to CLM
+    have hcont : Continuous ℓ_lin := by
+      apply AddMonoidHomClass.continuous_of_bound ℓ_lin M
+      intro x
+      exact hM x
+    exact ⟨⟨ℓ_lin, hcont⟩, fun x => rfl⟩
+  -- Step 2: Apply Fréchet-Riesz to get T(y) for each y
+  -- For functional ℓ, we have (toDual ℂ H).symm ℓ is the vector z with ⟨z, x⟩ = ℓ x
+  let T_fun : H → H := fun y =>
+    let ℓ := (hℓ_exists y).choose
+    (InnerProductSpace.toDual ℂ H).symm ℓ
+  -- Step 3: Show B(x, y) = ⟨x, T_fun y⟩
+  have hB_eq : ∀ x y, B x y = @inner ℂ H _ x (T_fun y) := by
+    intro x y
+    simp only [T_fun]
+    let ℓ := (hℓ_exists y).choose
+    have hℓ_spec := (hℓ_exists y).choose_spec
+    -- ⟨(toDual).symm ℓ, x⟩ = ℓ x = star(B(x, y))
+    have h1 : @inner ℂ H _ ((InnerProductSpace.toDual ℂ H).symm ℓ) x = ℓ x :=
+      InnerProductSpace.toDual_symm_apply
+    have h2 : ℓ x = star (B x y) := hℓ_spec x
+    -- ⟨z, x⟩ = star(B(x, y)) means B(x, y) = star(⟨z, x⟩) = ⟨x, z⟩
+    have h3 : star (star (B x y)) = B x y := star_star _
+    calc B x y = star (star (B x y)) := h3.symm
+      _ = star (ℓ x) := by rw [h2]
+      _ = star (@inner ℂ H _ ((InnerProductSpace.toDual ℂ H).symm ℓ) x) := by rw [h1]
+      _ = @inner ℂ H _ x ((InnerProductSpace.toDual ℂ H).symm ℓ) := inner_conj_symm _ _
+  -- Step 4: Show T_fun is linear
+  have hT_add : ∀ y₁ y₂, T_fun (y₁ + y₂) = T_fun y₁ + T_fun y₂ := by
+    intro y₁ y₂
+    -- Use that inner product separates points
+    apply ext_inner_left ℂ
+    intro x
+    -- ⟨x, T(y₁+y₂)⟩ = B(x, y₁+y₂) = B(x,y₁) + B(x,y₂) = ⟨x, Ty₁⟩ + ⟨x, Ty₂⟩ = ⟨x, Ty₁+Ty₂⟩
+    have hlin := hB_linear_right x
+    calc @inner ℂ H _ x (T_fun (y₁ + y₂)) = B x (y₁ + y₂) := (hB_eq x (y₁ + y₂)).symm
+      _ = B x y₁ + B x y₂ := hlin.map_add y₁ y₂
+      _ = @inner ℂ H _ x (T_fun y₁) + @inner ℂ H _ x (T_fun y₂) := by rw [hB_eq x y₁, hB_eq x y₂]
+      _ = @inner ℂ H _ x (T_fun y₁ + T_fun y₂) := (inner_add_right _ _ _).symm
+  have hT_smul : ∀ (c : ℂ) (y : H), T_fun (c • y) = c • T_fun y := by
+    intro c y
+    apply ext_inner_left ℂ
+    intro x
+    have hlin := hB_linear_right x
+    calc @inner ℂ H _ x (T_fun (c • y)) = B x (c • y) := (hB_eq x (c • y)).symm
+      _ = c • B x y := hlin.map_smul c y
+      _ = c * @inner ℂ H _ x (T_fun y) := by rw [hB_eq x y]; rfl
+      _ = @inner ℂ H _ x (c • T_fun y) := (inner_smul_right _ _ _).symm
+  -- Step 5: Show T_fun is bounded
+  have hT_bdd : ∃ M : ℝ, ∀ y, ‖T_fun y‖ ≤ M * ‖y‖ := by
+    use max C_bound 0
+    intro y
+    by_cases hy : T_fun y = 0
+    · rw [hy, norm_zero]; positivity
+    · -- Use ‖z‖ = sup_{‖x‖=1} |⟨x, z⟩|
+      -- We have |⟨x, T_fun y⟩| = |B(x, y)| ≤ C‖x‖‖y‖
+      -- So ‖T_fun y‖ ≤ C‖y‖
+      have h : ∀ x, ‖@inner ℂ H _ x (T_fun y)‖ ≤ max C_bound 0 * ‖x‖ * ‖y‖ := by
+        intro x
+        rw [← hB_eq x y]
+        calc ‖B x y‖ ≤ C_bound * ‖x‖ * ‖y‖ := hC x y
+          _ ≤ max C_bound 0 * ‖x‖ * ‖y‖ := by
+              apply mul_le_mul_of_nonneg_right
+              apply mul_le_mul_of_nonneg_right (le_max_left _ _) (norm_nonneg _)
+              exact norm_nonneg _
+      -- Use x = T_fun y to get ‖T_fun y‖² ≤ C‖T_fun y‖‖y‖
+      have hself : ‖@inner ℂ H _ (T_fun y) (T_fun y)‖ ≤ max C_bound 0 * ‖T_fun y‖ * ‖y‖ :=
+        h (T_fun y)
+      have hnorm_sq : ‖@inner ℂ H _ (T_fun y) (T_fun y)‖ = ‖T_fun y‖^2 := by
+        rw [inner_self_eq_norm_sq_to_K]
+        -- Goal: ‖(↑‖T_fun y‖)^2‖ = ‖T_fun y‖^2
+        -- (↑‖T_fun y‖)^2 = ↑(‖T_fun y‖^2) as real numbers
+        rw [← RCLike.ofReal_pow]
+        rw [RCLike.norm_ofReal, abs_of_nonneg (sq_nonneg _)]
+      rw [hnorm_sq] at hself
+      -- ‖T_fun y‖² ≤ C‖T_fun y‖‖y‖, and T_fun y ≠ 0, so ‖T_fun y‖ ≤ C‖y‖
+      have hpos : 0 < ‖T_fun y‖ := norm_pos_iff.mpr hy
+      calc ‖T_fun y‖ = ‖T_fun y‖^2 / ‖T_fun y‖ := by field_simp
+        _ ≤ (max C_bound 0 * ‖T_fun y‖ * ‖y‖) / ‖T_fun y‖ := by
+            apply div_le_div_of_nonneg_right hself hpos.le
+        _ = max C_bound 0 * ‖y‖ := by field_simp
+  -- Step 6: Construct T as a CLM
+  obtain ⟨M, hM⟩ := hT_bdd
+  let T_lin : H →ₗ[ℂ] H := {
+    toFun := T_fun
+    map_add' := hT_add
+    map_smul' := hT_smul
+  }
+  have hT_cont : Continuous T_lin := by
+    apply AddMonoidHomClass.continuous_of_bound T_lin M
+    intro y
+    exact hM y
+  let T : H →L[ℂ] H := ⟨T_lin, hT_cont⟩
+  -- Existence
+  use T
+  constructor
+  · -- T satisfies the property
+    intro x y
+    exact hB_eq x y
+  · -- Uniqueness
+    intro T' hT'
+    ext y
+    apply ext_inner_left ℂ
+    intro x
+    have h1 : @inner ℂ H _ x (T y) = B x y := (hB_eq x y).symm
+    have h2 : @inner ℂ H _ x (T' y) = B x y := (hT' x y).symm
+    rw [h1, h2]
 
 /-- The spectral integral ∫ f dP for a spectral measure P and bounded Borel function f.
     This is defined as the unique operator T such that ⟨x, Ty⟩ = ∫ f dμ_{x,y}
@@ -180,11 +359,24 @@ variable (I : SpectralIntegral H)
 def complexMeasureOf (x y : H) : ComplexSpectralMeasure H where
   toFun E := @inner ℂ H _ x (I.measure E y)
   empty := by simp only [I.measure_empty, ContinuousLinearMap.zero_apply, inner_zero_right]
-  sigma_additive E _hdisj := by
+  sigma_additive E hdisj := by
     -- σ-additivity follows from σ-additivity of measure and continuity of inner product
     -- ⟨x, Σ P(Eᵢ)y⟩ = Σ ⟨x, P(Eᵢ)y⟩ → ⟨x, P(⋃ Eᵢ)y⟩
     -- The inner product is continuous, so it preserves limits
-    sorry
+    have hmeas := I.measure_sigma_additive E hdisj y
+    -- hmeas : Tendsto (fun n => Σᵢ P(Eᵢ)y) atTop (nhds (P(⋃ Eᵢ)y))
+    -- We need: Tendsto (fun n => Σᵢ ⟨x, P(Eᵢ)y⟩) atTop (nhds ⟨x, P(⋃ Eᵢ)y⟩)
+    -- This follows from continuity of inner product in the second argument
+    -- The map z ↦ ⟨x, z⟩ is continuous
+    have hcont : Continuous (fun z : H => @inner ℂ H _ x z) :=
+      continuous_inner.comp (continuous_const.prodMk continuous_id)
+    -- Apply the continuous map to the convergent sequence
+    have hconv := hcont.continuousAt.tendsto.comp hmeas
+    -- Convert the sum of inner products to inner of sums
+    convert hconv using 1
+    ext n
+    simp only [Function.comp_apply]
+    rw [inner_sum]
 
 /-- The defining sesquilinear property: ⟨x, (∫ f dP) y⟩ = ∫ f dμ_{x,y} -/
 theorem integral_inner (f : ℝ → ℂ) (x y : H) :

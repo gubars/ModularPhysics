@@ -122,6 +122,102 @@ theorem det_eq_pm_one (Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (h : IsLoren
   · left; exact h1
   · right; exact h1
 
+/-- The first column of a Lorentz matrix satisfies the "unit timelike" condition:
+    Λ₀₀² - Σⱼ>₀ Λⱼ₀² = 1
+    This comes from (Λᵀ η Λ)₀₀ = η₀₀ = -1. -/
+theorem first_column_timelike (Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (h : IsLorentzMatrix d Λ) :
+    Λ 0 0 ^ 2 = 1 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ j 0 ^ 2 := by
+  unfold IsLorentzMatrix at h
+  have h00 : (Λᵀ * minkowskiMatrix d * Λ) 0 0 = (minkowskiMatrix d) 0 0 := by rw [h]
+  simp only [mul_apply, minkowskiMatrix, diagonal_apply, transpose_apply,
+    MinkowskiSpace.metricSignature, ite_true] at h00
+  have hinner : ∀ j : Fin (d + 1),
+      (∑ k : Fin (d + 1), Λ k 0 * (if k = j then (if k = 0 then (-1:ℝ) else 1) else 0)) =
+      (if j = 0 then -1 else 1) * Λ j 0 := by
+    intro j
+    rw [Finset.sum_eq_single j]
+    · by_cases hj : j = 0 <;> simp [hj]
+    · intro k _ hkj; simp [hkj]
+    · simp
+  have h00' : (∑ j : Fin (d + 1), (if j = 0 then (-1:ℝ) else 1) * Λ j 0 * Λ j 0) = -1 := by
+    trans (∑ j, (∑ k, Λ k 0 * (if k = j then if k = 0 then (-1:ℝ) else 1 else 0)) * Λ j 0)
+    · apply Finset.sum_congr rfl; intro j _; rw [hinner j]
+    · exact h00
+  have hsplit : (∑ j : Fin (d + 1), (if j = 0 then (-1:ℝ) else 1) * Λ j 0 * Λ j 0) =
+      -Λ 0 0 ^ 2 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ j 0 ^ 2 := by
+    rw [← Finset.sum_filter_add_sum_filter_not Finset.univ (· = (0 : Fin (d+1)))]
+    simp only [Finset.filter_eq', Finset.mem_univ, ↓reduceIte, Finset.sum_singleton,
+      neg_mul, one_mul, sq]
+    ring_nf
+    congr 1
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hj
+    simp [hj, sq]
+  rw [hsplit] at h00'
+  linarith
+
+/-- The first row of a Lorentz matrix satisfies the "unit timelike" condition:
+    Λ₀₀² - Σⱼ>₀ Λ₀ⱼ² = 1
+    This comes from (Λ η Λᵀ)₀₀ = η₀₀ = -1, using Λ η Λᵀ = η (from Λᵀ η Λ = η). -/
+theorem first_row_timelike (Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (h : IsLorentzMatrix d Λ) :
+    Λ 0 0 ^ 2 = 1 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ 0 j ^ 2 := by
+  -- From Λᵀ η Λ = η, we derive Λ η Λᵀ = η:
+  -- Multiply on left by η Λ and right by Λᵀ η, using η² = 1 and Λᵀ η Λ = η:
+  -- η Λ (Λᵀ η Λ) Λᵀ η = η Λ η Λᵀ η
+  -- η Λ η Λᵀ η = η Λ η Λᵀ η (trivially)
+  -- But η (Λ Λᵀ η Λ Λᵀ) η = η η η = η by associativity games
+  -- The key insight: (η Λᵀ η) is the left inverse of Λ, so Λ (η Λᵀ η) = 1
+  have h' : Λ * minkowskiMatrix d * Λᵀ = minkowskiMatrix d := by
+    -- First show (η Λᵀ η) Λ = 1
+    have hleft : (minkowskiMatrix d * Λᵀ * minkowskiMatrix d) * Λ = 1 := by
+      unfold IsLorentzMatrix at h
+      calc (minkowskiMatrix d * Λᵀ * minkowskiMatrix d) * Λ
+          = minkowskiMatrix d * Λᵀ * (minkowskiMatrix d * Λ) := by noncomm_ring
+        _ = minkowskiMatrix d * (Λᵀ * minkowskiMatrix d * Λ) := by noncomm_ring
+        _ = minkowskiMatrix d * minkowskiMatrix d := by rw [h]
+        _ = 1 := MinkowskiMatrix.mul_self d
+    -- By Matrix.mul_eq_one_comm, also Λ (η Λᵀ η) = 1
+    have hright : Λ * (minkowskiMatrix d * Λᵀ * minkowskiMatrix d) = 1 :=
+      mul_eq_one_comm.mp hleft
+    -- Now: Λ η Λᵀ = Λ η Λᵀ (η η) = (Λ η Λᵀ η) η = (Λ (η Λᵀ η)) η = 1 · η = η
+    calc Λ * minkowskiMatrix d * Λᵀ
+        = Λ * minkowskiMatrix d * Λᵀ * (minkowskiMatrix d * minkowskiMatrix d) := by
+          rw [MinkowskiMatrix.mul_self]; simp
+      _ = Λ * (minkowskiMatrix d * Λᵀ * minkowskiMatrix d) * minkowskiMatrix d := by
+          noncomm_ring
+      _ = 1 * minkowskiMatrix d := by rw [hright]
+      _ = minkowskiMatrix d := one_mul _
+  -- Now extract the (0,0) entry of Λ η Λᵀ = η
+  have h00 : (Λ * minkowskiMatrix d * Λᵀ) 0 0 = (minkowskiMatrix d) 0 0 := by rw [h']
+  simp only [mul_apply, minkowskiMatrix, diagonal_apply, transpose_apply,
+    MinkowskiSpace.metricSignature, ite_true] at h00
+  have hinner : ∀ j : Fin (d + 1),
+      (∑ k : Fin (d + 1), Λ 0 k * (if k = j then (if k = 0 then (-1:ℝ) else 1) else 0)) =
+      (if j = 0 then -1 else 1) * Λ 0 j := by
+    intro j
+    rw [Finset.sum_eq_single j]
+    · by_cases hj : j = 0 <;> simp [hj]
+    · intro k _ hkj; simp [hkj]
+    · simp
+  have h00' : (∑ j : Fin (d + 1), (if j = 0 then (-1:ℝ) else 1) * Λ 0 j * Λ 0 j) = -1 := by
+    trans (∑ j, (∑ k, Λ 0 k * (if k = j then if k = 0 then (-1:ℝ) else 1 else 0)) * Λ 0 j)
+    · apply Finset.sum_congr rfl; intro j _; rw [hinner j]
+    · exact h00
+  have hsplit : (∑ j : Fin (d + 1), (if j = 0 then (-1:ℝ) else 1) * Λ 0 j * Λ 0 j) =
+      -Λ 0 0 ^ 2 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ 0 j ^ 2 := by
+    rw [← Finset.sum_filter_add_sum_filter_not Finset.univ (· = (0 : Fin (d+1)))]
+    simp only [Finset.filter_eq', Finset.mem_univ, ↓reduceIte, Finset.sum_singleton,
+      neg_mul, one_mul, sq]
+    ring_nf
+    congr 1
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hj
+    simp [hj, sq]
+  rw [hsplit] at h00'
+  linarith
+
 /-- The (0,0) component of a Lorentz transformation satisfies |Λ₀₀| ≥ 1 -/
 theorem abs_zero_zero_ge_one (Λ : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ) (h : IsLorentzMatrix d Λ) :
     |Λ 0 0| ≥ 1 := by
@@ -296,6 +392,38 @@ end IsProper
 
 /-! ### Properties of Orthochronous Transformations -/
 
+/-- The hyperbolic bound: for a, b ≥ 1, we have a*b - √(a²-1)*√(b²-1) ≥ 1.
+    Equality holds when a = b = 1, or viewing a = cosh(α), b = cosh(β),
+    the expression equals cosh(α - β) ≥ 1. -/
+theorem hyperbolic_bound {a b : ℝ} (ha : a ≥ 1) (hb : b ≥ 1) :
+    a * b - Real.sqrt (a ^ 2 - 1) * Real.sqrt (b ^ 2 - 1) ≥ 1 := by
+  -- We prove (ab - 1)² ≥ (√(a²-1) √(b²-1))² = (a²-1)(b²-1)
+  -- Expanding: a²b² - 2ab + 1 ≥ a²b² - a² - b² + 1
+  -- Simplifying: -2ab ≥ -a² - b², i.e., a² + b² - 2ab ≥ 0, i.e., (a-b)² ≥ 0 ✓
+  have ha_sq : a ^ 2 - 1 ≥ 0 := by nlinarith [sq_nonneg a]
+  have hb_sq : b ^ 2 - 1 ≥ 0 := by nlinarith [sq_nonneg b]
+  have hab : a * b ≥ 1 := by nlinarith
+  have hsqrt_nonneg : Real.sqrt (a ^ 2 - 1) * Real.sqrt (b ^ 2 - 1) ≥ 0 :=
+    mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _)
+  -- Key inequality: (ab - 1)² ≥ (a² - 1)(b² - 1)
+  have hkey : (a * b - 1) ^ 2 ≥ (a ^ 2 - 1) * (b ^ 2 - 1) := by
+    have h : (a * b - 1) ^ 2 - (a ^ 2 - 1) * (b ^ 2 - 1) = (a - b) ^ 2 := by ring
+    rw [sub_eq_iff_eq_add] at h
+    rw [h]
+    nlinarith [sq_nonneg (a - b)]
+  -- Since ab ≥ 1, we have ab - 1 ≥ 0
+  have hab1 : a * b - 1 ≥ 0 := by linarith
+  -- From (ab - 1)² ≥ (a² - 1)(b² - 1) and ab - 1 ≥ 0:
+  -- ab - 1 ≥ √((a² - 1)(b² - 1)) = √(a² - 1) · √(b² - 1)
+  have hsqrt_prod : Real.sqrt ((a ^ 2 - 1) * (b ^ 2 - 1)) =
+      Real.sqrt (a ^ 2 - 1) * Real.sqrt (b ^ 2 - 1) :=
+    Real.sqrt_mul ha_sq _
+  rw [← hsqrt_prod]
+  have hsqrt_ineq : a * b - 1 ≥ Real.sqrt ((a ^ 2 - 1) * (b ^ 2 - 1)) := by
+    rw [← Real.sqrt_sq hab1]
+    exact Real.sqrt_le_sqrt hkey
+  linarith
+
 namespace IsOrthochronous
 
 /-- The identity is orthochronous: I₀₀ = 1 ≥ 1 -/
@@ -317,14 +445,48 @@ theorem one : IsOrthochronous (1 : LorentzGroup d) := by
 theorem mul {Λ₁ Λ₂ : LorentzGroup d} (h₁ : IsOrthochronous Λ₁) (h₂ : IsOrthochronous Λ₂) :
     IsOrthochronous (Λ₁ * Λ₂) := by
   simp only [IsOrthochronous] at *
-  -- (Λ₁ * Λ₂)₀₀ = Σⱼ (Λ₁)₀ⱼ (Λ₂)ⱼ₀ = (Λ₁)₀₀(Λ₂)₀₀ + Σⱼ>₀ (Λ₁)₀ⱼ(Λ₂)ⱼ₀
-  -- Key facts from Lorentz condition:
-  -- - First row of Λ₁ is "unit timelike": (Λ₁)₀₀² - Σⱼ>₀(Λ₁)₀ⱼ² = 1
-  -- - First column of Λ₂ is "unit timelike": (Λ₂)₀₀² - Σⱼ>₀(Λ₂)ⱼ₀² = 1
-  -- By Cauchy-Schwarz: |Σⱼ>₀ (Λ₁)₀ⱼ(Λ₂)ⱼ₀| ≤ √((Λ₁)₀₀²-1) · √((Λ₂)₀₀²-1)
-  -- For a,b ≥ 1: ab - √(a²-1)√(b²-1) ≥ 1 (hyperbolic identity: cosh(α-β) ≥ 1)
-  -- The full proof requires establishing these facts from the Lorentz condition.
-  sorry
+  -- Step 1: Express (Λ₁ * Λ₂)₀₀ as a sum
+  have hprod : (Λ₁ * Λ₂).val 0 0 = ∑ j : Fin (d + 1), Λ₁.val 0 j * Λ₂.val j 0 := rfl
+  -- Step 2: Split into j=0 term and j≠0 sum
+  have hsplit : ∑ j : Fin (d + 1), Λ₁.val 0 j * Λ₂.val j 0 =
+      Λ₁.val 0 0 * Λ₂.val 0 0 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0 := by
+    rw [← Finset.sum_filter_add_sum_filter_not Finset.univ (· = (0 : Fin (d+1)))]
+    simp only [Finset.filter_eq', Finset.mem_univ, ↓reduceIte, Finset.sum_singleton]
+  rw [hprod, hsplit]
+  -- Step 3: Get the "unit timelike" conditions from Lorentz constraint
+  have hrow := IsLorentzMatrix.first_row_timelike Λ₁.val Λ₁.2
+  have hcol := IsLorentzMatrix.first_column_timelike Λ₂.val Λ₂.2
+  -- Step 4: Define the spatial sums
+  let S₁ := ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j ^ 2
+  let S₂ := ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₂.val j 0 ^ 2
+  have hS₁_eq : S₁ = Λ₁.val 0 0 ^ 2 - 1 := by simp only [S₁]; linarith [hrow]
+  have hS₂_eq : S₂ = Λ₂.val 0 0 ^ 2 - 1 := by simp only [S₂]; linarith [hcol]
+  have hS₁_nonneg : S₁ ≥ 0 := Finset.sum_nonneg (fun j _ => sq_nonneg _)
+  have hS₂_nonneg : S₂ ≥ 0 := Finset.sum_nonneg (fun j _ => sq_nonneg _)
+  -- Step 5: Apply Cauchy-Schwarz: (Σaᵢbᵢ)² ≤ (Σaᵢ²)(Σbᵢ²)
+  -- So |Σaᵢbᵢ| ≤ √(Σaᵢ²) * √(Σbᵢ²)
+  have hCS_sq : (∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0) ^ 2 ≤ S₁ * S₂ := by
+    -- Use Mathlib's Cauchy-Schwarz: sum_mul_sq_le_sq_mul_sq
+    exact Finset.sum_mul_sq_le_sq_mul_sq _ _ _
+  have hCS : |∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0| ≤
+      Real.sqrt S₁ * Real.sqrt S₂ := by
+    rw [← Real.sqrt_mul hS₁_nonneg S₂]
+    rw [← Real.sqrt_sq_eq_abs]
+    exact Real.sqrt_le_sqrt hCS_sq
+  -- The spatial sum is bounded by √S₁ * √S₂
+  have hbound : -(Real.sqrt S₁ * Real.sqrt S₂) ≤
+      ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0 := by
+    have := neg_abs_le (∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0)
+    linarith [hCS]
+  -- Step 6: Apply the hyperbolic bound
+  have hS₁_eq' : Real.sqrt S₁ = Real.sqrt (Λ₁.val 0 0 ^ 2 - 1) := by rw [hS₁_eq]
+  have hS₂_eq' : Real.sqrt S₂ = Real.sqrt (Λ₂.val 0 0 ^ 2 - 1) := by rw [hS₂_eq]
+  have hhyp := hyperbolic_bound h₁ h₂
+  calc Λ₁.val 0 0 * Λ₂.val 0 0 + ∑ j ∈ Finset.univ.filter (· ≠ 0), Λ₁.val 0 j * Λ₂.val j 0
+      ≥ Λ₁.val 0 0 * Λ₂.val 0 0 - Real.sqrt S₁ * Real.sqrt S₂ := by linarith [hbound]
+    _ = Λ₁.val 0 0 * Λ₂.val 0 0 - Real.sqrt (Λ₁.val 0 0 ^ 2 - 1) * Real.sqrt (Λ₂.val 0 0 ^ 2 - 1) := by
+        rw [hS₁_eq', hS₂_eq']
+    _ ≥ 1 := hhyp
 
 /-- The inverse of an orthochronous transformation is orthochronous.
 

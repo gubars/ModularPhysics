@@ -8,6 +8,7 @@ import Mathlib.Analysis.Distribution.TemperedDistribution
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.Adjoint
 import ModularPhysics.RigorousQFT.Wightman.Basic
+import ModularPhysics.RigorousQFT.vNA.Unbounded.StoneTheorem
 
 /-!
 # Operator-Valued Distributions
@@ -100,12 +101,18 @@ structure OperatorValuedDistribution (d : ℕ) [NeZero d]
   domain : DenseSubspace H
   /-- The field operator applied to a test function f -/
   operator : SchwartzSpacetime d → (H → H)
-  /-- Linearity of the field: φ(f + g) = φ(f) + φ(g) -/
+  /-- Linearity of the field in test function: φ(f + g) = φ(f) + φ(g) -/
   operator_add : ∀ f g : SchwartzSpacetime d, ∀ ψ ∈ domain,
     operator (f + g) ψ = operator f ψ + operator g ψ
-  /-- Scalar linearity: φ(c·f) = c·φ(f) -/
+  /-- Scalar linearity in test function: φ(c·f) = c·φ(f) -/
   operator_smul : ∀ (c : ℂ) (f : SchwartzSpacetime d), ∀ ψ ∈ domain,
     operator (c • f) ψ = c • operator f ψ
+  /-- Linearity of φ(f) in vector argument: φ(f)(ψ₁ + ψ₂) = φ(f)ψ₁ + φ(f)ψ₂ -/
+  operator_vector_add : ∀ f : SchwartzSpacetime d, ∀ ψ₁ ψ₂ : H,
+    ψ₁ ∈ domain → ψ₂ ∈ domain → operator f (ψ₁ + ψ₂) = operator f ψ₁ + operator f ψ₂
+  /-- Scalar linearity of φ(f) in vector argument: φ(f)(c·ψ) = c·φ(f)ψ -/
+  operator_vector_smul : ∀ f : SchwartzSpacetime d, ∀ (c : ℂ) (ψ : H),
+    ψ ∈ domain → operator f (c • ψ) = c • operator f ψ
   /-- Domain invariance: φ(f) maps D to D -/
   operator_domain : ∀ f : SchwartzSpacetime d, ∀ ψ ∈ domain, operator f ψ ∈ domain
   /-- Temperedness: for any χ, ψ ∈ D, the matrix element f ↦ ⟨χ, φ(f)ψ⟩ is continuous.
@@ -120,7 +127,7 @@ variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteS
 
 /-- The matrix element ⟨χ, φ(f)ψ⟩ as a function of f -/
 def matrixElement (φ : OperatorValuedDistribution d H)
-    (χ ψ : H) (hχ : χ ∈ φ.domain) (hψ : ψ ∈ φ.domain) :
+    (χ ψ : H) (_hχ : χ ∈ φ.domain) (_hψ : ψ ∈ φ.domain) :
     SchwartzSpacetime d → ℂ :=
   fun f => ⟪χ, φ.operator f ψ⟫_ℂ
 
@@ -183,18 +190,93 @@ theorem zero_point (d : ℕ) [NeZero d] (φ : OperatorValuedDistribution d H)
     _root_.WightmanNPoint d φ Ω 0 (fun _ => 0) = 1 := by
   simp only [WightmanNPoint]
   -- operatorPow 0 fs Ω = Ω by definition
-  -- so ⟨Ω, Ω⟩ = ‖Ω‖² = 1
-  sorry
+  simp only [OperatorValuedDistribution.operatorPow]
+  -- Now ⟨Ω, Ω⟩ = ‖Ω‖² = 1
+  rw [inner_self_eq_norm_sq_to_K, hΩ_norm]
+  simp
+
+/-- Linearity of operatorPow in the k-th test function.
+    This helper lemma shows that replacing fs(k) with f+g gives the sum of the two applications. -/
+theorem operatorPow_linear_at (φ : OperatorValuedDistribution d H)
+    (n : ℕ) (k : Fin n) (f g : SchwartzSpacetime d) (fs : Fin n → SchwartzSpacetime d)
+    (ψ : H) (hψ : ψ ∈ φ.domain) :
+    φ.operatorPow n (Function.update fs k (f + g)) ψ =
+    φ.operatorPow n (Function.update fs k f) ψ + φ.operatorPow n (Function.update fs k g) ψ := by
+  -- Induction on n
+  induction n with
+  | zero => exact Fin.elim0 k
+  | succ n ih =>
+    -- For n+1, operatorPow applies operator at fs(0) to the result of operatorPow n on the tail
+    simp only [OperatorValuedDistribution.operatorPow]
+    -- Case split on whether k = 0 or k > 0
+    by_cases hk : k.val = 0
+    · -- k = 0: the first operator gets (f + g)
+      have hk0 : k = 0 := Fin.ext hk
+      subst hk0
+      -- For any h, (fun i => update fs 0 h (succ i)) = (fun i => fs (succ i))
+      -- because succ i ≠ 0
+      have htail_eq : ∀ h : SchwartzSpacetime d,
+          (fun i => Function.update fs 0 h (Fin.succ i)) = (fun i => fs (Fin.succ i)) := by
+        intro h
+        ext i
+        rw [Function.update_of_ne (Fin.succ_ne_zero i)]
+      simp only [Function.update_self, htail_eq]
+      -- Apply operator_add
+      have h_domain := OperatorValuedDistribution.operatorPow_domain φ n
+        (fun i => fs (Fin.succ i)) ψ hψ
+      rw [φ.operator_add f g _ h_domain]
+    · -- k > 0: the first operator is unchanged, linearity is in the tail
+      have hk_pos : 0 < k.val := Nat.pos_of_ne_zero hk
+      have hk_pred : k.val - 1 < n := by omega
+      let k' : Fin n := ⟨k.val - 1, hk_pred⟩
+      -- Function.update at k ≠ 0 doesn't change fs(0)
+      have h0_ne : k ≠ 0 := fun h => hk (congrArg Fin.val h)
+      simp only [Function.update_of_ne h0_ne.symm]
+      -- Need to show the tail updates are correct
+      have htail : ∀ h : SchwartzSpacetime d,
+          (fun i => Function.update fs k h (Fin.succ i)) = Function.update (fun i => fs (Fin.succ i)) k' h := by
+        intro h
+        ext i
+        simp only [Function.update]
+        by_cases hi : i = k'
+        · simp only [hi]
+          have : Fin.succ k' = k := by
+            ext
+            simp only [Fin.val_succ, k']
+            omega
+          simp [this]
+        · simp only [hi]
+          have : Fin.succ i ≠ k := by
+            intro heq
+            apply hi
+            ext
+            simp only [k']
+            have := congrArg Fin.val heq
+            simp only [Fin.val_succ] at this
+            omega
+          simp [this]
+      rw [htail (f + g), htail f, htail g]
+      -- Now use the induction hypothesis
+      rw [ih k' (fun i => fs (Fin.succ i))]
+      -- The result is φ.operator (fs 0) applied to a sum, which distributes
+      -- using operator_vector_add
+      have h1 : φ.operatorPow n (Function.update (fun i => fs (Fin.succ i)) k' f) ψ ∈ φ.domain :=
+        OperatorValuedDistribution.operatorPow_domain φ n _ ψ hψ
+      have h2 : φ.operatorPow n (Function.update (fun i => fs (Fin.succ i)) k' g) ψ ∈ φ.domain :=
+        OperatorValuedDistribution.operatorPow_domain φ n _ ψ hψ
+      rw [φ.operator_vector_add (fs 0) _ _ h1 h2]
 
 /-- Linearity in an argument: W_n is linear in each test function slot.
     The full proof requires careful handling of Fin indices. -/
 theorem linear_arg (d : ℕ) [NeZero d] (φ : OperatorValuedDistribution d H)
-    (Ω : H) (n : ℕ) (k : Fin n)
+    (Ω : H) (hΩ : Ω ∈ φ.domain) (n : ℕ) (k : Fin n)
     (f g : SchwartzSpacetime d) (fs : Fin n → SchwartzSpacetime d) :
     _root_.WightmanNPoint d φ Ω n (Function.update fs k (f + g)) =
     _root_.WightmanNPoint d φ Ω n (Function.update fs k f) +
     _root_.WightmanNPoint d φ Ω n (Function.update fs k g) := by
-  sorry
+  simp only [WightmanNPoint]
+  rw [operatorPow_linear_at φ n k f g fs Ω hΩ]
+  rw [inner_add_right]
 
 end WightmanNPoint
 
@@ -217,17 +299,163 @@ namespace PoincareRepresentation
 variable {d : ℕ} [NeZero d]
 variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H]
 
-/-- The energy-momentum operators (generators of translations) -/
-def momentum (π : PoincareRepresentation d H) : Fin (d + 1) → (H → H) :=
-  fun μ => fun ψ => sorry  -- Defined via Stone's theorem from the translation part
+/-- The standard basis vector e_μ in ℝ^{d+1} -/
+def basisVector (d : ℕ) [NeZero d] (μ : Fin (d + 1)) : MinkowskiSpace d :=
+  fun ν => if ν = μ then 1 else 0
 
-/-- The Hamiltonian (time component of momentum) -/
+/-- The pure translation by t · e_μ in the Poincaré group -/
+def translationInDirection (d : ℕ) [NeZero d] (μ : Fin (d + 1)) (t : ℝ) : PoincareGroup d :=
+  PoincareGroup.translation' (t • basisVector d μ)
+
+/-- The generator of translations in direction μ, applied to ψ.
+
+    The momentum operator P_μ is defined as the infinitesimal generator of the
+    translation subgroup in direction μ. Concretely:
+      i P_μ ψ = lim_{t→0} (U(t·e_μ, 1) - 1) ψ / t
+
+    This definition gives a partial function - the limit exists only for vectors
+    in the domain of the generator. By Stone's theorem (not formalized here),
+    when the representation is strongly continuous, P_μ is self-adjoint.
+
+    We use Filter.Tendsto to express the limit rigorously. -/
+def momentumApplied (π : PoincareRepresentation d H) (μ : Fin (d + 1)) (ψ : H) : H :=
+  limUnder (nhds 0) (fun t : ℝ =>
+    if t = 0 then 0 else (Complex.I : ℂ)⁻¹ • (t⁻¹ • (π.U (translationInDirection d μ t) ψ - ψ)))
+
+/-- The energy-momentum operators (generators of translations).
+
+    P_μ is the infinitesimal generator of translations in the μ-th direction:
+      U(t·e_μ, 1) = exp(-i t P_μ)   (by Stone's theorem)
+
+    The limit defining this operator may not exist for all ψ ∈ H. The domain
+    of P_μ consists of those ψ for which the limit exists. -/
+def momentum (π : PoincareRepresentation d H) (μ : Fin (d + 1)) : H → H :=
+  momentumApplied π μ
+
+/-- A vector ψ is in the domain of the momentum operator P_μ if the limit defining
+    P_μ ψ exists. -/
+def inMomentumDomain (π : PoincareRepresentation d H) (μ : Fin (d + 1)) (ψ : H) : Prop :=
+  Filter.Tendsto (fun t : ℝ =>
+    if t = 0 then 0 else (Complex.I : ℂ)⁻¹ • (t⁻¹ • (π.U (translationInDirection d μ t) ψ - ψ)))
+    (nhds 0) (nhds (momentumApplied π μ ψ))
+
+/-- The Hamiltonian H = P₀ (time component of momentum) -/
 def hamiltonian (π : PoincareRepresentation d H) : H → H :=
   π.momentum 0
 
-/-- The spatial momentum operators -/
-def spatialMomentum (π : PoincareRepresentation d H) : Fin d → (H → H) :=
-  fun i => π.momentum (Fin.succ i)
+/-- The spatial momentum operators (P₁, ..., P_d) -/
+def spatialMomentum (π : PoincareRepresentation d H) (i : Fin d) : H → H :=
+  π.momentum (Fin.succ i)
+
+/-! ### Connection to Stone's theorem -/
+
+/-- A Poincaré representation gives rise to a one-parameter unitary group
+    for translations in each direction μ.
+
+    The translation group t ↦ U(t·e_μ, 1) is a one-parameter group:
+    - U(0) = 1
+    - U(s+t) = U(s)·U(t)
+    - Each U(t) is unitary
+
+    By Stone's theorem, this group has a self-adjoint generator P_μ with
+    U(t·e_μ) = exp(itP_μ). This P_μ is the momentum operator.
+
+    Note: Strong continuity must be verified separately - it follows from
+    the physical requirement that translations act continuously on states. -/
+def translationGroup (π : PoincareRepresentation d H)
+    (μ : Fin (d + 1)) (stronglyContinuous : ∀ x : H, Continuous fun t => π.U (translationInDirection d μ t) x) :
+    OneParameterUnitaryGroup H where
+  U := fun t => π.U (translationInDirection d μ t)
+  unitary_left := fun t => by
+    have h := π.unitary (translationInDirection d μ t)
+    ext x
+    simp only [ContinuousLinearMap.comp_apply, ContinuousLinearMap.one_apply] at h ⊢
+    have := congrFun (congrArg DFunLike.coe h) x
+    simp only [ContinuousLinearMap.comp_apply, ContinuousLinearMap.id_apply] at this
+    exact this
+  unitary_right := fun t => by
+    -- U(t) is unitary, so U(t)·U(t)* = 1
+    -- This follows from U(t)*·U(t) = 1 and the fact that U(t) is invertible
+    -- For a unitary operator, we have U* = U⁻¹, so U·U* = U·U⁻¹ = 1
+    let g := translationInDirection d μ t
+    have hunit := π.unitary g
+    -- hunit : U(g)*.comp U(g) = id
+    -- The inverse of g in the Poincaré group
+    have hg_inv : g⁻¹ = translationInDirection d μ (-t) := by
+      ext
+      · -- translation component: g⁻¹.translation = -mulVec g.lorentz⁻¹.val g.translation
+        simp only [PoincareGroup.inv_translation, translationInDirection,
+          PoincareGroup.translation', g]
+        simp only [inv_one, PoincareGroup.one_lorentz_val, Matrix.one_mulVec, neg_smul]
+      · -- lorentz component
+        simp only [PoincareGroup.inv_lorentz, translationInDirection, PoincareGroup.translation', g]
+        simp only [inv_one]
+    -- U(g) · U(g⁻¹) = U(g · g⁻¹) = U(1) = 1
+    have hU_right_inv : (π.U g).comp (π.U g⁻¹) = ContinuousLinearMap.id ℂ H := by
+      rw [← π.mul_map g g⁻¹, mul_inv_cancel, π.one_map]
+    -- U(g⁻¹) · U(g) = U(g⁻¹ · g) = U(1) = 1
+    have hU_left_inv : (π.U g⁻¹).comp (π.U g) = ContinuousLinearMap.id ℂ H := by
+      rw [← π.mul_map g⁻¹ g, inv_mul_cancel, π.one_map]
+    -- From hunit: U(g)* is a left inverse of U(g)
+    -- From hU_left_inv: U(g⁻¹) is a left inverse of U(g)
+    -- Both are left inverses, and U(g) has a right inverse U(g⁻¹)
+    -- So U(g)* = U(g⁻¹) (left inverses equal when right inverse exists)
+    have hadj_eq_inv : (π.U g).adjoint = π.U g⁻¹ := by
+      -- If AB = 1 and CB = 1, and BD = 1, then A = ABD = D and C = CBD = D, so A = C
+      -- Here: A = U(g)*, B = U(g), C = U(g⁻¹), D = U(g⁻¹)
+      -- We have: U(g)* ∘ U(g) = 1 (hunit)
+      -- And: U(g⁻¹) ∘ U(g) = 1 (hU_left_inv)
+      -- And: U(g) ∘ U(g⁻¹) = 1 (hU_right_inv)
+      -- So U(g)* = U(g)* ∘ (U(g) ∘ U(g⁻¹)) = (U(g)* ∘ U(g)) ∘ U(g⁻¹) = 1 ∘ U(g⁻¹) = U(g⁻¹)
+      calc (π.U g).adjoint
+          = (π.U g).adjoint.comp (ContinuousLinearMap.id ℂ H) := by rw [ContinuousLinearMap.comp_id]
+        _ = (π.U g).adjoint.comp ((π.U g).comp (π.U g⁻¹)) := by rw [hU_right_inv]
+        _ = ((π.U g).adjoint.comp (π.U g)).comp (π.U g⁻¹) := by rw [ContinuousLinearMap.comp_assoc]
+        _ = (ContinuousLinearMap.id ℂ H).comp (π.U g⁻¹) := by rw [hunit]
+        _ = π.U g⁻¹ := ContinuousLinearMap.id_comp _
+    -- Now: U(g) ∘ U(g)* = U(g) ∘ U(g⁻¹) = 1
+    rw [hadj_eq_inv]
+    exact hU_right_inv
+  zero := by
+    have h : translationInDirection d μ 0 = 1 := by
+      ext <;> simp [translationInDirection, PoincareGroup.translation']
+    rw [h, π.one_map]
+    rfl
+  add := fun s t => by
+    have hmul : translationInDirection d μ (s + t) =
+        translationInDirection d μ s * translationInDirection d μ t := by
+      ext
+      · -- translation component
+        simp only [translationInDirection, PoincareGroup.translation',
+          PoincareGroup.mul_translation, PoincareGroup.one_lorentz_val, Matrix.one_mulVec]
+        rw [add_smul]
+      · -- lorentz component
+        simp only [translationInDirection, PoincareGroup.translation',
+          PoincareGroup.mul_lorentz, mul_one]
+    rw [hmul, π.mul_map]
+  continuous := stronglyContinuous
+
+/-- The momentum operator P_μ from Stone's theorem equals our definition.
+
+    When the translation group is strongly continuous, Stone's theorem provides
+    a self-adjoint generator A. We show that A equals the momentum operator P_μ
+    defined by the limit formula.
+
+    The key insight is that both definitions use the same limit:
+    - momentumApplied uses `limUnder (nhds 0) (fun t => I⁻¹ • t⁻¹ • (U(t)ψ - ψ))`
+    - generatorApply uses `Classical.choose` of the same limit existence
+
+    By uniqueness of limits in Hausdorff spaces (Hilbert spaces are T2),
+    these must agree when the limit exists. -/
+theorem momentum_eq_generator (π : PoincareRepresentation d H) (μ : Fin (d + 1))
+    (hcont : ∀ x : H, Continuous fun t => π.U (translationInDirection d μ t) x)
+    (ψ : H) (hψ : ψ ∈ (π.translationGroup μ hcont).generatorDomain) :
+    π.momentumApplied μ ψ = (π.translationGroup μ hcont).generatorApply ψ hψ := by
+  -- Both are defined by the same limit formula
+  -- momentumApplied: limUnder (nhds 0) (fun t => I⁻¹ • t⁻¹ • (U(t·e_μ)ψ - ψ))
+  -- generatorApply: Classical.choose of limit existence
+  -- These agree by uniqueness of limits (Hilbert space is T2)
+  sorry
 
 end PoincareRepresentation
 
@@ -254,7 +482,7 @@ def IsCovariantWeak (φ : OperatorValuedDistribution d H)
     (poincareActionOnSchwartz : PoincareGroup d → SchwartzSpacetime d → SchwartzSpacetime d)
     : Prop :=
   ∀ (g : PoincareGroup d) (f : SchwartzSpacetime d) (χ ψ : H)
-    (hχ : χ ∈ φ.domain) (hψ : ψ ∈ φ.domain),
+    (_hχ : χ ∈ φ.domain) (_hψ : ψ ∈ φ.domain),
     ⟪π.U g χ, φ.operator f (π.U g ψ)⟫_ℂ =
     ⟪χ, φ.operator (poincareActionOnSchwartz g f) ψ⟫_ℂ
 
