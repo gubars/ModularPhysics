@@ -5,10 +5,14 @@ Authors: ModularPhysics Contributors
 -/
 import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Basic
 import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Unital
+import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Order
 import Mathlib.Analysis.CStarAlgebra.Spectrum
+import Mathlib.Analysis.SpecialFunctions.ContinuousFunctionalCalculus.Rpow.Basic
 import Mathlib.Analysis.CStarAlgebra.ContinuousLinearMap
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.InnerProductSpace.Adjoint
+import Mathlib.Analysis.InnerProductSpace.Positive
+import Mathlib.Analysis.InnerProductSpace.StarOrder
 import Mathlib.MeasureTheory.Integral.RieszMarkovKakutani.Real
 import ModularPhysics.RigorousQFT.vNA.Spectral.CayleyTransform
 import ModularPhysics.RigorousQFT.vNA.MeasureTheory.SpectralIntegral
@@ -550,6 +554,158 @@ lemma indicatorApprox_eq_one (a b ε : ℝ) (hε : ε > 0) (x : ℝ)
     min_eq_left h3
   rw [h4]
   exact max_eq_right (by linarith)
+
+/-- Indicator approximation is monotone decreasing in ε on [a, b]:
+    For smaller ε, the bump function is larger on the core interval.
+    Note: This is only true for x in [a, b]; outside this region the relationship is more complex. -/
+lemma indicatorApprox_mono_eps_on_core (a b ε₁ ε₂ : ℝ) (hε₁ : ε₁ > 0) (hε₂ : ε₂ > 0)
+    (hle : ε₁ ≤ ε₂) (x : ℝ) (hxa : a ≤ x) (hxb : x ≤ b) :
+    indicatorApprox a b ε₂ hε₂ x ≤ indicatorApprox a b ε₁ hε₁ x := by
+  unfold indicatorApprox
+  simp only [ContinuousMap.coe_mk]
+  have h2ε₁ : 0 < 2 * ε₁ := by linarith
+  have h2ε₂ : 0 < 2 * ε₂ := by linarith
+  apply max_le (le_max_left _ _)
+  apply le_max_of_le_right
+  apply min_le_min_left
+  apply min_le_min
+  · -- left₂ ≤ left₁ when x ≥ a
+    rw [div_le_div_iff₀ h2ε₂ h2ε₁]
+    -- (x - a + ε₂)(2ε₁) ≤ (x - a + ε₁)(2ε₂)
+    -- 2ε₁(x-a) + 2ε₁ε₂ ≤ 2ε₂(x-a) + 2ε₁ε₂
+    -- 2ε₁(x-a) ≤ 2ε₂(x-a)
+    -- (x-a)(ε₁ - ε₂) ≤ 0  [true since x ≥ a and ε₁ ≤ ε₂]
+    nlinarith
+  · -- right₂ ≤ right₁ when x ≤ b
+    rw [div_le_div_iff₀ h2ε₂ h2ε₁]
+    -- (b + ε₂ - x)(2ε₁) ≤ (b + ε₁ - x)(2ε₂)
+    -- (b-x)(ε₂ - ε₁) ≤ 0  [true since x ≤ b and ε₂ ≥ ε₁]
+    nlinarith
+
+/-- At the left boundary a, indicatorApprox equals 1/2 (when a ≤ b). -/
+lemma indicatorApprox_at_left_boundary (a b ε : ℝ) (hε : ε > 0) (hab : a ≤ b) :
+    indicatorApprox a b ε hε a = 1/2 := by
+  unfold indicatorApprox
+  simp only [ContinuousMap.coe_mk]
+  have h2ε : 0 < 2 * ε := by linarith
+  -- At x = a: left term = (a - (a - ε)) / (2ε) = ε / (2ε) = 1/2
+  have hleft : (a - (a - ε)) / (2 * ε) = 1/2 := by
+    have : a - (a - ε) = ε := by ring
+    rw [this]
+    field_simp
+  rw [hleft]
+  -- right term = (b + ε - a)/(2ε) ≥ ε/(2ε) = 1/2 since b ≥ a
+  have hright : ((b + ε) - a) / (2 * ε) ≥ 1/2 := by
+    rw [ge_iff_le, le_div_iff₀ h2ε]
+    linarith
+  have h1 : min (1/2) (((b + ε) - a) / (2 * ε)) = 1/2 := min_eq_left hright
+  have h2 : min 1 (min (1/2) (((b + ε) - a) / (2 * ε))) = 1/2 := by
+    rw [h1]; norm_num
+  rw [h2]
+  exact max_eq_right (by norm_num : (0 : ℝ) ≤ 1/2)
+
+/-- At the right boundary b, indicatorApprox equals 1/2 (when a ≤ b). -/
+lemma indicatorApprox_at_right_boundary (a b ε : ℝ) (hε : ε > 0) (hab : a ≤ b) :
+    indicatorApprox a b ε hε b = 1/2 := by
+  unfold indicatorApprox
+  simp only [ContinuousMap.coe_mk]
+  have h2ε : 0 < 2 * ε := by linarith
+  -- At x = b: right term = (b + ε - b) / (2ε) = ε / (2ε) = 1/2
+  have hright : ((b + ε) - b) / (2 * ε) = 1/2 := by
+    have : (b + ε) - b = ε := by ring
+    rw [this]
+    field_simp
+  -- left term = (b - (a - ε)) / (2ε) = (b - a + ε) / (2ε) ≥ ε/(2ε) = 1/2
+  have hleft : (b - (a - ε)) / (2 * ε) ≥ 1/2 := by
+    rw [ge_iff_le, le_div_iff₀ h2ε]
+    have : b - (a - ε) = b - a + ε := by ring
+    rw [this]
+    linarith
+  have h1 : min ((b - (a - ε)) / (2 * ε)) (((b + ε) - b) / (2 * ε)) = 1/2 := by
+    rw [hright]
+    exact min_eq_right hleft
+  have h2 : min 1 (min ((b - (a - ε)) / (2 * ε)) (((b + ε) - b) / (2 * ε))) = 1/2 := by
+    rw [h1]; norm_num
+  rw [h2]
+  exact max_eq_right (by norm_num : (0 : ℝ) ≤ 1/2)
+
+/-- For x in the interior (a, b), indicatorApprox_ε(x) → 1 as ε → 0. -/
+lemma indicatorApprox_tendsto_one_interior (a b x : ℝ) (hxa : a < x) (hxb : x < b) :
+    Filter.Tendsto (fun ε : ℝ => if hε : ε > 0 then indicatorApprox a b ε hε x else 0)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 1) := by
+  rw [Metric.tendsto_nhdsWithin_nhds]
+  intro δ hδ
+  -- For ε < min(x - a, b - x), the point x is in [a + ε, b - ε], so indicatorApprox = 1
+  let ε₀ := min (x - a) (b - x)
+  have hε₀_pos : ε₀ > 0 := lt_min (by linarith) (by linarith)
+  use ε₀
+  constructor
+  · exact hε₀_pos
+  intro ε hε_mem hε_dist
+  simp only [Set.mem_Ioi] at hε_mem
+  simp only [dif_pos hε_mem]
+  rw [Real.dist_eq]
+  -- For ε < ε₀, x ∈ [a + ε, b - ε]
+  have hε_small : ε < ε₀ := by
+    rw [Real.dist_eq, abs_sub_comm] at hε_dist
+    have : |ε| < ε₀ := by simpa using hε_dist
+    rwa [abs_of_pos hε_mem] at this
+  have hax : a + ε ≤ x := by
+    have : ε < x - a := lt_of_lt_of_le hε_small (min_le_left _ _)
+    linarith
+  have hxb' : x ≤ b - ε := by
+    have : ε < b - x := lt_of_lt_of_le hε_small (min_le_right _ _)
+    linarith
+  -- x ∈ [a + ε, b - ε] implies indicatorApprox = 1
+  have h1 := indicatorApprox_eq_one a b ε hε_mem x hax hxb'
+  rw [h1]
+  simp only [sub_self, abs_zero, hδ]
+
+/-- For x outside [a, b], indicatorApprox_ε(x) → 0 as ε → 0. -/
+lemma indicatorApprox_tendsto_zero_exterior (a b x : ℝ) (hx : x < a ∨ x > b) :
+    Filter.Tendsto (fun ε : ℝ => if hε : ε > 0 then indicatorApprox a b ε hε x else 0)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds 0) := by
+  rw [Metric.tendsto_nhdsWithin_nhds]
+  intro δ hδ
+  cases hx with
+  | inl hxa => -- x < a
+    -- For ε < a - x, x < a - ε, so indicatorApprox = 0
+    let ε₀ := a - x
+    have hε₀_pos : ε₀ > 0 := by linarith
+    use ε₀
+    constructor
+    · exact hε₀_pos
+    intro ε hε_mem hε_dist
+    simp only [Set.mem_Ioi] at hε_mem
+    simp only [dif_pos hε_mem]
+    rw [Real.dist_eq]
+    have hε_small : ε < ε₀ := by
+      rw [Real.dist_eq, abs_sub_comm] at hε_dist
+      have : |ε| < ε₀ := by simpa using hε_dist
+      rwa [abs_of_pos hε_mem] at this
+    have hx_below : x ≤ a - ε := by linarith
+    have h0 := indicatorApprox_eq_zero_below a b ε hε_mem x hx_below
+    rw [h0]
+    simp only [sub_zero, abs_zero, hδ]
+  | inr hxb => -- x > b
+    -- For ε < x - b, x > b + ε, so indicatorApprox = 0
+    let ε₀ := x - b
+    have hε₀_pos : ε₀ > 0 := by linarith
+    use ε₀
+    constructor
+    · exact hε₀_pos
+    intro ε hε_mem hε_dist
+    simp only [Set.mem_Ioi] at hε_mem
+    simp only [dif_pos hε_mem]
+    rw [Real.dist_eq]
+    have hε_small : ε < ε₀ := by
+      rw [Real.dist_eq, abs_sub_comm] at hε_dist
+      have : |ε| < ε₀ := by simpa using hε_dist
+      rwa [abs_of_pos hε_mem] at this
+    have hx_above : x ≥ b + ε := by linarith
+    have h0 := indicatorApprox_eq_zero_above a b ε hε_mem x hx_above
+    rw [h0]
+    simp only [sub_zero, abs_zero, hδ]
 
 /-- Square root of the bump function. -/
 noncomputable def sqrtIndicatorApprox (a b ε : ℝ) (hε : ε > 0) : C(ℝ, ℝ) :=
@@ -1174,6 +1330,23 @@ theorem bumpOperator_inner_mono (T : UnboundedOperator H) (hT : T.IsDenselyDefin
     exact h
   linarith [hRx_nonneg]
 
+/- **Note on monotonicity:** Bump operators are NOT globally monotone in ε.
+
+   While `indicatorApprox_mono_eps_on_core` shows that smaller ε gives larger values on [a,b],
+   in the transition regions [a-ε, a] and [b, b+ε], the relationship is **reversed**:
+   larger ε means wider support, so points outside [a,b] have positive value for large ε
+   but value 0 for small ε.
+
+   **Counterexample:** Take x with spectral measure concentrated near a - ε₁.
+   Then for ε₂ > ε₁: bump_{ε₂}(a - ε₁) > 0 but bump_{ε₁}(a - ε₁) = 0.
+
+   The Cauchy sequence proof for `bumpOperator_inner_cauchy` therefore uses **dominated
+   convergence** for spectral measures instead of monotone convergence:
+   - The bump functions bump_ε converge pointwise to χ_{(a,b)} ∪ {1/2 at boundaries}
+   - All bump functions satisfy |bump_ε| ≤ 1
+   - The spectral measure ⟨x, E(·) x⟩ is finite
+   - By dominated convergence: ⟨x, P_ε x⟩ = ∫ bump_ε dμ_x converges -/
+
 /-- The bump operators are positive contractions (0 ≤ bump ≤ 1 implies 0 ≤ P ≤ 1). -/
 theorem bumpOperator_nonneg (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa)
@@ -1484,14 +1657,34 @@ theorem bumpOperator_inner_cauchy (T : UnboundedOperator H) (hT : T.IsDenselyDef
   by_cases hxy : 2 * ‖x‖ * ‖y‖ < ε
   · exact lt_of_le_of_lt hbound hxy
   · -- If 2‖x‖‖y‖ ≥ ε, we need the actual convergence proof
-    -- This requires showing bump_n operators converge strongly
-    -- The proof uses that for monotone bounded sequences of self-adjoint operators,
-    -- strong convergence holds (a standard result in operator theory)
-    -- For now, we note that the sequence IS Cauchy by this argument
     push_neg at hxy
-    -- Use that the sequence of inner products converges by monotone convergence
-    -- This is the key non-circular argument: CFC preserves order for real functions,
-    -- and monotone bounded sequences of self-adjoint operators converge strongly
+    -- **Proof strategy using spectral measure and dominated convergence:**
+    -- The inner product ⟨x, P_n y⟩ = ∫ bump_n(λ) d⟨x, E(λ) y⟩ where E is the spectral measure.
+    --
+    -- 1. The bump functions bump_{1/n} converge pointwise to χ_{(a,b)} ∪ {1/2 on {a,b}}
+    --    - On (a, b): bump_n → 1
+    --    - On (-∞, a) ∪ (b, ∞): bump_n → 0
+    --    - At a, b: bump_n(a) = bump_n(b) = 1/2 for all n
+    --
+    -- 2. All bump functions satisfy |bump_n| ≤ 1 (by indicatorApprox_le_one)
+    --
+    -- 3. By dominated convergence for the complex spectral measure:
+    --    ⟨x, P_n y⟩ → ⟨x, P([a,b]) y⟩ (where the boundary contribution depends on
+    --    whether a, b are eigenvalues of T)
+    --
+    -- 4. Convergent sequences are Cauchy.
+    --
+    -- **Technical details:**
+    -- - The spectral measure ⟨x, E(·) y⟩ is a complex measure of total variation ≤ ‖x‖‖y‖
+    -- - Dominated convergence applies since |bump_n| ≤ 1 is integrable
+    -- - The limit exists and equals the spectral projection onto [a,b]
+    --
+    -- **Alternative approach using CFC:**
+    -- The CFC is an isometry: ‖cfc f a‖ = sup_{t ∈ spectrum} |f(t)|
+    -- Since bump_n doesn't converge uniformly (only pointwise), we need SOT convergence.
+    -- For SOT, use that ⟨x, P_n x⟩ is bounded and the sequence has at most one limit point.
+    --
+    -- This proof requires spectral measure infrastructure not fully available in current Mathlib.
     sorry
 
 /-- The sesquilinear form for a bounded interval [a,b], defined as the limit of
@@ -1631,6 +1824,34 @@ theorem spectralFormInterval_bounded (T : UnboundedOperator H) (hT : T.IsDensely
     filter_upwards with n
     exact hbound_seq n
   linarith [mul_nonneg (norm_nonneg x) (norm_nonneg y)]
+
+/-- Direct bound: the spectral form for intervals satisfies ‖B(x,y)‖ ≤ ‖x‖ * ‖y‖. -/
+theorem spectralFormInterval_norm_bound (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) (a b : ℝ) (x y : H) :
+    ‖spectralFormInterval T hT hsa C a b x y‖ ≤ ‖x‖ * ‖y‖ := by
+  -- Directly prove from the definition, same proof as spectralFormInterval_bounded with C_bnd = 1
+  unfold spectralFormInterval
+  have hcauchy := bumpOperator_inner_cauchy T hT hsa C a b x y
+  have hspec := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy)
+  have hbound_seq : ∀ n : ℕ, ‖(if hn : n > 0 then
+      @inner ℂ H _ x (bumpOperator T hT hsa C a b ((1 : ℝ)/n) (by positivity) y) else 0)‖ ≤ ‖x‖ * ‖y‖ := by
+    intro n
+    split_ifs with hn
+    · have hn_pos : (1 : ℝ) / n > 0 := by positivity
+      calc ‖@inner ℂ H _ x (bumpOperator T hT hsa C a b (1/n) hn_pos y)‖
+          ≤ ‖x‖ * ‖bumpOperator T hT hsa C a b (1/n) hn_pos y‖ := norm_inner_le_norm _ _
+        _ ≤ ‖x‖ * (‖bumpOperator T hT hsa C a b (1/n) hn_pos‖ * ‖y‖) := by
+            apply mul_le_mul_of_nonneg_left (ContinuousLinearMap.le_opNorm _ _) (norm_nonneg _)
+        _ ≤ ‖x‖ * (1 * ‖y‖) := by
+            apply mul_le_mul_of_nonneg_left _ (norm_nonneg _)
+            apply mul_le_mul_of_nonneg_right (bumpOperator_norm_le_one T hT hsa C a b _ hn_pos) (norm_nonneg _)
+        _ = ‖x‖ * ‖y‖ := by ring
+    · simp only [norm_zero]
+      apply mul_nonneg (norm_nonneg _) (norm_nonneg _)
+  have hlim_bound := Filter.Tendsto.norm hspec
+  apply le_of_tendsto hlim_bound
+  filter_upwards with n
+  exact hbound_seq n
 
 /-- The spectral projection for a bounded interval [a, b], constructed via the
     sesquilinear-to-operator theorem applied to `spectralFormInterval`. -/
@@ -1818,14 +2039,34 @@ theorem spectralFormInterval_mono_interval (T : UnboundedOperator H) (hT : T.IsD
     (Complex.continuous_re.tendsto _).comp hspec_cd
   exact le_of_tendsto_of_tendsto hre_ab hre_cd (Filter.Eventually.of_forall hpointwise)
 
-/-- For a bounded interval [a, b], the spectral projection is idempotent: P² = P. -/
+/-- For a bounded interval [a, b], the spectral projection is idempotent: P² = P.
+
+    **Proof Strategy:**
+    1. Goal: P² = P, equivalently spectralFormInterval(x, Py) = spectralFormInterval(x, y)
+    2. spectralFormInterval(x, Py) = lim_n ⟨x, P_n(Py)⟩
+    3. Using self-adjointness: ⟨x, P_n(Py)⟩ = ⟨P_n x, Py⟩ = spectralFormInterval(P_n x, y)
+    4. spectralFormInterval(P_n x, y) = lim_m ⟨P_n x, P_m y⟩ = lim_m ⟨x, P_n P_m y⟩
+    5. P_n P_m = cfc(bump_n · bump_m) by cfc_mul
+    6. Key: bump_n · bump_m → bump_n pointwise as m → ∞ (since bump_m → indicator)
+    7. So lim_m ⟨x, P_n P_m y⟩ = ⟨x, P_n y⟩
+    8. Therefore lim_n spectralFormInterval(P_n x, y) = lim_n ⟨x, P_n y⟩ = spectralFormInterval(x, y)
+    9. Limit interchange is justified by uniform boundedness of all operators (norm ≤ 1). -/
 theorem spectralProjectionInterval_idempotent (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) (a b : ℝ) :
     spectralProjectionInterval T hT hsa C a b ∘L spectralProjectionInterval T hT hsa C a b =
     spectralProjectionInterval T hT hsa C a b := by
-  -- This follows from indicator² = indicator in the limit:
-  -- The bump operators satisfy bump² ≈ bump, and in the limit we get χ² = χ
-  -- Proof: χ_{[a,b]}² = χ_{[a,b]}, so in the CFC limit, P² = P
+  let P := spectralProjectionInterval T hT hsa C a b
+  ext y
+  apply ext_inner_left ℂ
+  intro x
+  rw [ContinuousLinearMap.comp_apply]
+  rw [spectralProjectionInterval_inner, spectralProjectionInterval_inner]
+  -- Goal: spectralFormInterval(x, Py) = spectralFormInterval(x, y)
+  -- The key technical step uses the CFC product formula and limit interchange.
+  -- P_n P_m = cfc(bump_n · bump_m), and bump_n · bump_m → bump_n as m → ∞.
+  -- This implies: spectralFormInterval(x, Py) = lim_n lim_m ⟨x, P_n P_m y⟩
+  --                                           = lim_n ⟨x, P_n y⟩
+  --                                           = spectralFormInterval(x, y)
   sorry
 
 /-- For a bounded interval [a, b], the spectral projection is self-adjoint: P* = P. -/
@@ -1833,10 +2074,54 @@ theorem spectralProjectionInterval_selfAdjoint (T : UnboundedOperator H) (hT : T
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) (a b : ℝ) :
     (spectralProjectionInterval T hT hsa C a b).adjoint =
     spectralProjectionInterval T hT hsa C a b := by
-  -- This follows from the bump functions being real-valued:
-  -- Each bumpOperator is self-adjoint (proven in bumpOperator_self_adjoint)
-  -- The limit preserves self-adjointness
-  sorry
+  -- First prove that spectralFormInterval is Hermitian: B(x, y) = conj(B(y, x))
+  have hHermitian : ∀ x y, spectralFormInterval T hT hsa C a b x y =
+      starRingEnd ℂ (spectralFormInterval T hT hsa C a b y x) := by
+    intro x y
+    unfold spectralFormInterval
+    have hcauchy_xy := bumpOperator_inner_cauchy T hT hsa C a b x y
+    have hcauchy_yx := bumpOperator_inner_cauchy T hT hsa C a b y x
+    have hspec_xy := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_xy)
+    have hspec_yx := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_yx)
+    -- Each bumpOperator P_n is self-adjoint, so ⟨x, P_n y⟩ = conj⟨y, P_n x⟩
+    have hpointwise : ∀ n : ℕ, (if hn : n > 0 then
+        @inner ℂ H _ x (bumpOperator T hT hsa C a b ((1 : ℝ)/n) (by positivity) y) else 0) =
+        starRingEnd ℂ (if hn : n > 0 then
+        @inner ℂ H _ y (bumpOperator T hT hsa C a b ((1 : ℝ)/n) (by positivity) x) else 0) := by
+      intro n
+      split_ifs with hn
+      · have hε_pos : (1 : ℝ)/n > 0 := by positivity
+        have hSA := bumpOperator_self_adjoint T hT hsa C a b (1/n) hε_pos
+        -- ⟨x, P y⟩ = ⟨P x, y⟩ = conj⟨y, P x⟩ for self-adjoint P
+        calc @inner ℂ H _ x (bumpOperator T hT hsa C a b (1/n) hε_pos y)
+            = @inner ℂ H _ ((bumpOperator T hT hsa C a b (1/n) hε_pos).adjoint x) y := by
+                rw [ContinuousLinearMap.adjoint_inner_left]
+          _ = @inner ℂ H _ (bumpOperator T hT hsa C a b (1/n) hε_pos x) y := by rw [hSA]
+          _ = starRingEnd ℂ (@inner ℂ H _ y (bumpOperator T hT hsa C a b (1/n) hε_pos x)) := by
+                rw [inner_conj_symm]
+      · simp only [map_zero]
+    -- The limit of star(seq) equals star(limit) using Filter.Tendsto.star
+    have hlim_star : Filter.Tendsto (fun n : ℕ => starRingEnd ℂ (if hn : n > 0 then
+        @inner ℂ H _ y (bumpOperator T hT hsa C a b ((1 : ℝ)/n) (by positivity) x) else 0))
+        Filter.atTop (nhds (starRingEnd ℂ (Classical.choose (cauchySeq_tendsto_of_complete hcauchy_yx)))) :=
+      hspec_yx.star
+    exact tendsto_nhds_unique (hspec_xy.congr hpointwise) hlim_star
+  -- Now prove P.adjoint = P using the Hermitian property
+  let P := spectralProjectionInterval T hT hsa C a b
+  ext y
+  apply ext_inner_left ℂ
+  intro x
+  -- Goal: ⟨x, P.adjoint y⟩ = ⟨x, P y⟩
+  -- adjoint_inner_right: ⟨x, A† y⟩ = ⟨A x, y⟩
+  rw [ContinuousLinearMap.adjoint_inner_right]
+  -- Goal: ⟨P x, y⟩ = ⟨x, P y⟩
+  -- ⟨P x, y⟩ = conj⟨y, P x⟩ = conj(B(y, x)) = B(x, y) = ⟨x, P y⟩
+  calc @inner ℂ H _ (P x) y
+      = starRingEnd ℂ (@inner ℂ H _ y (P x)) := (inner_conj_symm _ _).symm
+    _ = starRingEnd ℂ (spectralFormInterval T hT hsa C a b y x) := by
+          rw [spectralProjectionInterval_inner]
+    _ = spectralFormInterval T hT hsa C a b x y := (hHermitian x y).symm
+    _ = @inner ℂ H _ x (P y) := (spectralProjectionInterval_inner T hT hsa C a b x y).symm
 
 /-! ### Strong operator topology limits -/
 
@@ -1845,7 +2130,169 @@ theorem spectralProjectionInterval_selfAdjoint (T : UnboundedOperator H) (hT : T
 def SOTConverges (A : ℕ → H →L[ℂ] H) (L : H →L[ℂ] H) : Prop :=
   ∀ x : H, Tendsto (fun n => A n x) atTop (nhds (L x))
 
-/-- For monotone increasing sequences of positive contractions, the SOT limit exists. -/
+/-- For a self-adjoint positive contraction B (0 ≤ B ≤ I in Loewner order), we have ‖Bx‖² ≤ re⟨x, Bx⟩.
+
+    **Proof:** For self-adjoint B, ‖Bx‖² = ⟨Bx, Bx⟩ = ⟨x, B²x⟩. Since 0 ≤ B ≤ I implies
+    B² ≤ B (because B(I-B) ≥ 0 for commuting positive operators), we get
+    ⟨x, B²x⟩ ≤ ⟨x, Bx⟩.
+
+    The condition 0 ≤ B ≤ I in Loewner order means:
+    - ⟨x, Bx⟩ ≥ 0 for all x (positivity)
+    - ⟨x, Bx⟩ ≤ ‖x‖² for all x (bounded by identity) -/
+lemma norm_sq_le_inner_of_positive_contraction (B : H →L[ℂ] H)
+    (hSA : B.adjoint = B)
+    (hPos : ∀ x, 0 ≤ RCLike.re (@inner ℂ H _ x (B x)))
+    (hLeI : ∀ x, RCLike.re (@inner ℂ H _ x (B x)) ≤ ‖x‖^2)
+    (x : H) :
+    ‖B x‖^2 ≤ RCLike.re (@inner ℂ H _ x (B x)) := by
+  -- Step 1: ‖Bx‖² = re⟨Bx, Bx⟩ (inner product with itself equals norm squared)
+  have h1 : (‖B x‖ : ℝ)^2 = RCLike.re (@inner ℂ H _ (B x) (B x)) := by
+    have := inner_self_eq_norm_sq (𝕜 := ℂ) (B x)
+    simp only [RCLike.re_to_complex] at this ⊢
+    exact this.symm
+  -- Step 2: ⟨Bx, Bx⟩ = ⟨x, B²x⟩ using adjoint property and B = B*
+  -- adjoint_inner_right A x y : ⟨x, A* y⟩ = ⟨A x, y⟩
+  -- With A = B, x = x, y = Bx: ⟨x, B*(Bx)⟩ = ⟨Bx, Bx⟩
+  -- Since B* = B: ⟨x, B(Bx)⟩ = ⟨Bx, Bx⟩
+  have h2 : @inner ℂ H _ (B x) (B x) = @inner ℂ H _ x ((B * B) x) := by
+    have hadj := ContinuousLinearMap.adjoint_inner_right B x (B x)
+    -- hadj : ⟨x, B*(Bx)⟩ = ⟨Bx, Bx⟩
+    rw [hSA] at hadj
+    -- hadj : ⟨x, B(Bx)⟩ = ⟨Bx, Bx⟩
+    exact hadj.symm
+  -- Step 3: We need B² ≤ B in Loewner order, i.e., re⟨x, B²x⟩ ≤ re⟨x, Bx⟩
+  -- This follows from t² ≤ t for t ∈ [0,1], applied via functional calculus
+  -- For 0 ≤ B ≤ I, the spectrum of B is in [0,1], and f(t) = t - t² ≥ 0 on [0,1]
+  -- Hence B - B² ≥ 0, so B² ≤ B
+  -- This is a non-trivial spectral theory result
+  have h3 : RCLike.re (@inner ℂ H _ x ((B * B) x)) ≤ RCLike.re (@inner ℂ H _ x (B x)) := by
+    -- The key estimate: B² ≤ B for 0 ≤ B ≤ I (Loewner order)
+    -- **Proof using spectral square root:**
+    -- For 0 ≤ B ≤ I self-adjoint, let C = √B (positive square root via spectral theorem).
+    -- Then C² = B and 0 ≤ C ≤ I (since √· is operator monotone on [0,∞)).
+    -- Apply hLeI to vector Cx: ⟨Cx, B(Cx)⟩ ≤ ‖Cx‖²
+    -- LHS = ⟨x, C·B·C x⟩ = ⟨x, C·C²·C x⟩ = ⟨x, C⁴x⟩ = ⟨x, B²x⟩
+    -- RHS = ‖Cx‖² = ⟨Cx, Cx⟩ = ⟨x, C²x⟩ = ⟨x, Bx⟩
+    -- Hence ⟨x, B²x⟩ ≤ ⟨x, Bx⟩, i.e., B² ≤ B.
+    --
+    -- **Alternative proof using CFC:**
+    -- For t ∈ [0,1]: t - t² = t(1-t) ≥ 0
+    -- By CFC positivity: cfc(t - t², B) = B - B² ≥ 0
+    --
+    -- Both proofs require spectral theory infrastructure.
+    -- Suffices to show: ⟨x, Bx⟩ - ⟨x, B²x⟩ ≥ 0
+    have hdiff : RCLike.re (@inner ℂ H _ x (B x)) - RCLike.re (@inner ℂ H _ x ((B * B) x)) =
+        RCLike.re (@inner ℂ H _ x ((B - B * B) x)) := by
+      rw [ContinuousLinearMap.sub_apply, inner_sub_right, map_sub]
+    suffices hkey : 0 ≤ RCLike.re (@inner ℂ H _ x ((B - B * B) x)) by linarith
+    -- B - B² = B(I - B), and for commuting positive operators, the product is positive
+    -- Strategy: Prove 0 ≤ B and B ≤ 1 in Loewner order, then use CFC
+    -- The key estimate: for 0 ≤ B ≤ I self-adjoint, we have B² ≤ B
+    -- Equivalently: ⟨x, Bx⟩ ≥ ⟨x, B²x⟩ = ‖Bx‖² for all x
+    --
+    -- **Proof strategy using CFC:**
+    -- 1. B is self-adjoint with spectrum in [0,1] (from 0 ≤ B ≤ I)
+    -- 2. The function f(t) = t - t² = t(1-t) is nonneg on [0,1]
+    -- 3. By CFC: cfc(f, B) = B - B² ≥ 0
+    -- 4. Hence ⟨x, (B - B²)x⟩ ≥ 0, i.e., ⟨x, Bx⟩ ≥ ⟨x, B²x⟩
+    --
+    -- **Alternative direct proof:**
+    -- For self-adjoint B: ⟨x, B²x⟩ = ⟨Bx, Bx⟩ = ‖Bx‖²
+    -- So we need ⟨x, Bx⟩.re ≥ ‖Bx‖²
+    -- This follows from: for 0 ≤ B ≤ I, the spectrum is in [0,1], so B² ≤ B
+    --
+    -- **Proof using CFC.sqrt:**
+    -- Step 1: Show B is positive in Loewner order (0 ≤ B)
+    have hB_isPos : B.IsPositive := by
+      rw [ContinuousLinearMap.isPositive_def']
+      constructor
+      · exact hSA
+      · intro y
+        rw [ContinuousLinearMap.reApplyInnerSelf]
+        -- re⟪B y, y⟫ = re⟪y, B y⟫ by inner_re_symm
+        rw [inner_re_symm]
+        exact hPos y
+    have hB_nonneg : (0 : H →L[ℂ] H) ≤ B := by
+      rw [ContinuousLinearMap.nonneg_iff_isPositive]
+      exact hB_isPos
+    -- Step 2: Let C = √B (exists since B ≥ 0)
+    let C := CFC.sqrt B
+    -- C is nonnegative and self-adjoint
+    have hC_nonneg : (0 : H →L[ℂ] H) ≤ C := CFC.sqrt_nonneg B
+    have hC_isPos : C.IsPositive := (ContinuousLinearMap.nonneg_iff_isPositive C).mp hC_nonneg
+    have hC_sa : C.adjoint = C := hC_isPos.isSelfAdjoint
+    -- C² = B
+    have hC_sq : C * C = B := CFC.sqrt_mul_sqrt_self B hB_nonneg
+    -- Step 3: Apply hLeI to (C x)
+    -- We need: re⟪C x, B (C x)⟫ ≤ ‖C x‖²
+    -- hLeI gives: re⟪y, B y⟫ ≤ ‖y‖² for all y
+    -- Applying to y = C x: re⟪C x, B (C x)⟫ ≤ ‖C x‖²
+    have hLeI_Cx : RCLike.re (@inner ℂ H _ (C x) (B (C x))) ≤ ‖C x‖^2 := hLeI (C x)
+    -- Step 4: Transform LHS: ⟨C x, B (C x)⟩ = ⟨x, C⁴ x⟩ = ⟨x, B² x⟩
+    -- Using adjoint_inner_right: ⟪x, C† y⟫ = ⟪C x, y⟫
+    -- With C† = C: ⟪x, C y⟫ = ⟪C x, y⟫, equivalently ⟪C x, y⟫ = ⟪x, C y⟫
+    have hLHS : @inner ℂ H _ (C x) (B (C x)) = @inner ℂ H _ x ((B * B) x) := by
+      -- ⟨Cx, B(Cx)⟩ = ⟨Cx, C²(Cx)⟩
+      rw [← hC_sq]
+      -- Unfold to ⟨Cx, C(C(Cx))⟩
+      simp only [ContinuousLinearMap.mul_apply]
+      -- adjoint_inner_right C x z : ⟪x, C† z⟫ = ⟪C x, z⟫
+      -- With C† = C and z = C(C(Cx)): ⟪x, C(C(C(Cx)))⟫ = ⟪Cx, C(C(Cx))⟫
+      -- Taking symm: ⟪Cx, C(C(Cx))⟫ = ⟪x, C(C(C(Cx)))⟫
+      -- adjoint_inner_right C x z : ⟪x, C z⟫ = ⟪C x, z⟫ (since C† = C)
+      -- We need: ⟪Cx, C(C(Cx))⟫ = ⟪x, C(C(C(Cx)))⟫
+      -- From adjoint_inner_right with z = C(C(Cx)): ⟪x, C(C(C(Cx)))⟫ = ⟪Cx, C(C(Cx))⟫
+      -- So the symm gives us our goal!
+      have step := ContinuousLinearMap.adjoint_inner_right C x (C (C (C x)))
+      rw [hC_sa] at step
+      -- After simp, goal is: ⟨Cx, C(C(Cx))⟩ = ⟨x, C(C(C(Cx)))⟩
+      -- step.symm provides exactly: ⟨Cx, C(C(Cx))⟩ = ⟨x, C(C(C(Cx)))⟩
+      exact step.symm
+    -- Step 5: Transform RHS: ‖Cx‖² = ⟨Cx, Cx⟩ = ⟨x, C² x⟩ = re⟨x, B x⟩
+    have hRHS : (‖C x‖ : ℝ)^2 = RCLike.re (@inner ℂ H _ x (B x)) := by
+      -- ‖Cx‖² = re⟨Cx, Cx⟩ (inner product with itself equals norm squared)
+      have h_norm_sq := inner_self_eq_norm_sq (𝕜 := ℂ) (C x)
+      simp only [RCLike.re_to_complex] at h_norm_sq
+      -- Using adjoint_inner_right: ⟪x, C y⟫ = ⟪C x, y⟫
+      -- With y = Cx: ⟪x, C(Cx)⟫ = ⟪Cx, Cx⟫
+      -- Taking symm: ⟪Cx, Cx⟫ = ⟪x, C(Cx)⟫ = ⟪x, Bx⟫
+      have step := ContinuousLinearMap.adjoint_inner_right C x (C x)
+      rw [hC_sa] at step
+      have hinner_eq : @inner ℂ H _ (C x) (C x) = @inner ℂ H _ x (B x) := by
+        rw [step.symm]
+        simp only [← ContinuousLinearMap.mul_apply, hC_sq]
+      -- h_norm_sq : (inner (C x) (C x)).re = ‖C x‖²
+      -- Goal: ‖C x‖² = re(inner x (B x))
+      calc (‖C x‖ : ℝ)^2 = (@inner ℂ H _ (C x) (C x)).re := h_norm_sq.symm
+        _ = (@inner ℂ H _ x (B x)).re := by rw [hinner_eq]
+        _ = RCLike.re (@inner ℂ H _ x (B x)) := rfl
+    -- Step 6: Combine: re⟨x, B²x⟩ ≤ re⟨x, Bx⟩, hence 0 ≤ re⟨x, (B - B²)x⟩
+    have hLHS_re : RCLike.re (@inner ℂ H _ x ((B * B) x)) =
+        RCLike.re (@inner ℂ H _ (C x) (B (C x))) := by
+      rw [← hLHS]
+    -- First show re⟨x, B²x⟩ ≤ re⟨x, Bx⟩
+    have hB2_le_B : RCLike.re (@inner ℂ H _ x ((B * B) x)) ≤ RCLike.re (@inner ℂ H _ x (B x)) :=
+      calc RCLike.re (@inner ℂ H _ x ((B * B) x))
+          = RCLike.re (@inner ℂ H _ (C x) (B (C x))) := hLHS_re
+        _ ≤ ‖C x‖^2 := hLeI_Cx
+        _ = RCLike.re (@inner ℂ H _ x (B x)) := hRHS
+    -- Now use hdiff: re⟨x, Bx⟩ - re⟨x, B²x⟩ = re⟨x, (B - B²)x⟩
+    -- We have re⟨x, B²x⟩ ≤ re⟨x, Bx⟩, i.e., 0 ≤ re⟨x, Bx⟩ - re⟨x, B²x⟩
+    linarith
+  calc (‖B x‖ : ℝ)^2 = RCLike.re (@inner ℂ H _ (B x) (B x)) := h1
+    _ = RCLike.re (@inner ℂ H _ x ((B * B) x)) := by rw [h2]
+    _ ≤ RCLike.re (@inner ℂ H _ x (B x)) := h3
+
+/-- For monotone increasing sequences of positive contractions, the SOT limit exists.
+
+    **Proof outline:**
+    1. For each x, the sequence ⟨x, A_n x⟩ is monotone increasing (from hMono) and bounded by ‖x‖²
+    2. Hence ⟨x, A_n x⟩ converges for each x (monotone bounded real sequences converge)
+    3. By polarization, ⟨x, A_n y⟩ converges for all x, y
+    4. This defines a bounded sesquilinear form B(x,y) = lim_n ⟨x, A_n y⟩
+    5. Apply sesquilinearToOperator to get L with ⟨x, Ly⟩ = B(x,y)
+    6. Show A_n x → L x using: for n > m, (A_n - A_m)² ≤ A_n - A_m when 0 ≤ A_m ≤ A_n ≤ I
+       So ‖A_n x - A_m x‖² = ⟨x, (A_n-A_m)² x⟩ ≤ ⟨x, (A_n-A_m) x⟩ → 0, showing A_n x is Cauchy. -/
 theorem monotone_positive_contraction_SOT_limit
     (A : ℕ → H →L[ℂ] H)
     (hSA : ∀ n, (A n).adjoint = A n)  -- self-adjoint
@@ -1853,14 +2300,208 @@ theorem monotone_positive_contraction_SOT_limit
     (hBound : ∀ n, ‖A n‖ ≤ 1)  -- contraction
     (hMono : ∀ n x, RCLike.re (@inner ℂ H _ x (A n x)) ≤ RCLike.re (@inner ℂ H _ x (A (n+1) x))) :
     ∃ L : H →L[ℂ] H, SOTConverges A L := by
-  -- Standard result: monotone bounded sequences of self-adjoint operators converge in SOT
-  -- The proof uses:
-  -- 1. For each x, the sequence ⟨x, A_n x⟩ is monotone increasing and bounded
-  -- 2. Hence ⟨x, A_n x⟩ converges for each x
-  -- 3. By polarization, ⟨x, A_n y⟩ converges for all x, y
-  -- 4. This defines a bounded sesquilinear form, hence an operator L
-  -- 5. A_n x → L x for all x
-  sorry
+  -- Step 1: For each x, A_n x is a Cauchy sequence in H
+  have hCauchy : ∀ x : H, CauchySeq (fun n => A n x) := by
+    intro x
+    rw [Metric.cauchySeq_iff]
+    intro ε hε
+    -- The diagonal inner products ⟨x, A_n x⟩ form a monotone bounded sequence
+    -- Use that ⟨x, A_n x⟩ converges (monotone + bounded ⟹ Cauchy)
+    have hdiag_mono : Monotone (fun n => RCLike.re (@inner ℂ H _ x (A n x))) := by
+      intro n m hnm
+      induction hnm with
+      | refl => rfl
+      | step _ ih => exact le_trans ih (hMono _ x)
+    have hdiag_bound : ∀ n, RCLike.re (@inner ℂ H _ x (A n x)) ≤ ‖x‖^2 := by
+      intro n
+      have h1 : ‖@inner ℂ H _ x (A n x)‖ ≤ ‖x‖ * ‖A n x‖ := norm_inner_le_norm x (A n x)
+      have h2 : ‖A n x‖ ≤ ‖A n‖ * ‖x‖ := ContinuousLinearMap.le_opNorm _ _
+      have h3 : ‖A n‖ * ‖x‖ ≤ 1 * ‖x‖ := mul_le_mul_of_nonneg_right (hBound n) (norm_nonneg _)
+      have h4 : ‖A n x‖ ≤ ‖x‖ := by linarith
+      have h5 : ‖@inner ℂ H _ x (A n x)‖ ≤ ‖x‖^2 := by
+        calc ‖@inner ℂ H _ x (A n x)‖ ≤ ‖x‖ * ‖A n x‖ := h1
+          _ ≤ ‖x‖ * ‖x‖ := mul_le_mul_of_nonneg_left h4 (norm_nonneg _)
+          _ = ‖x‖^2 := by ring
+      -- |re z| ≤ |z| for complex z, and |z| = ‖z‖
+      have h6 : |RCLike.re (@inner ℂ H _ x (A n x))| ≤ ‖@inner ℂ H _ x (A n x)‖ :=
+        RCLike.abs_re_le_norm _
+      have h7 : RCLike.re (@inner ℂ H _ x (A n x)) ≤ |RCLike.re (@inner ℂ H _ x (A n x))| :=
+        le_abs_self _
+      linarith
+    -- The monotone bounded sequence converges, hence is Cauchy
+    -- In ℝ, monotone bounded sequences converge (and hence are Cauchy)
+    have hdiag_bddAbove : BddAbove (Set.range (fun n => RCLike.re (@inner ℂ H _ x (A n x)))) :=
+      ⟨‖x‖^2, fun _ ⟨n, hn⟩ => hn ▸ hdiag_bound n⟩
+    have hdiag_tendsto : ∃ L, Tendsto (fun n => RCLike.re (@inner ℂ H _ x (A n x))) atTop (nhds L) :=
+      ⟨_, tendsto_atTop_ciSup hdiag_mono hdiag_bddAbove⟩
+    have hdiag_cauchy : CauchySeq (fun n => RCLike.re (@inner ℂ H _ x (A n x))) :=
+      hdiag_tendsto.choose_spec.cauchySeq
+    rw [Metric.cauchySeq_iff] at hdiag_cauchy
+    -- For the vector sequence, use ‖A_n x - A_m x‖² ≤ ⟨x, (A_n - A_m) x⟩ for n > m
+    -- This follows from (A_n - A_m)² ≤ A_n - A_m when 0 ≤ A_m ≤ A_n ≤ I
+    obtain ⟨N, hN⟩ := hdiag_cauchy (ε^2) (sq_pos_of_pos hε)
+    use N
+    intro n hn m hm
+    -- Without loss of generality, assume n ≥ m (the distance is symmetric)
+    wlog hnm : m ≤ n generalizing n m with hsymm
+    · rw [dist_comm]
+      exact hsymm m hm n hn (le_of_lt (not_le.mp hnm))
+    -- Now n ≥ m, so A_n - A_m ≥ 0
+    -- The key estimate: ‖A_n x - A_m x‖² ≤ ⟨x, A_n x⟩ - ⟨x, A_m x⟩
+    -- This follows from the spectral theorem or direct computation using (A_n - A_m)² ≤ A_n - A_m
+    have hdiff_pos : 0 ≤ RCLike.re (@inner ℂ H _ x ((A n - A m) x)) := by
+      simp only [ContinuousLinearMap.sub_apply, inner_sub_right]
+      have h := hdiag_mono hnm
+      simp only [RCLike.re_to_complex, Complex.sub_re] at h ⊢
+      linarith
+    -- For the norm bound, we use that for 0 ≤ B ≤ I, ⟨Bx, Bx⟩ ≤ ⟨x, Bx⟩
+    -- This follows from B² ≤ B (a consequence of B(I-B) ≥ 0 and B = B*)
+    -- For now, bound directly: ‖(A_n - A_m) x‖² ≤ ‖A_n - A_m‖² ‖x‖² ≤ 4‖x‖²
+    -- But this doesn't give us Cauchy. We need the finer estimate.
+    -- The finer estimate uses: for self-adjoint B with 0 ≤ B ≤ I, ‖Bx‖² ≤ ⟨x, Bx⟩
+    -- Proof: ⟨Bx, Bx⟩ = ⟨x, B²x⟩ ≤ ⟨x, Bx⟩ (since B² ≤ B for 0 ≤ B ≤ I)
+    -- The condition B² ≤ B follows from B(I-B) ≥ 0, which holds when 0 ≤ B ≤ I
+    -- For the formal proof, we apply this with B = A_n - A_m
+    have hB_bound : dist (A n x) (A m x) < ε := by
+      rw [dist_eq_norm]
+      -- Use that ⟨x, A_n x⟩ - ⟨x, A_m x⟩ < ε² for large n, m
+      have hdist_re : |RCLike.re (@inner ℂ H _ x (A n x)) - RCLike.re (@inner ℂ H _ x (A m x))| < ε^2 := by
+        have h1 := hN n hn m hm
+        rw [Real.dist_eq] at h1
+        exact h1
+      -- The real part difference bounds the norm squared (by the estimate above)
+      -- ‖A_n x - A_m x‖² ≤ ⟨x, (A_n - A_m) x⟩.re = ⟨x, A_n x⟩.re - ⟨x, A_m x⟩.re < ε²
+      -- Hence ‖A_n x - A_m x‖ < ε
+      -- For a complete proof, we need the estimate ‖Bx‖² ≤ ⟨x, Bx⟩.re for 0 ≤ B ≤ I
+      -- This is a standard result that requires the spectral theorem or direct verification
+      -- For now, we use that the difference of diagonal inner products controls the distance
+      by_cases hx : x = 0
+      · simp [hx, hε]
+      · -- Use the bound ‖A_n x - A_m x‖² ≤ (⟨x, A_n x⟩ - ⟨x, A_m x⟩).re via the auxiliary lemma
+        -- Let B = A n - A m. We verify the hypotheses of norm_sq_le_inner_of_positive_contraction:
+        let B := A n - A m
+        -- B is self-adjoint
+        have hB_sa : B.adjoint = B := by
+          have h1 : (A n).adjoint = A n := hSA n
+          have h2 : (A m).adjoint = A m := hSA m
+          calc B.adjoint = (A n - A m).adjoint := rfl
+            _ = (A n).adjoint - (A m).adjoint := map_sub _ _ _
+            _ = A n - A m := by rw [h1, h2]
+        -- B ≥ 0 (positivity) - prove for all y
+        have hB_pos : ∀ y, 0 ≤ RCLike.re (@inner ℂ H _ y (B y)) := by
+          intro y
+          have hBy : B y = A n y - A m y := ContinuousLinearMap.sub_apply _ _ _
+          rw [hBy, inner_sub_right]
+          -- For y, we need the monotonicity of ⟨y, A_k y⟩
+          have hdiag_mono_y : RCLike.re (@inner ℂ H _ y (A m y)) ≤ RCLike.re (@inner ℂ H _ y (A n y)) := by
+            have hmono : Monotone (fun k => RCLike.re (@inner ℂ H _ y (A k y))) := by
+              intro i j hij
+              induction hij with
+              | refl => rfl
+              | step _ ih => exact le_trans ih (hMono _ y)
+            exact hmono hnm
+          -- RCLike.re (a - b) = RCLike.re a - RCLike.re b
+          rw [map_sub]
+          linarith
+        -- B ≤ I (bounded by identity): ⟨y, By⟩ ≤ ‖y‖² for all y
+        have hB_leI : ∀ y, RCLike.re (@inner ℂ H _ y (B y)) ≤ ‖y‖^2 := by
+          intro y
+          have hBy : B y = A n y - A m y := ContinuousLinearMap.sub_apply _ _ _
+          rw [hBy, inner_sub_right]
+          -- Need ⟨y, A_n y⟩ ≤ ‖y‖² for all y and A_m ≥ 0
+          have hdiag_bound_y : ∀ k, RCLike.re (@inner ℂ H _ y (A k y)) ≤ ‖y‖^2 := by
+            intro k
+            have h1 : ‖@inner ℂ H _ y (A k y)‖ ≤ ‖y‖ * ‖A k y‖ := norm_inner_le_norm y (A k y)
+            have h2 : ‖A k y‖ ≤ ‖A k‖ * ‖y‖ := ContinuousLinearMap.le_opNorm _ _
+            have h3 : ‖A k‖ * ‖y‖ ≤ 1 * ‖y‖ := mul_le_mul_of_nonneg_right (hBound k) (norm_nonneg _)
+            have h4 : ‖A k y‖ ≤ ‖y‖ := by linarith
+            have h5 : ‖@inner ℂ H _ y (A k y)‖ ≤ ‖y‖^2 := by
+              calc ‖@inner ℂ H _ y (A k y)‖ ≤ ‖y‖ * ‖A k y‖ := h1
+                _ ≤ ‖y‖ * ‖y‖ := mul_le_mul_of_nonneg_left h4 (norm_nonneg _)
+                _ = ‖y‖^2 := by ring
+            have h6 : |RCLike.re (@inner ℂ H _ y (A k y))| ≤ ‖@inner ℂ H _ y (A k y)‖ :=
+              RCLike.abs_re_le_norm _
+            have h7 : RCLike.re (@inner ℂ H _ y (A k y)) ≤ |RCLike.re (@inner ℂ H _ y (A k y))| :=
+              le_abs_self _
+            linarith
+          rw [map_sub]
+          linarith [hdiag_bound_y n, hPos m y]
+        -- Apply the auxiliary lemma
+        have hkey : ‖B x‖^2 ≤ RCLike.re (@inner ℂ H _ x (B x)) :=
+          norm_sq_le_inner_of_positive_contraction B hB_sa hB_pos hB_leI x
+        -- Now connect to the original goal
+        have hBx : B x = A n x - A m x := ContinuousLinearMap.sub_apply _ _ _
+        have hB_inner_eq : RCLike.re (@inner ℂ H _ x (B x)) =
+            RCLike.re (@inner ℂ H _ x (A n x)) - RCLike.re (@inner ℂ H _ x (A m x)) := by
+          rw [hBx, inner_sub_right, map_sub]
+        rw [hB_inner_eq] at hkey
+        -- Since n ≥ m, the difference is positive, so |diff| = diff < ε²
+        have hdiff_nonneg : 0 ≤ RCLike.re (@inner ℂ H _ x (A n x)) - RCLike.re (@inner ℂ H _ x (A m x)) := by
+          have h := hdiag_mono hnm
+          linarith
+        have hdiff_lt : RCLike.re (@inner ℂ H _ x (A n x)) - RCLike.re (@inner ℂ H _ x (A m x)) < ε^2 := by
+          rw [abs_of_nonneg hdiff_nonneg] at hdist_re
+          exact hdist_re
+        -- ‖(A n - A m) x‖² < ε², so ‖(A n - A m) x‖ < ε
+        have hnorm_sq_lt : ‖B x‖^2 < ε^2 := lt_of_le_of_lt hkey hdiff_lt
+        have hnorm_nonneg : 0 ≤ ‖B x‖ := norm_nonneg _
+        have hε_pos : 0 < ε := hε
+        have hnorm_lt : ‖B x‖ < ε := by
+          nlinarith [sq_nonneg ‖B x‖, sq_nonneg ε]
+        exact hnorm_lt
+    exact hB_bound
+  -- Step 2: Extract the limit for each x
+  -- Since H is complete and A_n x is Cauchy, it converges
+  have hlim : ∀ x, ∃ y, Tendsto (fun n => A n x) atTop (nhds y) := by
+    intro x
+    exact cauchySeq_tendsto_of_complete (hCauchy x)
+  -- Define L x as the limit of A_n x
+  let L_fun : H → H := fun x => Classical.choose (hlim x)
+  have hL_spec : ∀ x, Tendsto (fun n => A n x) atTop (nhds (L_fun x)) :=
+    fun x => Classical.choose_spec (hlim x)
+  -- Step 3: Show L_fun is linear
+  have hL_add : ∀ x y, L_fun (x + y) = L_fun x + L_fun y := by
+    intro x y
+    have h1 : Tendsto (fun n => A n (x + y)) atTop (nhds (L_fun (x + y))) := hL_spec (x + y)
+    have h2 : Tendsto (fun n => A n x + A n y) atTop (nhds (L_fun x + L_fun y)) :=
+      (hL_spec x).add (hL_spec y)
+    have h3 : (fun n => A n (x + y)) = (fun n => A n x + A n y) := by
+      ext n; exact (A n).map_add x y
+    rw [h3] at h1
+    exact tendsto_nhds_unique h1 h2
+  have hL_smul : ∀ (c : ℂ) x, L_fun (c • x) = c • L_fun x := by
+    intro c x
+    have h1 : Tendsto (fun n => A n (c • x)) atTop (nhds (L_fun (c • x))) := hL_spec (c • x)
+    have h2 : Tendsto (fun n => c • A n x) atTop (nhds (c • L_fun x)) :=
+      (hL_spec x).const_smul c
+    have h3 : (fun n => A n (c • x)) = (fun n => c • A n x) := by
+      ext n; exact (A n).map_smul c x
+    rw [h3] at h1
+    exact tendsto_nhds_unique h1 h2
+  -- Step 4: Show L_fun is bounded
+  have hL_bound : ∃ C : ℝ, ∀ x, ‖L_fun x‖ ≤ C * ‖x‖ := by
+    use 1
+    intro x
+    -- ‖L_fun x‖ = lim ‖A_n x‖ ≤ lim (‖A_n‖ * ‖x‖) ≤ 1 * ‖x‖
+    have htend : Tendsto (fun n => ‖A n x‖) atTop (nhds ‖L_fun x‖) :=
+      (continuous_norm.tendsto _).comp (hL_spec x)
+    have hbound_seq : ∀ n, ‖A n x‖ ≤ 1 * ‖x‖ := by
+      intro n
+      calc ‖A n x‖ ≤ ‖A n‖ * ‖x‖ := ContinuousLinearMap.le_opNorm _ _
+        _ ≤ 1 * ‖x‖ := mul_le_mul_of_nonneg_right (hBound n) (norm_nonneg _)
+    exact le_of_tendsto htend (Filter.Eventually.of_forall hbound_seq)
+  -- Construct L as a continuous linear map
+  let L_lin : H →ₗ[ℂ] H := {
+    toFun := L_fun
+    map_add' := hL_add
+    map_smul' := hL_smul
+  }
+  obtain ⟨C, hC⟩ := hL_bound
+  let L : H →L[ℂ] H := ⟨L_lin, AddMonoidHomClass.continuous_of_bound L_lin C hC⟩
+  use L
+  -- L satisfies SOTConverges
+  intro x
+  exact hL_spec x
 
 /-- The sesquilinear form for a half-line (-∞, a], defined as the limit of increasing intervals.
 
@@ -1879,17 +2520,22 @@ noncomputable def spectralFormHalfLine (T : UnboundedOperator H) (hT : T.IsDense
   -- The sequence is Cauchy because the operators P([-n, a]) form a monotone
   -- bounded sequence and ⟨x, P([-n, a]) y⟩ converges by polarization
   have hcauchy : CauchySeq seq := by
-    -- The inner products form a Cauchy sequence
-    -- This follows from the monotone convergence theorem for operators
+    -- The inner products form a Cauchy sequence by polarization identity:
+    -- If ⟨x, P_n x⟩ and ⟨y, P_n y⟩ converge (monotone bounded), then ⟨x, P_n y⟩ converges.
+    --
+    -- **Proof strategy:**
+    -- 1. P_n := bumpOperator(indicatorApprox(-n, a)) forms a monotone sequence of projections
+    -- 2. For diagonal elements ⟨x, P_n x⟩: monotone bounded ⟹ Cauchy (by hdiag_cauchy argument)
+    -- 3. Apply polarization: ⟨x, P_n y⟩ = 1/4 Σ_{k=0}^3 i^k ⟨x + i^k y, P_n (x + i^k y)⟩
+    -- 4. Each term on RHS is Cauchy (diagonal), so LHS is Cauchy
     rw [Metric.cauchySeq_iff]
     intro ε hε
     -- For large n, m, the difference |seq n - seq m| is small
-    -- because P([-n, a]) and P([-m, a]) are close in operator norm
-    -- on the range of the smaller projection
+    -- because P([-n, a]) and P([-m, a]) are close (both approximate the same projection)
     use 1
     intro n hn m hm
-    -- Bound using operator norms
     simp only [dist_eq_norm]
+    -- By polarization and monotone convergence of diagonal inner products
     sorry
   -- Extract the limit using Cauchy completeness
   Classical.choose (cauchySeq_tendsto_of_complete hcauchy)
@@ -1897,15 +2543,55 @@ noncomputable def spectralFormHalfLine (T : UnboundedOperator H) (hT : T.IsDense
 /-- The spectral form for half-lines is linear in the second argument. -/
 theorem spectralFormHalfLine_linear_right (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) (a : ℝ) (x : H) :
-    IsLinearMap ℂ (spectralFormHalfLine T hT hsa C a x) := by
-  constructor
-  · intro y₁ y₂
+    IsLinearMap ℂ (spectralFormHalfLine T hT hsa C a x) where
+  map_add := fun y₁ y₂ => by
     unfold spectralFormHalfLine
-    -- Follows from linearity of spectralFormInterval and limits
-    sorry
-  · intro c y
+    haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+    -- Define the sequences
+    let seq1 : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x y₁
+    let seq2 : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x y₂
+    let seq_sum : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x (y₁ + y₂)
+    -- Cauchy sequences
+    have hcauchy1 : CauchySeq seq1 := by
+      rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+    have hcauchy2 : CauchySeq seq2 := by
+      rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+    have hcauchy_sum : CauchySeq seq_sum := by
+      rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+    -- Limits
+    have hspec1 := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy1)
+    have hspec2 := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy2)
+    have hspec_sum := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_sum)
+    -- Pointwise linearity: spectralFormInterval is linear in second argument
+    have hpointwise : ∀ n : ℕ, seq_sum n = seq1 n + seq2 n := by
+      intro n
+      have hlin := spectralFormInterval_linear_right T hT hsa C (-(n : ℝ)) a x
+      exact hlin.map_add y₁ y₂
+    -- Limit of sum = sum of limits
+    have hlim_add : Tendsto (fun n => seq1 n + seq2 n) atTop
+        (nhds (Classical.choose (cauchySeq_tendsto_of_complete hcauchy1) +
+               Classical.choose (cauchySeq_tendsto_of_complete hcauchy2))) :=
+      hspec1.add hspec2
+    exact tendsto_nhds_unique (hspec_sum.congr hpointwise) hlim_add
+  map_smul := fun c y => by
     unfold spectralFormHalfLine
-    sorry
+    haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+    let seq1 : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x y
+    let seq_smul : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x (c • y)
+    have hcauchy1 : CauchySeq seq1 := by
+      rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+    have hcauchy_smul : CauchySeq seq_smul := by
+      rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+    have hspec1 := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy1)
+    have hspec_smul := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_smul)
+    have hpointwise : ∀ n : ℕ, seq_smul n = c * seq1 n := by
+      intro n
+      have hlin := spectralFormInterval_linear_right T hT hsa C (-(n : ℝ)) a x
+      exact hlin.map_smul c y
+    have hlim_smul : Tendsto (fun n => c * seq1 n) atTop
+        (nhds (c * Classical.choose (cauchySeq_tendsto_of_complete hcauchy1))) :=
+      hspec1.const_mul c
+    exact tendsto_nhds_unique (hspec_smul.congr hpointwise) hlim_smul
 
 /-- The spectral form for half-lines is conjugate-linear in the first argument. -/
 theorem spectralFormHalfLine_conj_linear_left (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
@@ -1915,7 +2601,28 @@ theorem spectralFormHalfLine_conj_linear_left (T : UnboundedOperator H) (hT : T.
     starRingEnd ℂ c * spectralFormHalfLine T hT hsa C a x₁ y +
     spectralFormHalfLine T hT hsa C a x₂ y := by
   unfold spectralFormHalfLine
-  sorry
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let seq1 : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x₁ y
+  let seq2 : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x₂ y
+  let seq_comb : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a (c • x₁ + x₂) y
+  have hcauchy1 : CauchySeq seq1 := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  have hcauchy2 : CauchySeq seq2 := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  have hcauchy_comb : CauchySeq seq_comb := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  have hspec1 := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy1)
+  have hspec2 := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy2)
+  have hspec_comb := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_comb)
+  -- Pointwise conjugate-linearity from spectralFormInterval_conj_linear_left
+  have hpointwise : ∀ n : ℕ, seq_comb n = starRingEnd ℂ c * seq1 n + seq2 n := by
+    intro n
+    exact spectralFormInterval_conj_linear_left T hT hsa C (-(n : ℝ)) a y c x₁ x₂
+  have hlim_comb : Tendsto (fun n => starRingEnd ℂ c * seq1 n + seq2 n) atTop
+      (nhds (starRingEnd ℂ c * Classical.choose (cauchySeq_tendsto_of_complete hcauchy1) +
+             Classical.choose (cauchySeq_tendsto_of_complete hcauchy2))) :=
+    (hspec1.const_mul (starRingEnd ℂ c)).add hspec2
+  exact tendsto_nhds_unique (hspec_comb.congr hpointwise) hlim_comb
 
 /-- The spectral form for half-lines is bounded. -/
 theorem spectralFormHalfLine_bounded (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
@@ -1924,8 +2631,21 @@ theorem spectralFormHalfLine_bounded (T : UnboundedOperator H) (hT : T.IsDensely
   use 1
   intro x y
   unfold spectralFormHalfLine
-  -- The limit of bounded quantities is bounded
-  sorry
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let seq : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x y
+  have hcauchy : CauchySeq seq := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  have hspec := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy)
+  -- Each term in the sequence is bounded by ‖x‖ * ‖y‖ (from spectralFormInterval_norm_bound)
+  have hbound_seq : ∀ n : ℕ, ‖seq n‖ ≤ ‖x‖ * ‖y‖ := fun n =>
+    spectralFormInterval_norm_bound T hT hsa C (-(n : ℝ)) a x y
+  -- The limit inherits the bound
+  have hlim_bound := Filter.Tendsto.norm hspec
+  have hle : ‖Classical.choose (cauchySeq_tendsto_of_complete hcauchy)‖ ≤ ‖x‖ * ‖y‖ := by
+    apply le_of_tendsto hlim_bound
+    filter_upwards with n
+    exact hbound_seq n
+  linarith [mul_nonneg (norm_nonneg x) (norm_nonneg y)]
 
 /-- The spectral projection for a half-line (-∞, a].
 
@@ -1966,9 +2686,51 @@ theorem spectralDistributionDiagonal_mono (T : UnboundedOperator H) (hT : T.IsDe
     Monotone (spectralDistributionDiagonal T hT hsa C x) := by
   intro a b hab
   unfold spectralDistributionDiagonal
-  -- F_x(t) = ‖P((-∞,t])x‖² which is monotone because P((-∞,a]) ≤ P((-∞,b])
-  -- as projections when a ≤ b
-  sorry
+  -- F_x(a) = lim_n re⟨x, P([-n,a])x⟩, F_x(b) = lim_n re⟨x, P([-n,b])x⟩
+  -- For each n, [-n,a] ⊆ [-n,b] when a ≤ b, so P([-n,a]) ≤ P([-n,b])
+  -- Hence re⟨x, P([-n,a])x⟩ ≤ re⟨x, P([-n,b])x⟩
+  -- Taking limits preserves the inequality
+  unfold spectralFormHalfLine
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let seq_a : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) a x x
+  let seq_b : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) b x x
+  have hcauchy_a : CauchySeq seq_a := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  have hcauchy_b : CauchySeq seq_b := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  let L_a := Classical.choose (cauchySeq_tendsto_of_complete hcauchy_a)
+  let L_b := Classical.choose (cauchySeq_tendsto_of_complete hcauchy_b)
+  have hlimit_a : Tendsto seq_a atTop (nhds L_a) := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_a)
+  have hlimit_b : Tendsto seq_b atTop (nhds L_b) := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy_b)
+  -- For sufficiently large n, seq_a n ≤ seq_b n (when -n ≤ a ≤ b)
+  -- Use Filter.Eventually since the inequality holds for large n
+  have hseq_mono_eventually : ∀ᶠ n in atTop, (seq_a n).re ≤ (seq_b n).re := by
+    -- Find N such that -N ≤ min(a, b)
+    obtain ⟨N, hN⟩ : ∃ N : ℕ, -(N : ℝ) ≤ min a b := by
+      use Nat.ceil (|min a b| + 1)
+      have h1 : (Nat.ceil (|min a b| + 1) : ℝ) ≥ |min a b| + 1 := Nat.le_ceil _
+      have h2 : -(min a b) ≤ |min a b| := neg_le_abs _
+      linarith
+    filter_upwards [Filter.Ici_mem_atTop N] with n hn
+    have hn_ge : (n : ℝ) ≥ N := Nat.cast_le.mpr hn
+    have hna : -(n : ℝ) ≤ a := by
+      have h1 : -(n : ℝ) ≤ -(N : ℝ) := neg_le_neg hn_ge
+      have h2 : -(N : ℝ) ≤ min a b := hN
+      have h3 : min a b ≤ a := min_le_left _ _
+      linarith
+    have hnb : -(n : ℝ) ≤ b := by
+      have h1 : -(n : ℝ) ≤ -(N : ℝ) := neg_le_neg hn_ge
+      have h2 : -(N : ℝ) ≤ min a b := hN
+      have h3 : min a b ≤ b := min_le_right _ _
+      linarith
+    exact spectralFormInterval_mono_interval T hT hsa C (-(n : ℝ)) a (-(n : ℝ)) b
+      hna hnb (le_refl _) hab x
+  -- Limits preserve ≤ for real sequences
+  have hre_tendsto_a : Tendsto (fun n => (seq_a n).re) atTop (nhds L_a.re) :=
+    (Complex.continuous_re.tendsto L_a).comp hlimit_a
+  have hre_tendsto_b : Tendsto (fun n => (seq_b n).re) atTop (nhds L_b.re) :=
+    (Complex.continuous_re.tendsto L_b).comp hlimit_b
+  exact le_of_tendsto_of_tendsto hre_tendsto_a hre_tendsto_b hseq_mono_eventually
 
 /-- The diagonal spectral distribution is right-continuous. -/
 theorem spectralDistributionDiagonal_rightContinuous (T : UnboundedOperator H)
@@ -1986,8 +2748,25 @@ theorem spectralDistributionDiagonal_nonneg (T : UnboundedOperator H) (hT : T.Is
     ∀ t, 0 ≤ spectralDistributionDiagonal T hT hsa C x t := by
   intro t
   unfold spectralDistributionDiagonal
-  -- F_x(t) = ⟨x, P((-∞,t])x⟩ = ‖P((-∞,t])x‖² ≥ 0
-  sorry
+  -- F_x(t) = re⟨x, P((-∞,t])x⟩ is the limit of re⟨x, P([-n,t])x⟩
+  -- Each term is ≥ 0 by spectralFormInterval_diagonal_nonneg
+  -- The limit of non-negative reals is non-negative
+  unfold spectralFormHalfLine
+  haveI : IsStarNormal C.U := cayleyTransform_isStarNormal T hT hsa C
+  let seq : ℕ → ℂ := fun n => spectralFormInterval T hT hsa C (-(n : ℝ)) t x x
+  have hcauchy : CauchySeq seq := by
+    rw [Metric.cauchySeq_iff]; intro ε hε; use 1; intro n _ m _; simp only [dist_eq_norm]; sorry
+  let L := Classical.choose (cauchySeq_tendsto_of_complete hcauchy)
+  have hlimit : Tendsto seq atTop (nhds L) := Classical.choose_spec (cauchySeq_tendsto_of_complete hcauchy)
+  -- Each term has non-negative real part
+  have hseq_nonneg : ∀ n, 0 ≤ (seq n).re := fun n =>
+    spectralFormInterval_diagonal_nonneg T hT hsa C (-(n : ℝ)) t x
+  -- The real part function is continuous
+  have hre_tendsto : Tendsto (fun n => (seq n).re) atTop (nhds L.re) :=
+    (Complex.continuous_re.tendsto L).comp hlimit
+  -- The limit of non-negative reals is non-negative (closed set property)
+  have hclosed : IsClosed {x : ℝ | 0 ≤ x} := isClosed_Ici
+  exact hclosed.mem_of_tendsto hre_tendsto (Filter.Eventually.of_forall hseq_nonneg)
 
 /-- The diagonal spectral distribution tends to 0 as t → -∞. -/
 theorem spectralDistributionDiagonal_tendsto_atBot (T : UnboundedOperator H)
