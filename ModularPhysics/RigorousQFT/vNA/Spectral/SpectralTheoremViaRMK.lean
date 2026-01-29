@@ -6,6 +6,7 @@ Authors: ModularPhysics Contributors
 import ModularPhysics.RigorousQFT.vNA.Spectral.SpectralMeasurePolarizedViaRMK
 import Mathlib.Topology.MetricSpace.ThickenedIndicator
 import Mathlib.MeasureTheory.Measure.HasOuterApproxClosed
+import Mathlib.Analysis.CStarAlgebra.ContinuousFunctionalCalculus.Order
 
 /-!
 # Spectral Theorem for Unitaries via Riesz-Markov-Kakutani
@@ -238,6 +239,155 @@ theorem spectralProjection_selfAdjoint (U : H →L[ℂ] H) (hU : U ∈ unitary (
     -- starRingEnd ℂ = star for ℂ (definitionally)
     exact (spectralMeasurePolarized_conj_symm U hU E hE x y).symm
   rw [hinner_right, hinner_left]
+
+/-- P(E) is a positive operator: 0 ≤ P(E) in the Loewner order.
+
+    Proof: P(E) is self-adjoint and ⟨z, P(E)z⟩ = μ_z(E) ≥ 0 for all z. -/
+theorem spectralProjection_nonneg (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (E : Set Circle) (hE : MeasurableSet E) :
+    0 ≤ spectralProjectionOfUnitary U hU E hE := by
+  rw [ContinuousLinearMap.nonneg_iff_isPositive]
+  constructor
+  · -- P is symmetric (self-adjoint implies symmetric)
+    have hP_adj := spectralProjection_selfAdjoint U hU E hE
+    intro x y
+    calc @inner ℂ H _ (spectralProjectionOfUnitary U hU E hE x) y
+        = @inner ℂ H _ x ((spectralProjectionOfUnitary U hU E hE).adjoint y) := by
+          rw [ContinuousLinearMap.adjoint_inner_right]
+      _ = @inner ℂ H _ x (spectralProjectionOfUnitary U hU E hE y) := by rw [hP_adj]
+  · -- ∀ z, 0 ≤ re ⟪P z, z⟫
+    intro z
+    -- ⟨P z, z⟩ = conj(⟨z, P z⟩) by inner_conj_symm
+    -- ⟨z, P z⟩ = μ_z(E).toReal (real) by the sesquilinear form characterization
+    have hinner : @inner ℂ H _ z (spectralProjectionOfUnitary U hU E hE z) =
+        (spectralMeasureDiagonal U hU z E).toReal := by
+      unfold spectralProjectionOfUnitary
+      rw [← sesquilinearToOperator_inner]
+      exact spectralMeasurePolarized_diag U hU z E hE
+    -- ⟨Pz, z⟩ = conj(⟨z, Pz⟩) = μ_z(E).toReal (since it's real)
+    have hinner_swap : @inner ℂ H _ (spectralProjectionOfUnitary U hU E hE z) z =
+        (spectralMeasureDiagonal U hU z E).toReal := by
+      -- inner_conj_symm (Pz) z : ⟪z, Pz⟫† = ⟪Pz, z⟫
+      rw [← inner_conj_symm (spectralProjectionOfUnitary U hU E hE z) z, hinner]
+      -- μ_z(E).toReal is real, so conj(μ) = μ
+      exact Complex.conj_ofReal _
+    rw [ContinuousLinearMap.reApplyInnerSelf, hinner_swap]
+    exact ENNReal.toReal_nonneg
+
+/-- P(E) ≤ 1 in the Loewner order.
+
+    Proof: (1 - P(E)) is positive since ⟨z, (1-P)z⟩ = ‖z‖² - μ_z(E) ≥ 0. -/
+theorem spectralProjection_le_one (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (E : Set Circle) (hE : MeasurableSet E) :
+    spectralProjectionOfUnitary U hU E hE ≤ 1 := by
+  rw [ContinuousLinearMap.le_def]
+  set P := spectralProjectionOfUnitary U hU E hE with hP_def
+  constructor
+  · -- (1 - P) is symmetric
+    have hP_adj := spectralProjection_selfAdjoint U hU E hE
+    intro x y
+    -- Goal: ⟪(1 - P) x, y⟫ = ⟪x, (1 - P) y⟫
+    show @inner ℂ H _ ((1 - P) x) y = @inner ℂ H _ x ((1 - P) y)
+    calc @inner ℂ H _ ((1 - P) x) y
+        = @inner ℂ H _ (x - P x) y := rfl
+      _ = @inner ℂ H _ x y - @inner ℂ H _ (P x) y := inner_sub_left x (P x) y
+      _ = @inner ℂ H _ x y - @inner ℂ H _ x (P.adjoint y) := by rw [ContinuousLinearMap.adjoint_inner_right]
+      _ = @inner ℂ H _ x y - @inner ℂ H _ x (P y) := by rw [hP_adj]
+      _ = @inner ℂ H _ x (y - P y) := (inner_sub_right x y (P y)).symm
+      _ = @inner ℂ H _ x ((1 - P) y) := rfl
+  · -- ∀ z, 0 ≤ re ⟪(1-P) z, z⟫
+    intro z
+    -- Goal: 0 ≤ (1 - P).reApplyInnerSelf z
+    show 0 ≤ (1 - P).reApplyInnerSelf z
+    rw [ContinuousLinearMap.reApplyInnerSelf]
+    -- (1 - P) z = z - P z
+    have h1 : (1 - P) z = z - P z := rfl
+    rw [h1, inner_sub_left]
+    -- re(⟨z, z⟩ - ⟨Pz, z⟩) = ‖z‖² - μ_z(E).toReal
+    have hinner_id : @inner ℂ H _ z z = (‖z‖^2 : ℂ) := by
+      rw [inner_self_eq_norm_sq_to_K]; norm_cast
+    have hinner_P : @inner ℂ H _ (P z) z = (spectralMeasureDiagonal U hU z E).toReal := by
+      have h : @inner ℂ H _ z (P z) = (spectralMeasureDiagonal U hU z E).toReal := by
+        rw [hP_def]
+        unfold spectralProjectionOfUnitary
+        rw [← sesquilinearToOperator_inner]
+        exact spectralMeasurePolarized_diag U hU z E hE
+      rw [← inner_conj_symm (P z) z, h]
+      exact Complex.conj_ofReal _
+    rw [hinner_id, hinner_P, map_sub]
+    -- re((↑‖z‖)^2) = ‖z‖² and re(↑μ.toReal) = μ.toReal
+    have h_re1 : RCLike.re ((‖z‖ : ℂ) ^ 2) = ‖z‖ ^ 2 :=
+      @RCLike.re_ofReal_pow ℂ _ ‖z‖ 2
+    have h_re2 : RCLike.re ((spectralMeasureDiagonal U hU z E).toReal : ℂ) =
+        (spectralMeasureDiagonal U hU z E).toReal := RCLike.ofReal_re _
+    rw [h_re1, h_re2]
+    -- Need: ‖z‖² - μ_z(E).toReal ≥ 0, i.e., μ_z(E).toReal ≤ ‖z‖²
+    -- μ_z(E).toReal ≤ μ_z(Circle).toReal = ‖z‖² by measure monotonicity
+    have hμ_mono_ennreal : spectralMeasureDiagonal U hU z E ≤
+        spectralMeasureDiagonal U hU z Set.univ := MeasureTheory.measure_mono (Set.subset_univ E)
+    have hμ_univ_toReal : (spectralMeasureDiagonal U hU z Set.univ).toReal = ‖z‖^2 :=
+      spectralMeasureDiagonal_univ U hU z
+    have hfinite_E : (spectralMeasureDiagonal U hU z E) < ⊤ := by
+      have := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      exact MeasureTheory.measure_lt_top _ E
+    have hfinite_univ : (spectralMeasureDiagonal U hU z Set.univ) < ⊤ := by
+      have := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      exact MeasureTheory.measure_lt_top _ Set.univ
+    have hμ_le : (spectralMeasureDiagonal U hU z E).toReal ≤ ‖z‖^2 := by
+      rw [← hμ_univ_toReal]
+      exact ENNReal.toReal_mono hfinite_univ.ne hμ_mono_ennreal
+    linarith
+
+/-- Monotonicity of spectral projections: P(F) ≤ P(E) in Loewner order when F ⊆ E.
+
+    Proof: (P(E) - P(F)) is positive since ⟨z, (P(E)-P(F))z⟩ = μ_z(E) - μ_z(F) ≥ 0. -/
+theorem spectralProjection_mono (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F E : Set Circle) (hF : MeasurableSet F) (hE : MeasurableSet E) (hFE : F ⊆ E) :
+    spectralProjectionOfUnitary U hU F hF ≤ spectralProjectionOfUnitary U hU E hE := by
+  set PF := spectralProjectionOfUnitary U hU F hF with hPF_def
+  set PE := spectralProjectionOfUnitary U hU E hE with hPE_def
+  have hsa_F : PF.adjoint = PF := spectralProjection_selfAdjoint U hU F hF
+  have hsa_E : PE.adjoint = PE := spectralProjection_selfAdjoint U hU E hE
+  rw [ContinuousLinearMap.le_def]
+  constructor
+  · -- (PE - PF) is symmetric
+    intro x y
+    calc @inner ℂ H _ ((PE - PF) x) y
+        = @inner ℂ H _ (PE x - PF x) y := rfl
+      _ = @inner ℂ H _ (PE x) y - @inner ℂ H _ (PF x) y := inner_sub_left _ _ _
+      _ = @inner ℂ H _ x (PE.adjoint y) - @inner ℂ H _ x (PF.adjoint y) := by
+          rw [ContinuousLinearMap.adjoint_inner_right, ContinuousLinearMap.adjoint_inner_right]
+      _ = @inner ℂ H _ x (PE y) - @inner ℂ H _ x (PF y) := by rw [hsa_E, hsa_F]
+      _ = @inner ℂ H _ x (PE y - PF y) := (inner_sub_right x _ _).symm
+      _ = @inner ℂ H _ x ((PE - PF) y) := rfl
+  · -- (PE - PF).reApplyInnerSelf z ≥ 0
+    intro z
+    rw [ContinuousLinearMap.reApplyInnerSelf]
+    have h1 : (PE - PF) z = PE z - PF z := rfl
+    rw [h1, inner_sub_left]
+    have hinner_E : @inner ℂ H _ (PE z) z = (spectralMeasureDiagonal U hU z E).toReal := by
+      have h := spectralMeasurePolarized_diag U hU z E hE
+      have hinner_def : @inner ℂ H _ z (PE z) =
+          spectralMeasurePolarized U hU z z E hE := by
+        rw [hPE_def]
+        unfold spectralProjectionOfUnitary
+        rw [← sesquilinearToOperator_inner]
+      rw [← inner_conj_symm (PE z) z, hinner_def, h, Complex.conj_ofReal]
+    have hinner_F : @inner ℂ H _ (PF z) z = (spectralMeasureDiagonal U hU z F).toReal := by
+      have h := spectralMeasurePolarized_diag U hU z F hF
+      have hinner_def : @inner ℂ H _ z (PF z) =
+          spectralMeasurePolarized U hU z z F hF := by
+        rw [hPF_def]
+        unfold spectralProjectionOfUnitary
+        rw [← sesquilinearToOperator_inner]
+      rw [← inner_conj_symm (PF z) z, hinner_def, h, Complex.conj_ofReal]
+    rw [hinner_E, hinner_F, map_sub]
+    simp only [RCLike.re_to_complex, Complex.ofReal_re]
+    have hmono : spectralMeasureDiagonal U hU z F ≤ spectralMeasureDiagonal U hU z E :=
+      MeasureTheory.measure_mono hFE
+    have hfinite_E := spectralMeasureDiagonal_isFiniteMeasure U hU z
+    have htoReal_mono := ENNReal.toReal_mono (MeasureTheory.measure_lt_top _ E).ne hmono
+    linarith
 
 /-- For continuous g : Circle → ℝ, we have ‖cfc(g, U)z‖² = Re⟨z, cfc(g², U)z⟩.
 
@@ -788,6 +938,448 @@ theorem spectralProjection_norm_sq_closed (U : H →L[ℂ] H) (hU : U ∈ unitar
   -- By uniqueness of limits: ‖P z‖² = μ_z(F).toReal
   exact tendsto_nhds_unique hnorm_sq_conv hnorm_sq_tendsto
 
+/-- The product formula for spectral projections on CLOSED sets in polarized form:
+    B(Px, Py, Circle) = B(x, y, F) where B = spectralMeasurePolarized and F is closed.
+
+    This uses spectralProjection_norm_sq_closed via polarization. -/
+theorem spectralProjection_polarized_product_closed (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F : Set Circle) (hF_closed : IsClosed F) (x y : H) :
+    let P := spectralProjectionOfUnitary U hU F hF_closed.measurableSet
+    spectralMeasurePolarized U hU (P x) (P y) Set.univ MeasurableSet.univ =
+    spectralMeasurePolarized U hU x y F hF_closed.measurableSet := by
+  intro P
+  -- Expand spectralMeasurePolarized using the polarization formula
+  unfold spectralMeasurePolarized
+  -- Use linearity of P: P(x ± y) = Px ± Py, P(x ± I•y) = Px ± I•Py
+  have hPadd : P (x + y) = P x + P y := map_add P x y
+  have hPsub : P (x - y) = P x - P y := map_sub P x y
+  have hPiadd : P (x + Complex.I • y) = P x + Complex.I • P y := by
+    rw [map_add, map_smul]
+  have hPisub : P (x - Complex.I • y) = P x - Complex.I • P y := by
+    rw [map_sub, map_smul]
+  -- Now use spectralMeasureDiagonal_univ: μ_w(Circle) = ‖w‖²
+  rw [spectralMeasureDiagonal_univ U hU (P x + P y)]
+  rw [spectralMeasureDiagonal_univ U hU (P x - P y)]
+  rw [spectralMeasureDiagonal_univ U hU (P x + Complex.I • P y)]
+  rw [spectralMeasureDiagonal_univ U hU (P x - Complex.I • P y)]
+  -- Use the diagonal product formula for CLOSED sets: ‖P(w)‖² = μ_w(F)
+  have hnorm_add : ‖P x + P y‖^2 = (spectralMeasureDiagonal U hU (x + y) F).toReal := by
+    rw [← hPadd]; exact spectralProjection_norm_sq_closed U hU F hF_closed (x + y)
+  have hnorm_sub : ‖P x - P y‖^2 = (spectralMeasureDiagonal U hU (x - y) F).toReal := by
+    rw [← hPsub]; exact spectralProjection_norm_sq_closed U hU F hF_closed (x - y)
+  have hnorm_iadd : ‖P x + Complex.I • P y‖^2 =
+      (spectralMeasureDiagonal U hU (x + Complex.I • y) F).toReal := by
+    rw [← hPiadd]; exact spectralProjection_norm_sq_closed U hU F hF_closed (x + Complex.I • y)
+  have hnorm_isub : ‖P x - Complex.I • P y‖^2 =
+      (spectralMeasureDiagonal U hU (x - Complex.I • y) F).toReal := by
+    rw [← hPisub]; exact spectralProjection_norm_sq_closed U hU F hF_closed (x - Complex.I • y)
+  rw [hnorm_add, hnorm_sub, hnorm_iadd, hnorm_isub]
+
+/-- P(F)² = P(F) for CLOSED sets F.
+    Uses spectralProjection_polarized_product_closed. -/
+theorem spectralProjection_idempotent_closed (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F : Set Circle) (hF_closed : IsClosed F) :
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet ∘L
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet =
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet := by
+  set P := spectralProjectionOfUnitary U hU F hF_closed.measurableSet with hP_def
+  ext y
+  apply ext_inner_left ℂ
+  intro x
+  rw [ContinuousLinearMap.comp_apply]
+  have hsa : P.adjoint = P := spectralProjection_selfAdjoint U hU F hF_closed.measurableSet
+  have h1 : @inner ℂ H _ x (P (P y)) = @inner ℂ H _ (P x) (P y) := by
+    have heq : P (P y) = P.adjoint (P y) := by rw [hsa]
+    rw [heq, ContinuousLinearMap.adjoint_inner_right]
+  rw [h1]
+  have hinner_Pxy : @inner ℂ H _ (P x) (P y) =
+      spectralMeasurePolarized U hU (P x) (P y) Set.univ MeasurableSet.univ := by
+    exact (spectralMeasurePolarized_univ U hU (P x) (P y)).symm
+  have hinner_xy : @inner ℂ H _ x (P y) = spectralMeasurePolarized U hU x y F hF_closed.measurableSet := by
+    rw [hP_def]
+    unfold spectralProjectionOfUnitary
+    rw [← sesquilinearToOperator_inner]
+  rw [hinner_xy, hinner_Pxy]
+  exact spectralProjection_polarized_product_closed U hU F hF_closed x y
+
+/-- For nested closed sets F ⊆ G, we have P(F)P(G) = P(F).
+
+    **Proof Strategy:**
+    For orthogonal projections P, Q with P ≤ Q (Loewner order):
+    1. First show range(P) ⊆ range(Q): if u = Pv, then ⟨u, Pu⟩ = ⟨u, u⟩ ≤ ⟨u, Qu⟩ ≤ ⟨u, u⟩,
+       so ⟨u, Qu⟩ = ‖u‖², which implies Qu = u for orthogonal projection Q.
+    2. Therefore Q(Pz) = Pz for all z (vectors in range(P) are fixed by Q).
+    3. Then ⟨Pz, (Q-P)z⟩ = ⟨(Q-P)(Pz), z⟩ = ⟨Q(Pz) - P²z, z⟩ = ⟨Pz - Pz, z⟩ = 0.
+    4. So ⟨Pz, Qz⟩ = ⟨Pz, Pz⟩ + ⟨Pz, (Q-P)z⟩ = ‖Pz‖² = ⟨z, Pz⟩.
+    5. By polarization: ⟨Px, Qy⟩ = ⟨x, Py⟩ for all x, y, i.e., PQ = P. -/
+theorem spectralProjection_mult_nested_closed (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F G : Set Circle) (hF_closed : IsClosed F) (hG_closed : IsClosed G)
+    (hFG : F ⊆ G) :
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet ∘L
+    spectralProjectionOfUnitary U hU G hG_closed.measurableSet =
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet := by
+  set PF := spectralProjectionOfUnitary U hU F hF_closed.measurableSet with hPF_def
+  set PG := spectralProjectionOfUnitary U hU G hG_closed.measurableSet with hPG_def
+
+  -- Key properties of PF and PG (orthogonal projections)
+  have hsa_F : PF.adjoint = PF := spectralProjection_selfAdjoint U hU F hF_closed.measurableSet
+  have hsa_G : PG.adjoint = PG := spectralProjection_selfAdjoint U hU G hG_closed.measurableSet
+  have hidem_F : PF ∘L PF = PF := spectralProjection_idempotent_closed U hU F hF_closed
+  have hidem_G : PG ∘L PG = PG := spectralProjection_idempotent_closed U hU G hG_closed
+
+  -- PF ≤ PG (Loewner order): μ_z(F) ≤ μ_z(G) since F ⊆ G
+  have hPF_le_PG : PF ≤ PG := by
+    rw [ContinuousLinearMap.le_def]
+    constructor
+    · -- (PG - PF) is symmetric
+      intro x y
+      calc @inner ℂ H _ ((PG - PF) x) y
+          = @inner ℂ H _ (PG x - PF x) y := rfl
+        _ = @inner ℂ H _ (PG x) y - @inner ℂ H _ (PF x) y := inner_sub_left _ _ _
+        _ = @inner ℂ H _ x (PG.adjoint y) - @inner ℂ H _ x (PF.adjoint y) := by
+            rw [ContinuousLinearMap.adjoint_inner_right, ContinuousLinearMap.adjoint_inner_right]
+        _ = @inner ℂ H _ x (PG y) - @inner ℂ H _ x (PF y) := by rw [hsa_G, hsa_F]
+        _ = @inner ℂ H _ x (PG y - PF y) := (inner_sub_right x _ _).symm
+        _ = @inner ℂ H _ x ((PG - PF) y) := rfl
+    · -- (PG - PF).reApplyInnerSelf z ≥ 0
+      intro z
+      rw [ContinuousLinearMap.reApplyInnerSelf]
+      -- ⟨(PG - PF)z, z⟩ = ⟨PGz, z⟩ - ⟨PFz, z⟩ = μ_z(G) - μ_z(F)
+      have h1 : (PG - PF) z = PG z - PF z := rfl
+      rw [h1, inner_sub_left]
+      have hinner_G : @inner ℂ H _ (PG z) z = (spectralMeasureDiagonal U hU z G).toReal := by
+        have h := spectralMeasurePolarized_diag U hU z G hG_closed.measurableSet
+        have hinner_def : @inner ℂ H _ z (PG z) =
+            spectralMeasurePolarized U hU z z G hG_closed.measurableSet := by
+          rw [hPG_def]
+          conv_lhs => rw [show spectralProjectionOfUnitary U hU G hG_closed.measurableSet =
+            sesquilinearToOperator (fun x y => spectralMeasurePolarized U hU x y G hG_closed.measurableSet)
+              (spectralMeasurePolarized_linear_right U hU G hG_closed.measurableSet)
+              (spectralMeasurePolarized_conj_linear_left U hU G hG_closed.measurableSet)
+              (spectralMeasurePolarized_bounded U hU G hG_closed.measurableSet) from rfl]
+          rw [← sesquilinearToOperator_inner]
+        rw [← inner_conj_symm (PG z) z, hinner_def, h, Complex.conj_ofReal]
+      have hinner_F : @inner ℂ H _ (PF z) z = (spectralMeasureDiagonal U hU z F).toReal := by
+        have h := spectralMeasurePolarized_diag U hU z F hF_closed.measurableSet
+        have hinner_def : @inner ℂ H _ z (PF z) =
+            spectralMeasurePolarized U hU z z F hF_closed.measurableSet := by
+          rw [hPF_def]
+          conv_lhs => rw [show spectralProjectionOfUnitary U hU F hF_closed.measurableSet =
+            sesquilinearToOperator (fun x y => spectralMeasurePolarized U hU x y F hF_closed.measurableSet)
+              (spectralMeasurePolarized_linear_right U hU F hF_closed.measurableSet)
+              (spectralMeasurePolarized_conj_linear_left U hU F hF_closed.measurableSet)
+              (spectralMeasurePolarized_bounded U hU F hF_closed.measurableSet) from rfl]
+          rw [← sesquilinearToOperator_inner]
+        rw [← inner_conj_symm (PF z) z, hinner_def, h, Complex.conj_ofReal]
+      rw [hinner_G, hinner_F, map_sub]
+      -- The goal is now: 0 ≤ RCLike.re (μ_z(G).toReal : ℂ) - RCLike.re (μ_z(F).toReal : ℂ)
+      -- which simplifies to: 0 ≤ μ_z(G).toReal - μ_z(F).toReal
+      simp only [RCLike.re_to_complex, Complex.ofReal_re]
+      -- μ_z(G) - μ_z(F) ≥ 0 since F ⊆ G
+      have hmono : spectralMeasureDiagonal U hU z F ≤ spectralMeasureDiagonal U hU z G :=
+        MeasureTheory.measure_mono hFG
+      have hfinite_G := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      have htoReal_mono := ENNReal.toReal_mono (MeasureTheory.measure_lt_top _ G).ne hmono
+      linarith
+
+  -- **Key Lemma:** For u ∈ range(PF), we have PG(u) = u.
+  -- Proof: u = PF v implies ⟨u, u⟩ = ⟨u, PF u⟩ ≤ ⟨u, PG u⟩ ≤ ⟨u, u⟩,
+  -- so ⟨u, PG u⟩ = ‖u‖², which implies PG u = u for orthogonal projection PG.
+  have hPG_fixes_range_PF : ∀ u, u = PF u → PG u = u := by
+    intro u hu
+    -- u ∈ range(PF), i.e., u = PF u
+    -- We'll show ‖PG u - u‖ = 0
+    have hnorm_sq : ‖PG u - u‖^2 = 0 := by
+      -- ‖PG u - u‖² = ‖u‖² - ⟨u, PG u⟩ for orthogonal projection PG
+      -- Since PF ≤ PG ≤ 1 and u = PF u: ‖u‖² = ⟨u, PF u⟩ ≤ ⟨u, PG u⟩ ≤ ‖u‖²
+      -- So ⟨u, PG u⟩ = ‖u‖², hence ‖PG u - u‖² = 0
+      -- First: ‖PG u - u‖² = ‖PG u‖² - 2 Re⟨u, PG u⟩ + ‖u‖² = ‖u‖² - ⟨u, PG u⟩
+      -- (using ‖PG u‖² = ⟨u, PG u⟩ for orthogonal proj)
+
+      -- Key: ‖PG u‖² = ⟨u, PG u⟩.re (for orthogonal projection PG)
+      have hPG_norm_sq : ‖PG u‖^2 = (@inner ℂ H _ u (PG u)).re := by
+        have h : ‖PG u‖^2 = (@inner ℂ H _ (PG u) (PG u)).re := by
+          rw [inner_self_eq_norm_sq_to_K]; norm_cast
+        rw [h]
+        -- ⟨PG u, PG u⟩ = ⟨u, PG† PG u⟩ = ⟨u, PG² u⟩ = ⟨u, PG u⟩
+        have heq : @inner ℂ H _ (PG u) (PG u) = @inner ℂ H _ u ((PG ∘L PG) u) := by
+          calc @inner ℂ H _ (PG u) (PG u)
+              = @inner ℂ H _ u (PG.adjoint (PG u)) := by
+                  rw [ContinuousLinearMap.adjoint_inner_right]
+            _ = @inner ℂ H _ u (PG (PG u)) := by rw [hsa_G]
+            _ = @inner ℂ H _ u ((PG ∘L PG) u) := rfl
+        rw [heq, hidem_G]
+
+      -- Similarly for PF
+      have hPF_norm_sq : ‖PF u‖^2 = (@inner ℂ H _ u (PF u)).re := by
+        have h : ‖PF u‖^2 = (@inner ℂ H _ (PF u) (PF u)).re := by
+          rw [inner_self_eq_norm_sq_to_K]; norm_cast
+        rw [h]
+        have heq : @inner ℂ H _ (PF u) (PF u) = @inner ℂ H _ u ((PF ∘L PF) u) := by
+          calc @inner ℂ H _ (PF u) (PF u)
+              = @inner ℂ H _ u (PF.adjoint (PF u)) := by
+                  rw [ContinuousLinearMap.adjoint_inner_right]
+            _ = @inner ℂ H _ u (PF (PF u)) := by rw [hsa_F]
+            _ = @inner ℂ H _ u ((PF ∘L PF) u) := rfl
+        rw [heq, hidem_F]
+
+      -- u = PF u implies ‖u‖² = ‖PF u‖² = ⟨u, PF u⟩.re
+      have hu_norm : ‖u‖^2 = (@inner ℂ H _ u (PF u)).re := by
+        conv_lhs => rw [hu]  -- ‖u‖ = ‖PF u‖
+        exact hPF_norm_sq
+
+      -- From PF ≤ PG: ⟨u, PF u⟩.re ≤ ⟨u, PG u⟩.re
+      have hle : (@inner ℂ H _ u (PF u)).re ≤ (@inner ℂ H _ u (PG u)).re := by
+        rw [ContinuousLinearMap.le_def] at hPF_le_PG
+        have hpos := hPF_le_PG.2 u
+        rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+        have h : (PG - PF) u = PG u - PF u := rfl
+        rw [h, inner_sub_left, map_sub] at hpos
+        -- Convert RCLike.re to .re and use inner_re_symm
+        simp only [RCLike.re_to_complex] at hpos ⊢
+        have hsym_PG := inner_re_symm (𝕜 := ℂ) (PG u) u
+        have hsym_PF := inner_re_symm (𝕜 := ℂ) (PF u) u
+        simp only [RCLike.re_to_complex] at hsym_PG hsym_PF
+        linarith
+
+      -- From PG ≤ 1: ⟨u, PG u⟩.re ≤ ‖u‖²
+      have hle2 : (@inner ℂ H _ u (PG u)).re ≤ ‖u‖^2 := by
+        have hPG_le_one : PG ≤ 1 := spectralProjection_le_one U hU G hG_closed.measurableSet
+        rw [ContinuousLinearMap.le_def] at hPG_le_one
+        have hpos := hPG_le_one.2 u
+        rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+        have h : (1 - PG) u = u - PG u := rfl
+        rw [h, inner_sub_left, map_sub] at hpos
+        simp only [RCLike.re_to_complex] at hpos ⊢
+        have hid : (@inner ℂ H _ u u).re = ‖u‖^2 := by
+          rw [inner_self_eq_norm_sq_to_K]; norm_cast
+        have hsym_PG := inner_re_symm (𝕜 := ℂ) (PG u) u
+        simp only [RCLike.re_to_complex] at hsym_PG
+        linarith
+
+      -- Combining: ‖u‖² ≤ ⟨u, PG u⟩.re ≤ ‖u‖², so ⟨u, PG u⟩.re = ‖u‖²
+      have hinner_eq : (@inner ℂ H _ u (PG u)).re = ‖u‖^2 := by
+        have h1 : ‖u‖^2 ≤ (@inner ℂ H _ u (PG u)).re := by rw [hu_norm]; exact hle
+        linarith
+
+      -- Now compute ‖PG u - u‖²
+      -- Using the formula: ‖a - b‖² = ‖a‖² - 2 Re⟨a, b⟩ + ‖b‖²
+      -- For orthogonal projection: ‖PG u‖² = ⟨u, PG u⟩ (from hPG_norm_sq)
+      -- So ‖PG u - u‖² = ⟨u, PG u⟩ - 2⟨PGu, u⟩ + ‖u‖² = ⟨u, PG u⟩ - 2⟨u, PG u⟩ + ‖u‖² = ‖u‖² - ⟨u, PG u⟩
+      -- Since ⟨u, PG u⟩ = ‖u‖² (from hinner_eq), we get ‖PG u - u‖² = 0
+      calc ‖PG u - u‖^2
+          = ‖PG u‖^2 - 2 * (@inner ℂ H _ (PG u) u).re + ‖u‖^2 := by
+            -- norm_sub_sq says ‖x - y‖² = ‖x‖² - 2 Re⟨x, y⟩ + ‖y‖²
+            have h := norm_sub_sq (𝕜 := ℂ) (PG u) u
+            simp only [RCLike.re_to_complex] at h
+            exact h
+        _ = ‖PG u‖^2 - 2 * (@inner ℂ H _ u (PG u)).re + ‖u‖^2 := by
+            have hsym := inner_re_symm (𝕜 := ℂ) (PG u) u
+            simp only [RCLike.re_to_complex] at hsym
+            rw [hsym]
+        _ = (@inner ℂ H _ u (PG u)).re - 2 * (@inner ℂ H _ u (PG u)).re + ‖u‖^2 := by
+            rw [hPG_norm_sq]
+        _ = ‖u‖^2 - (@inner ℂ H _ u (PG u)).re := by ring
+        _ = ‖u‖^2 - ‖u‖^2 := by rw [hinner_eq]
+        _ = 0 := by ring
+
+    have h := sq_eq_zero_iff.mp hnorm_sq
+    simp only [norm_eq_zero] at h
+    exact sub_eq_zero.mp h
+
+  -- Now show PF PG = PF using the fact that PG fixes range(PF)
+  ext y
+  apply ext_inner_left ℂ
+  intro x
+  rw [ContinuousLinearMap.comp_apply]
+  -- ⟨x, PF(PG y)⟩ = ⟨PF x, PG y⟩ (self-adjoint)
+  have h1 : @inner ℂ H _ x (PF (PG y)) = @inner ℂ H _ (PF x) (PG y) := by
+    calc @inner ℂ H _ x (PF (PG y))
+        = @inner ℂ H _ x (PF.adjoint (PG y)) := by rw [hsa_F]
+      _ = @inner ℂ H _ (PF x) (PG y) := by rw [ContinuousLinearMap.adjoint_inner_right]
+  rw [h1]
+
+  -- PF x ∈ range(PF), so PG(PF x) = PF x
+  have hu_fixed : PG (PF x) = PF x := by
+    apply hPG_fixes_range_PF
+    rw [← ContinuousLinearMap.comp_apply, hidem_F]
+
+  -- ⟨PF x, PG y⟩ = ⟨PG(PF x), y⟩ = ⟨PF x, y⟩ = ⟨x, PF y⟩
+  -- Using: adjoint_inner_right A x y : ⟨x, A† y⟩ = ⟨Ax, y⟩
+  -- Equivalently: ⟨Ax, y⟩ = ⟨x, A† y⟩
+  have hstep1 : @inner ℂ H _ (PF x) (PG y) = @inner ℂ H _ (PG (PF x)) y := by
+    -- ⟨PFx, PGy⟩ = ⟨PFx, PG† y⟩ (since PG† = PG)
+    --            = ⟨PG(PFx), y⟩ (by adjoint_inner_right)
+    calc @inner ℂ H _ (PF x) (PG y)
+        = @inner ℂ H _ (PF x) (PG.adjoint y) := by rw [hsa_G]
+      _ = @inner ℂ H _ (PG (PF x)) y := ContinuousLinearMap.adjoint_inner_right PG (PF x) y
+  have hstep2 : @inner ℂ H _ (PG (PF x)) y = @inner ℂ H _ (PF x) y := by rw [hu_fixed]
+  have hstep3 : @inner ℂ H _ (PF x) y = @inner ℂ H _ x (PF y) := by
+    -- ⟨PFx, y⟩ = ⟨PFx, PF† (PF† y)⟩... no, simpler:
+    -- ⟨PFx, y⟩ = ⟨x, PF† y⟩ = ⟨x, PF y⟩ (by adjoint_inner_right and hsa_F)
+    calc @inner ℂ H _ (PF x) y
+        = @inner ℂ H _ x (PF.adjoint y) := (ContinuousLinearMap.adjoint_inner_right PF x y).symm
+      _ = @inner ℂ H _ x (PF y) := by rw [hsa_F]
+  rw [hstep1, hstep2, hstep3]
+
+/-- For self-adjoint P with 0 ≤ P ≤ 1 (hence P² ≤ P by pow_antitone), and
+    orthogonal projection Q with Q ≤ P, P fixes vectors in range(Q).
+
+    Key insight: For u = Qu, we have ‖u‖² = ⟨u, Qu⟩ ≤ ⟨u, Pu⟩ ≤ ‖u‖² (squeeze),
+    so ⟨u, Pu⟩ = ‖u‖². Using P² ≤ P: ‖Pu - u‖² ≤ 0, hence Pu = u. -/
+theorem ContinuousLinearMap.fixes_range_of_le_of_pos_le_one
+    (P Q : H →L[ℂ] H) (hP_nonneg : 0 ≤ P) (hP_le_one : P ≤ 1)
+    (hP_adj : P.adjoint = P)
+    (_hQ_idem : Q ∘L Q = Q) (_hQ_adj : Q.adjoint = Q) (hQ_le_P : Q ≤ P) :
+    ∀ u, Q u = u → P u = u := by
+  intro u hu
+  -- P² ≤ P by pow_antitone
+  have hP_sq_le_P : P ∘L P ≤ P := by
+    have h := CStarAlgebra.pow_antitone hP_nonneg hP_le_one (by omega : 1 ≤ 2)
+    simp only [pow_two, pow_one] at h
+    exact h
+  -- Step 1: ⟨u, Pu⟩ = ‖u‖² (by squeeze: ‖u‖² = ⟨u, Qu⟩ ≤ ⟨u, Pu⟩ ≤ ‖u‖²)
+  have hinner_Q : (@inner ℂ H _ u (Q u)).re = ‖u‖^2 := by
+    rw [hu, inner_self_eq_norm_sq_to_K]
+    norm_cast
+  have hinner_P_ge : ‖u‖^2 ≤ (@inner ℂ H _ u (P u)).re := by
+    rw [ContinuousLinearMap.le_def] at hQ_le_P
+    have hpos := hQ_le_P.2 u
+    rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+    have h : (P - Q) u = P u - Q u := rfl
+    rw [h, inner_sub_left] at hpos
+    have hre_P : (inner (𝕜 := ℂ) (P u) u).re = (inner (𝕜 := ℂ) u (P u)).re :=
+      inner_re_symm (𝕜 := ℂ) (P u) u
+    have hre_Q : (inner (𝕜 := ℂ) (Q u) u).re = (inner (𝕜 := ℂ) u (Q u)).re :=
+      inner_re_symm (𝕜 := ℂ) (Q u) u
+    simp only [RCLike.re_to_complex, map_sub] at hpos
+    linarith [hinner_Q, hre_P, hre_Q]
+  have hinner_P_le : (@inner ℂ H _ u (P u)).re ≤ ‖u‖^2 := by
+    rw [ContinuousLinearMap.le_def] at hP_le_one
+    have hpos := hP_le_one.2 u
+    rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+    have h : (1 - P) u = u - P u := rfl
+    rw [h, inner_sub_left] at hpos
+    have hinner_id : @inner ℂ H _ u u = (‖u‖^2 : ℂ) := by
+      rw [inner_self_eq_norm_sq_to_K]; norm_cast
+    have hre_id : (inner (𝕜 := ℂ) u u).re = ‖u‖^2 := by
+      rw [hinner_id]
+      have : ((‖u‖^2 : ℝ) : ℂ).re = ‖u‖^2 := Complex.ofReal_re _
+      convert this using 2; norm_cast
+    have hre_P : (inner (𝕜 := ℂ) (P u) u).re = (inner (𝕜 := ℂ) u (P u)).re :=
+      inner_re_symm (𝕜 := ℂ) (P u) u
+    simp only [RCLike.re_to_complex, map_sub] at hpos
+    linarith
+  have hinner_P_eq : (@inner ℂ H _ u (P u)).re = ‖u‖^2 := le_antisymm hinner_P_le hinner_P_ge
+  -- Step 2: ‖Pu‖² ≤ ⟨u, Pu⟩ (using P² ≤ P)
+  have hnorm_Pu_sq_le : ‖P u‖^2 ≤ (@inner ℂ H _ u (P u)).re := by
+    have hPu_sq : ‖P u‖^2 = (@inner ℂ H _ u ((P ∘L P) u)).re := by
+      calc ‖P u‖^2
+          = (@inner ℂ H _ (P u) (P u)).re := by rw [inner_self_eq_norm_sq_to_K]; norm_cast
+        _ = (@inner ℂ H _ u (P.adjoint (P u))).re := by rw [ContinuousLinearMap.adjoint_inner_right]
+        _ = (@inner ℂ H _ u ((P ∘L P) u)).re := by rw [hP_adj]; rfl
+    rw [hPu_sq]
+    rw [ContinuousLinearMap.le_def] at hP_sq_le_P
+    have hpos := hP_sq_le_P.2 u
+    rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+    have h : (P - P ∘L P) u = P u - (P ∘L P) u := rfl
+    rw [h, inner_sub_left] at hpos
+    have hre_P : (@inner ℂ H _ (P u) u).re = (@inner ℂ H _ u (P u)).re :=
+      inner_re_symm (𝕜 := ℂ) (P u) u
+    have hre_P2 : (@inner ℂ H _ ((P ∘L P) u) u).re = (@inner ℂ H _ u ((P ∘L P) u)).re :=
+      inner_re_symm (𝕜 := ℂ) ((P ∘L P) u) u
+    simp only [RCLike.re_to_complex, map_sub] at hpos
+    linarith [hre_P, hre_P2]
+  -- Step 3: ‖Pu - u‖² ≤ 0
+  have hnorm_diff_sq : ‖P u - u‖^2 = ‖P u‖^2 - 2 * (@inner ℂ H _ u (P u)).re + ‖u‖^2 := by
+    have h := norm_sub_sq (𝕜 := ℂ) (P u) u
+    rw [inner_re_symm (𝕜 := ℂ) (P u) u] at h
+    simp only [RCLike.re_to_complex] at h
+    linarith [h]
+  have hnorm_diff_le : ‖P u - u‖^2 ≤ 0 := by
+    calc ‖P u - u‖^2
+        = ‖P u‖^2 - 2 * (@inner ℂ H _ u (P u)).re + ‖u‖^2 := hnorm_diff_sq
+      _ ≤ (@inner ℂ H _ u (P u)).re - 2 * (@inner ℂ H _ u (P u)).re + ‖u‖^2 := by linarith [hnorm_Pu_sq_le]
+      _ = ‖u‖^2 - (@inner ℂ H _ u (P u)).re := by ring
+      _ = 0 := by linarith [hinner_P_eq]
+  have hnorm_diff_eq_zero : ‖P u - u‖ = 0 := by
+    have h := sq_nonneg ‖P u - u‖
+    have h_eq : ‖P u - u‖^2 = 0 := le_antisymm hnorm_diff_le h
+    exact sq_eq_zero_iff.mp h_eq
+  rw [norm_eq_zero] at hnorm_diff_eq_zero
+  exact sub_eq_zero.mp hnorm_diff_eq_zero
+
+/-- For closed F ⊆ E (measurable), P(E) fixes range(P(F)), hence P(E) ∘ P(F) = P(F).
+    Taking adjoints: P(F) ∘ P(E) = P(F), so P(F)z = P(F)(P(E)z) and ‖P(F)z‖ ≤ ‖P(E)z‖. -/
+theorem spectralProjection_comp_closed_measurable (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F E : Set Circle) (hF_closed : IsClosed F) (hE : MeasurableSet E) (hFE : F ⊆ E) :
+    spectralProjectionOfUnitary U hU E hE ∘L
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet =
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet := by
+  set PF := spectralProjectionOfUnitary U hU F hF_closed.measurableSet with hPF_def
+  set PE := spectralProjectionOfUnitary U hU E hE with hPE_def
+  have hPE_nonneg : 0 ≤ PE := spectralProjection_nonneg U hU E hE
+  have hPE_le_one : PE ≤ 1 := spectralProjection_le_one U hU E hE
+  have hPE_adj : PE.adjoint = PE := spectralProjection_selfAdjoint U hU E hE
+  have hPF_idem : PF ∘L PF = PF := spectralProjection_idempotent_closed U hU F hF_closed
+  have hPF_adj : PF.adjoint = PF := spectralProjection_selfAdjoint U hU F hF_closed.measurableSet
+  have hPF_le_PE : PF ≤ PE := spectralProjection_mono U hU F E hF_closed.measurableSet hE hFE
+  -- PE fixes range(PF) by the general lemma
+  have hfixes : ∀ u, PF u = u → PE u = u :=
+    ContinuousLinearMap.fixes_range_of_le_of_pos_le_one PE PF hPE_nonneg hPE_le_one hPE_adj
+      hPF_idem hPF_adj hPF_le_PE
+  -- Therefore PE ∘ PF = PF
+  ext w
+  simp only [ContinuousLinearMap.comp_apply]
+  apply hfixes
+  calc PF (PF w) = (PF ∘L PF) w := rfl
+    _ = PF w := by rw [hPF_idem]
+
+/-- P(F) ∘ P(E) = P(F) for closed F ⊆ E (measurable). This is the adjoint of the above. -/
+theorem spectralProjection_comp_closed_measurable' (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F E : Set Circle) (hF_closed : IsClosed F) (hE : MeasurableSet E) (hFE : F ⊆ E) :
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet ∘L
+    spectralProjectionOfUnitary U hU E hE =
+    spectralProjectionOfUnitary U hU F hF_closed.measurableSet := by
+  set PF := spectralProjectionOfUnitary U hU F hF_closed.measurableSet
+  set PE := spectralProjectionOfUnitary U hU E hE
+  have hPE_adj : PE.adjoint = PE := spectralProjection_selfAdjoint U hU E hE
+  have hPF_adj : PF.adjoint = PF := spectralProjection_selfAdjoint U hU F hF_closed.measurableSet
+  have hcomp := spectralProjection_comp_closed_measurable U hU F E hF_closed hE hFE
+  -- Taking adjoint: (PE ∘ PF)† = PF† ∘ PE† = PF ∘ PE
+  have h : (PF ∘L PE).adjoint = PF.adjoint := by
+    calc (PF ∘L PE).adjoint
+        = PE.adjoint ∘L PF.adjoint := ContinuousLinearMap.adjoint_comp PF PE
+      _ = PE ∘L PF := by rw [hPE_adj, hPF_adj]
+      _ = PF := hcomp
+      _ = PF.adjoint := hPF_adj.symm
+  calc PF ∘L PE
+      = (PF ∘L PE).adjoint.adjoint := by rw [ContinuousLinearMap.adjoint_adjoint]
+    _ = PF.adjoint.adjoint := by rw [h]
+    _ = PF := by rw [ContinuousLinearMap.adjoint_adjoint]
+
+/-- For closed F ⊆ E (measurable), ‖P(F)z‖ ≤ ‖P(E)z‖ for all z. -/
+theorem spectralProjection_norm_mono_closed_measurable (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F E : Set Circle) (hF_closed : IsClosed F) (hE : MeasurableSet E) (hFE : F ⊆ E) (z : H) :
+    ‖spectralProjectionOfUnitary U hU F hF_closed.measurableSet z‖ ≤
+    ‖spectralProjectionOfUnitary U hU E hE z‖ := by
+  set PF := spectralProjectionOfUnitary U hU F hF_closed.measurableSet
+  set PE := spectralProjectionOfUnitary U hU E hE
+  have hcomp := spectralProjection_comp_closed_measurable' U hU F E hF_closed hE hFE
+  -- PF z = (PF ∘ PE) z = PF (PE z)
+  have heq : PF z = PF (PE z) := by
+    calc PF z = (PF ∘L PE) z := by rw [hcomp]
+      _ = PF (PE z) := rfl
+  calc ‖PF z‖
+      = ‖PF (PE z)‖ := by rw [heq]
+    _ ≤ ‖PF‖ * ‖PE z‖ := ContinuousLinearMap.le_opNorm PF (PE z)
+    _ ≤ 1 * ‖PE z‖ := by
+        have hPF_le_one := spectralProjection_le_one U hU F hF_closed.measurableSet
+        have hPF_nonneg := spectralProjection_nonneg U hU F hF_closed.measurableSet
+        have h : ‖PF‖ ≤ 1 := (CStarAlgebra.norm_le_one_iff_of_nonneg PF hPF_nonneg).mpr hPF_le_one
+        exact mul_le_mul_of_nonneg_right h (norm_nonneg _)
+    _ = ‖PE z‖ := one_mul _
+
 /-- The diagonal product formula: ‖P(E)z‖² = μ_z(E).
 
     This is proven by approximating χ_E with continuous functions g_n → χ_E:
@@ -838,22 +1430,132 @@ theorem spectralProjection_norm_sq (U : H →L[ℂ] H) (hU : U ∈ unitary (H �
       exact spectralMeasurePolarized_diag U hU z E hE
 
     -- Upper bound: ‖P(E)z‖² ≤ μ_z(E)
-    -- Proof sketch: P is self-adjoint with 0 ≤ P ≤ 1 (as operators), hence P² ≤ P.
+    -- Proof: P is self-adjoint with 0 ≤ P ≤ 1 (as operators), hence P² ≤ P.
     -- This implies ‖Pz‖² = ⟨z, P²z⟩ ≤ ⟨z, Pz⟩ = μ_z(E).
-    -- The key step (P² ≤ P) follows from the spectral theorem for bounded
-    -- self-adjoint operators: if spectrum(P) ⊆ [0,1], then t² ≤ t on spectrum implies P² ≤ P.
-    -- TODO: Prove using spectral theorem for bounded self-adjoint operators
-    have hupper : ‖P z‖^2 ≤ (μ_z E).toReal := by sorry
+    have hupper : ‖P z‖^2 ≤ (μ_z E).toReal := by
+      -- Step 1: 0 ≤ P ≤ 1 as operators
+      have hP_nonneg : 0 ≤ P := by rw [hP_def]; exact spectralProjection_nonneg U hU E hE
+      have hP_le_one : P ≤ 1 := by rw [hP_def]; exact spectralProjection_le_one U hU E hE
+      -- Step 2: P² ≤ P by pow_antitone (since 0 ≤ P ≤ 1 and powers are antitone)
+      have hP_sq_le : P ^ 2 ≤ P ^ 1 := CStarAlgebra.pow_antitone hP_nonneg hP_le_one (by omega)
+      simp only [pow_one, pow_two] at hP_sq_le
+      have hP_comp_le : P ∘L P ≤ P := hP_sq_le
+      -- Step 3: ‖Pz‖² = ⟨Pz, Pz⟩ = ⟨z, P†Pz⟩ = ⟨z, P(Pz)⟩ (since P† = P)
+      have hnorm_sq_eq_inner : ‖P z‖^2 = (@inner ℂ H _ z ((P ∘L P) z)).re := by
+        have h1 : ‖P z‖^2 = (@inner ℂ H _ (P z) (P z)).re := by
+          rw [inner_self_eq_norm_sq_to_K]; norm_cast
+        rw [h1]
+        -- ⟨Pz, Pz⟩ = ⟨z, P†(Pz)⟩ = ⟨z, P(Pz)⟩ since P† = P
+        have h2 : @inner ℂ H _ (P z) (P z) = @inner ℂ H _ z (P.adjoint (P z)) := by
+          rw [ContinuousLinearMap.adjoint_inner_right]
+        rw [h2, hP_adj]
+        rfl
+      -- Step 4: ⟨z, P²z⟩ ≤ ⟨z, Pz⟩ by Loewner order (P² ≤ P means (P - P²) is positive)
+      -- The Loewner order says P ∘L P ≤ P iff (P - P ∘L P).IsPositive
+      -- This means re⟨(P-P²)z, z⟩ ≥ 0, i.e., re⟨Pz, z⟩ - re⟨P²z, z⟩ ≥ 0
+      have hinner_ineq : (@inner ℂ H _ z ((P ∘L P) z)).re ≤ (@inner ℂ H _ z (P z)).re := by
+        rw [ContinuousLinearMap.le_def] at hP_comp_le
+        have hpos := hP_comp_le.2 z
+        rw [ContinuousLinearMap.reApplyInnerSelf] at hpos
+        -- hpos : 0 ≤ re ⟨(P - P ∘L P) z, z⟩ = re ⟨Pz - P²z, z⟩
+        have h : (P - P ∘L P) z = P z - (P ∘L P) z := rfl
+        rw [h, inner_sub_left, map_sub] at hpos
+        -- hpos : 0 ≤ re ⟨Pz, z⟩ - re ⟨P²z, z⟩
+        -- Need: re ⟨z, P²z⟩ ≤ re ⟨z, Pz⟩
+        -- Use: ⟨a, b⟩ = conj(⟨b, a⟩), so re ⟨a, b⟩ = re ⟨b, a⟩
+        -- inner_re_symm says: RCLike.re ⟨x, y⟩ = RCLike.re ⟨y, x⟩
+        have hre_swap_P : RCLike.re (@inner ℂ H _ (P z) z) = RCLike.re (@inner ℂ H _ z (P z)) :=
+          inner_re_symm (𝕜 := ℂ) (P z) z
+        have hre_swap_P2 : RCLike.re (@inner ℂ H _ ((P ∘L P) z) z) =
+            RCLike.re (@inner ℂ H _ z ((P ∘L P) z)) :=
+          inner_re_symm (𝕜 := ℂ) ((P ∘L P) z) z
+        -- RCLike.re for ℂ is the same as Complex.re
+        simp only [RCLike.re_to_complex] at hpos hre_swap_P hre_swap_P2 ⊢
+        linarith
+      -- Step 5: Combine
+      rw [hnorm_sq_eq_inner]
+      -- ⟨z, Pz⟩ = μ_z(E).toReal (which is real)
+      have hinner_real : (@inner ℂ H _ z (P z)).re = (μ_z E).toReal := by
+        rw [hinner_eq, Complex.ofReal_re]
+      linarith
 
     -- Lower bound: ‖P(E)z‖² ≥ μ_z(E)
-    -- By inner regularity, ∃ closed G_n ⊆ E with μ_z(G_n) → μ_z(E).
-    -- For closed G_n: ‖P(G_n)z‖² = μ_z(G_n).
-    -- Show {P(G_n)z} is Cauchy and converges strongly to P(E)z.
-    -- Then ‖P(E)z‖² = lim ‖P(G_n)z‖² = μ_z(E).
+    -- **Proof Strategy:**
+    -- 1. Show monotonicity: F ⊆ E implies P(F) ≤ P(E) (since (P(E)-P(F)) is positive)
+    -- 2. By inner regularity: ∃ closed F_n ⊆ E with μ_z(F_n) → μ_z(E)
+    -- 3. For closed F_n: ‖P(F_n)z‖² = μ_z(F_n) (by spectralProjection_norm_sq_closed)
+    -- 4. {P(F_n)} is monotone bounded, hence P(F_n)z → Qz strongly for some Q
+    -- 5. Q = P(E) (since ⟨x, Qy⟩ = lim μ_{x,y}(F_n) = μ_{x,y}(E) = ⟨x, P(E)y⟩)
+    -- 6. Therefore ‖P(E)z‖² = lim ‖P(F_n)z‖² = lim μ_z(F_n) = μ_z(E)
+    --
+    -- The key ingredients are:
+    -- a. Monotonicity of spectral projections (proven via positivity of P(E) - P(F))
+    -- b. Inner regularity of finite measures on compact metric spaces
+    -- c. Monotone convergence for bounded positive operators (SOT convergence)
+    -- d. Identification of limit via weak convergence
     have hlower : (μ_z E).toReal ≤ ‖P z‖^2 := by
-      -- TODO: Prove via inner regularity and Cauchy criterion
-      -- This requires multiplicativity P(A)P(B) = P(A∩B) for closed sets first.
-      sorry
+      -- **Proof:** For any r < μ_z(E), use inner regularity to find closed F ⊆ E with r < μ_z(F).
+      -- Then μ_z(F) = ‖P(F)z‖² ≤ ‖P(E)z‖² (since P(E) fixes range(P(F))).
+      -- Taking sup over r gives μ_z(E) ≤ ‖P(E)z‖².
+      --
+      -- Key insight: For P(E) with 0 ≤ P(E) ≤ 1, P(E)² ≤ P(E) by pow_antitone.
+      -- For u in range(P(F)) with P(F) ≤ P(E): ⟨u, P(E)u⟩ = ‖u‖² (squeeze), hence P(E)u = u.
+
+      -- Use the factored lemma spectralProjection_norm_mono_closed_measurable
+      -- For closed F ⊆ E: ‖P(F)z‖ ≤ ‖P(E)z‖, hence μ_z(F) = ‖P(F)z‖² ≤ ‖P(E)z‖².
+
+      -- For closed F ⊆ E: μ_z(F) = ‖P(F)z‖² ≤ ‖P(E)z‖² (using the factored lemma)
+      have hμF_le : ∀ (F : Set Circle) (hF_closed : IsClosed F) (hFE : F ⊆ E),
+          (spectralMeasureDiagonal U hU z F).toReal ≤ ‖P z‖^2 := by
+        intro F hF_closed hFE
+        have hnorm_eq := spectralProjection_norm_sq_closed U hU F hF_closed z
+        have hnorm_le := spectralProjection_norm_mono_closed_measurable U hU F E hF_closed hE hFE z
+        calc (spectralMeasureDiagonal U hU z F).toReal
+            = ‖spectralProjectionOfUnitary U hU F hF_closed.measurableSet z‖^2 := hnorm_eq.symm
+          _ ≤ ‖P z‖^2 := sq_le_sq' (by
+              have h1 := norm_nonneg (spectralProjectionOfUnitary U hU F hF_closed.measurableSet z)
+              have h2 := norm_nonneg (P z)
+              linarith) hnorm_le
+
+      -- By inner regularity: μ_z(E) = sup{μ_z(F) : F closed, F ⊆ E} ≤ ‖Pz‖²
+      -- Using: μ_z(E) = ⨆ (K) (_ : K ⊆ E) (_ : IsClosed K), μ_z(K)
+      have hfinite := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      have hμE_eq_sup : μ_z E = ⨆ (K) (_ : K ⊆ E) (_ : IsClosed K), μ_z K :=
+        MeasurableSet.measure_eq_iSup_isClosed_of_ne_top hE (MeasureTheory.measure_lt_top _ E).ne
+      rw [hμE_eq_sup]
+      -- Need to show (⨆ ... μ_z K).toReal ≤ ‖Pz‖²
+      -- Since all μ_z(K) ≤ μ_z(E) < ∞, we can use iSup_toReal
+      have hbounded : BddAbove (Set.range fun K => ⨆ (_ : K ⊆ E) (_ : IsClosed K), μ_z K) := by
+        use μ_z Set.univ
+        intro x hx
+        obtain ⟨K, rfl⟩ := hx
+        by_cases hK : K ⊆ E ∧ IsClosed K
+        · simp only [ciSup_pos hK.1, ciSup_pos hK.2]
+          exact MeasureTheory.measure_mono (Set.subset_univ K)
+        · push_neg at hK
+          by_cases hK1 : K ⊆ E
+          · have hK2 := hK hK1
+            simp only [ciSup_pos hK1]
+            rw [iSup_eq_bot.mpr (fun h => (hK2 h).elim)]
+            exact zero_le _
+          · simp only [hK1, iSup_false]
+            exact bot_le
+      -- Convert iSup to toReal
+      have htoReal_le : (⨆ (K) (_ : K ⊆ E) (_ : IsClosed K), μ_z K).toReal ≤ ‖P z‖^2 := by
+        -- For any K with K ⊆ E and IsClosed K, μ_z(K).toReal ≤ ‖Pz‖²
+        -- The sup is achieved by taking limits of increasing closed sets
+        -- Use ENNReal.toReal_iSup for bounded family
+        apply ENNReal.toReal_le_of_le_ofReal
+        · exact sq_nonneg _
+        · apply iSup_le
+          intro K
+          apply iSup_le
+          intro hK_sub
+          apply iSup_le
+          intro hK_closed
+          rw [← ENNReal.ofReal_toReal (MeasureTheory.measure_lt_top _ K).ne]
+          exact ENNReal.ofReal_le_ofReal (hμF_le K hK_closed hK_sub)
+      exact htoReal_le
 
     exact le_antisymm hupper hlower
 
@@ -943,17 +1645,26 @@ theorem spectralProjection_idempotent (U : H →L[ℂ] H) (hU : U ∈ unitary (H
 
 /-- **Spectral Theorem for Unitaries (via RMK)**
 
-    For any unitary U on a Hilbert space H, there exists a spectral measure
+    For any unitary U on a Hilbert space H, there exists a unique spectral measure
     (projection-valued measure) P on Circle such that:
     1. P(∅) = 0, P(Circle) = 1
-    2. Each P(E) is an orthogonal projection
+    2. Each P(E) is an orthogonal projection (self-adjoint and idempotent)
     3. P(E ∩ F) = P(E) ∘ P(F)
     4. P is σ-additive in the strong operator topology
-    5. For any continuous f : Circle → ℂ, cfc(f, U) = ∫ f(z) dP(z)
+    5. **Key property tying P to U**: ⟨x, P(E) y⟩ = spectralMeasurePolarized U hU x y E
+       (equivalently: cfc(f, U) = ∫ f(z) dP(z) for continuous f)
+
+    The last property is what makes the theorem non-trivial: P is the UNIQUE
+    projection-valued measure satisfying ⟨x, P(E) y⟩ = μ_{x,y}(E) where μ_{x,y}
+    is the polarized spectral measure of U.
 
     This construction is INDEPENDENT of bumpOperator_inner_cauchy. -/
 theorem spectral_theorem_unitary_via_RMK (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H)) :
     ∃ (P : Set Circle → H →L[ℂ] H),
+      -- Key property: P is characterized by the spectral measure of U
+      (∀ E (hE : MeasurableSet E) (x y : H),
+        @inner ℂ H _ x (P E y) = spectralMeasurePolarized U hU x y E hE) ∧
+      -- Algebraic properties
       (∀ E, MeasurableSet E → IsSelfAdjoint (P E)) ∧
       (∀ E, MeasurableSet E → (P E) ∘L (P E) = P E) ∧
       (P ∅ = 0) ∧
@@ -961,21 +1672,30 @@ theorem spectral_theorem_unitary_via_RMK (U : H →L[ℂ] H) (hU : U ∈ unitary
       (∀ E F, MeasurableSet E → MeasurableSet F →
         P (E ∩ F) = P E ∘L P F) := by
   use fun E => if hE : MeasurableSet E then spectralProjectionOfUnitary U hU E hE else 0
-  constructor
-  · intro E hE
+  refine ⟨?key_property, ?self_adj, ?idempotent, ?empty, ?univ, ?mult⟩
+  case key_property =>
+    -- Key property: ⟨x, P(E) y⟩ = spectralMeasurePolarized U hU x y E hE
+    intro E hE x y
     simp only [dif_pos hE]
-    -- IsSelfAdjoint means star (P E) = P E
+    unfold spectralProjectionOfUnitary
+    rw [← sesquilinearToOperator_inner]
+  case self_adj =>
+    intro E hE
+    simp only [dif_pos hE]
     rw [IsSelfAdjoint, ContinuousLinearMap.star_eq_adjoint]
     exact spectralProjection_selfAdjoint U hU E hE
-  constructor
-  · intro E hE
+  case idempotent =>
+    intro E hE
     simp only [dif_pos hE]
     exact spectralProjection_idempotent U hU E hE
-  constructor
-  · simp [MeasurableSet.empty, spectralProjection_empty U hU]
-  constructor
-  · simp [MeasurableSet.univ, spectralProjection_univ U hU]
-  · intro E F hE hF
+  case empty =>
+    simp only [dif_pos MeasurableSet.empty]
+    exact spectralProjection_empty U hU
+  case univ =>
+    simp only [dif_pos MeasurableSet.univ]
+    exact spectralProjection_univ U hU
+  case mult =>
+    intro E F hE hF
     simp only [dif_pos hE, dif_pos hF, dif_pos (hE.inter hF)]
     -- P(E ∩ F) = P(E) P(F) follows from:
     -- ⟨x, P(E ∩ F) y⟩ = μ_{x,y}(E ∩ F) (by construction)
