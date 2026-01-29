@@ -821,10 +821,41 @@ theorem spectralProjection_norm_sq (U : H →L[ℂ] H) (hU : U ∈ unitary (H �
   by_cases hE_closed : IsClosed E
   · -- E is closed: use the direct proof
     exact spectralProjection_norm_sq_closed U hU E hE_closed z
-  · -- E is not closed: use inner regularity (TODO: complete proof)
-    -- The approach: approximate E from inside by closed sets using weak regularity
-    -- of the spectral measure (finite measure on pseudometric space Circle).
-    sorry
+  · -- E is not closed: use inner regularity to show ‖P(E)z‖² = μ_z(E)
+    -- by proving both upper and lower bounds.
+    --
+    -- Upper bound: Uses 0 ≤ P(E) ≤ 1 (as operators) implies P² ≤ P.
+    -- Lower bound: Uses inner regularity to approximate E by closed sets from inside.
+    set μ_z := spectralMeasureDiagonal U hU z with hμ_z_def
+    set P := spectralProjectionOfUnitary U hU E hE with hP_def
+    have hP_adj : P.adjoint = P := spectralProjection_selfAdjoint U hU E hE
+
+    -- ⟨z, Pz⟩ = μ_z(E) by definition (via sesquilinear form characterization)
+    have hinner_eq : @inner ℂ H _ z (P z) = (μ_z E).toReal := by
+      rw [hP_def]
+      unfold spectralProjectionOfUnitary
+      rw [← sesquilinearToOperator_inner]
+      exact spectralMeasurePolarized_diag U hU z E hE
+
+    -- Upper bound: ‖P(E)z‖² ≤ μ_z(E)
+    -- Proof sketch: P is self-adjoint with 0 ≤ P ≤ 1 (as operators), hence P² ≤ P.
+    -- This implies ‖Pz‖² = ⟨z, P²z⟩ ≤ ⟨z, Pz⟩ = μ_z(E).
+    -- The key step (P² ≤ P) follows from the spectral theorem for bounded
+    -- self-adjoint operators: if spectrum(P) ⊆ [0,1], then t² ≤ t on spectrum implies P² ≤ P.
+    -- TODO: Prove using spectral theorem for bounded self-adjoint operators
+    have hupper : ‖P z‖^2 ≤ (μ_z E).toReal := by sorry
+
+    -- Lower bound: ‖P(E)z‖² ≥ μ_z(E)
+    -- By inner regularity, ∃ closed G_n ⊆ E with μ_z(G_n) → μ_z(E).
+    -- For closed G_n: ‖P(G_n)z‖² = μ_z(G_n).
+    -- Show {P(G_n)z} is Cauchy and converges strongly to P(E)z.
+    -- Then ‖P(E)z‖² = lim ‖P(G_n)z‖² = μ_z(E).
+    have hlower : (μ_z E).toReal ≤ ‖P z‖^2 := by
+      -- TODO: Prove via inner regularity and Cauchy criterion
+      -- This requires multiplicativity P(A)P(B) = P(A∩B) for closed sets first.
+      sorry
+
+    exact le_antisymm hupper hlower
 
 /-- The product formula for spectral projections in polarized form:
     B(Px, Py, Circle) = B(x, y, E) where B = spectralMeasurePolarized.
