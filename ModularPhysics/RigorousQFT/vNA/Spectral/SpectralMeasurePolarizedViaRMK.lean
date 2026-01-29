@@ -563,6 +563,65 @@ theorem spectralMeasurePolarized_integral (U : H →L[ℂ] H) (hU : U ∈ unitar
   simp only [PositiveLinearMap.mk₀]
   exact hpol
 
+/-- The diagonal case of spectralMeasurePolarized: B(z, z, E) = μ_z(E).toReal.
+
+    This follows from the quadratic scaling property:
+    - μ_{2z}(E) = 4 μ_z(E)
+    - μ_0(E) = 0
+    - μ_{(1+i)z}(E) = 2 μ_z(E)
+    - μ_{(1-i)z}(E) = 2 μ_z(E)
+
+    So B(z, z, E) = (1/4)[4μ_z - 0 - 2iμ_z + 2iμ_z] = μ_z(E) -/
+theorem spectralMeasurePolarized_diag (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (z : H) (E : Set Circle) (hE : MeasurableSet E) :
+    spectralMeasurePolarized U hU z z E hE = (spectralMeasureDiagonal U hU z E).toReal := by
+  unfold spectralMeasurePolarized
+  -- Simplify the combinations z + z, z - z, z + I•z, z - I•z
+  have h_sum : z + z = (2 : ℂ) • z := by simp [two_smul]
+  have h_diff : z - z = 0 := sub_self z
+  have h_isum : z + Complex.I • z = (1 + Complex.I) • z := by
+    rw [add_smul, one_smul]
+  have h_idiff : z - Complex.I • z = (1 - Complex.I) • z := by
+    rw [sub_smul, one_smul]
+  -- Apply quadratic scaling μ_{cz}(E) = |c|² μ_z(E)
+  have h_2z : (spectralMeasureDiagonal U hU ((2 : ℂ) • z) E).toReal =
+      ‖(2 : ℂ)‖^2 * (spectralMeasureDiagonal U hU z E).toReal :=
+    spectralMeasureDiagonal_smul_sq U hU 2 z E hE
+  have h_0 : (spectralMeasureDiagonal U hU 0 E).toReal = 0 := by
+    have h := spectralMeasureDiagonal_smul_sq U hU 0 z E hE
+    simp only [zero_smul, norm_zero, sq, zero_mul] at h
+    exact h
+  have h_1pi : (spectralMeasureDiagonal U hU ((1 + Complex.I) • z) E).toReal =
+      ‖(1 + Complex.I : ℂ)‖^2 * (spectralMeasureDiagonal U hU z E).toReal :=
+    spectralMeasureDiagonal_smul_sq U hU (1 + Complex.I) z E hE
+  have h_1mi : (spectralMeasureDiagonal U hU ((1 - Complex.I) • z) E).toReal =
+      ‖(1 - Complex.I : ℂ)‖^2 * (spectralMeasureDiagonal U hU z E).toReal :=
+    spectralMeasureDiagonal_smul_sq U hU (1 - Complex.I) z E hE
+  -- Compute the norms: ‖c‖² = |c|² = c.normSq
+  have hn_2 : ‖(2 : ℂ)‖^2 = 4 := by norm_num
+  have hn_1pi : ‖(1 + Complex.I : ℂ)‖^2 = 2 := by
+    rw [← Complex.normSq_eq_norm_sq]
+    -- 1 + I = 1 + 1*I, so normSq = 1² + 1² = 2
+    have h : (1 : ℂ) + Complex.I = (1 : ℝ) + (1 : ℝ) * Complex.I := by simp
+    rw [h, Complex.normSq_add_mul_I]; norm_num
+  have hn_1mi : ‖(1 - Complex.I : ℂ)‖^2 = 2 := by
+    rw [← Complex.normSq_eq_norm_sq]
+    -- 1 - I = 1 + (-1)*I, so normSq = 1² + (-1)² = 2
+    have h : (1 : ℂ) - Complex.I = (1 : ℝ) + (-1 : ℝ) * Complex.I := by
+      simp only [Complex.ofReal_one, Complex.ofReal_neg, neg_mul, one_mul]
+      ring
+    rw [h, Complex.normSq_add_mul_I]; norm_num
+  -- Substitute
+  rw [h_sum, h_diff, h_isum, h_idiff]
+  rw [h_2z, h_0, h_1pi, h_1mi, hn_2, hn_1pi, hn_1mi]
+  -- Simplify: (1/4) * (4μ - 0 - i*2μ + i*2μ) = μ
+  set μ := (spectralMeasureDiagonal U hU z E).toReal with hμ_def
+  simp only [Complex.ofReal_mul, Complex.ofReal_zero, sub_zero]
+  -- Goal: (1/4) * (4*μ - I*2*μ + I*2*μ) = μ
+  -- The I terms cancel: -I*2*μ + I*2*μ = 0
+  push_cast
+  ring
+
 /-! ### Construction of Spectral Projections
 
 For a Borel set E ⊆ Circle, the map (x, y) ↦ μ_{x,y}(E) is a bounded
