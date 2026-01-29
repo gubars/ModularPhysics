@@ -322,6 +322,89 @@ theorem cfcOfCircleReal_norm_sq_measure' (U : H →L[ℂ] H) (hU : U ∈ unitary
   simp only [toCc_toContinuousMap, toCc_apply] at h
   exact h
 
+/-- cfcOfCircleReal respects subtraction: cfc(g - h) = cfc(g) - cfc(h). -/
+theorem cfcOfCircleReal_sub (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (g h : C(Circle, ℝ)) :
+    cfcOfCircleReal U hU (g - h) = cfcOfCircleReal U hU g - cfcOfCircleReal U hU h := by
+  haveI : IsStarNormal U := unitary_isStarNormal U hU
+  unfold cfcOfCircleReal
+  -- Show circleRealToComplex (g - h) = circleRealToComplex g - circleRealToComplex h
+  have hsub : circleRealToComplex (g - h) =
+      fun z => circleRealToComplex g z - circleRealToComplex h z := by
+    funext x
+    simp only [circleRealToComplex, ContinuousMap.sub_apply]
+    split_ifs with hx
+    · simp only [Complex.ofReal_sub]
+    · simp only [sub_zero]
+  rw [hsub]
+  -- Apply cfc_sub
+  have hcont_g := circleRealToComplex_continuousOn_spectrum g U hU
+  have hcont_h := circleRealToComplex_continuousOn_spectrum h U hU
+  rw [cfc_sub (circleRealToComplex g) (circleRealToComplex h) U hcont_g hcont_h]
+
+/-- The spectral functional converges for thickened indicators approaching a closed set.
+    Λ_w(g_n) → μ_w(F).toReal where g_n = thickenedIndicatorReal(δ_n, F). -/
+theorem spectralFunctionalAux_tendsto_closed (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (F : Set Circle) (hF_closed : IsClosed F) (w : H)
+    {δseq : ℕ → ℝ} (hδ_pos : ∀ n, 0 < δseq n) (hδ_lim : Tendsto δseq atTop (𝓝 0)) :
+    Tendsto (fun n => spectralFunctionalAux U hU w (thickenedIndicatorReal (hδ_pos n) F))
+      atTop (𝓝 (spectralMeasureDiagonal U hU w F).toReal) := by
+  let g : ℕ → C(Circle, ℝ) := fun n => thickenedIndicatorReal (hδ_pos n) F
+  let μ_w := spectralMeasureDiagonal U hU w
+  -- g_n → χ_F pointwise (closure F = F since F is closed)
+  have hg_tendsto : Tendsto (fun n => (g n : Circle → ℝ)) atTop
+      (𝓝 (Set.indicator F (fun _ => (1 : ℝ)))) := by
+    have h := thickenedIndicatorReal_tendsto_indicator_closure hδ_pos hδ_lim (F := F)
+    rwa [hF_closed.closure_eq] at h
+  have hg_le_one : ∀ n x, g n x ≤ 1 := fun n x =>
+    thickenedIndicatorReal_le_one (hδ_pos n) F x
+  have hg_nonneg : ∀ n x, 0 ≤ g n x := fun n x =>
+    thickenedIndicatorReal_nonneg (hδ_pos n) F x
+  -- spectralFunctionalAux w (g n) = ∫ g_n dμ_w
+  have hfunc_eq : ∀ n, spectralFunctionalAux U hU w (g n) =
+      ∫ x, g n x ∂μ_w := by
+    intro n
+    -- spectralFunctionalAux w f = Re⟨w, cfc(f, U) w⟩
+    -- For real-valued f on compact space, this equals ∫ f dμ_w
+    unfold spectralFunctionalAux
+    -- By spectralMeasureDiagonal_integral: ∫ f dμ_w = (spectralFunctionalCc w) f
+    -- And spectralFunctionalCc w f = Re⟨w, cfc(f, U) w⟩
+    have h := spectralMeasureDiagonal_integral U hU w (toCc (g n))
+    simp only [toCc_apply] at h
+    -- h : ∫ (g n) dμ_w = (spectralFunctionalCc w) (toCc (g n))
+    -- Need to relate spectralFunctionalCc to spectralFunctionalAux
+    have hdef : (spectralFunctionalCc U hU w) (toCc (g n)) =
+        spectralFunctionalAux U hU w (g n) := rfl
+    rw [hdef] at h
+    exact h.symm
+  -- Apply dominated convergence
+  have hint_eq : (μ_w F).toReal = ∫ x, Set.indicator F (fun _ => (1 : ℝ)) x ∂μ_w := by
+    have h := integral_indicator_one (μ := μ_w) hF_closed.measurableSet
+    exact h.symm
+  rw [hint_eq]
+  -- Convert to integral convergence
+  have hconv : Tendsto (fun n => ∫ x, g n x ∂μ_w) atTop
+      (𝓝 (∫ x, Set.indicator F (fun _ => (1 : ℝ)) x ∂μ_w)) := by
+    apply tendsto_integral_of_dominated_convergence (fun _ => (1 : ℝ))
+    · intro n
+      exact (g n).continuous.aestronglyMeasurable
+    · have hfinite : IsFiniteMeasure μ_w := spectralMeasureDiagonal_isFiniteMeasure U hU w
+      exact integrable_const (1 : ℝ)
+    · intro n
+      apply Filter.Eventually.of_forall
+      intro x
+      rw [Real.norm_of_nonneg (hg_nonneg n x)]
+      exact hg_le_one n x
+    · apply Filter.Eventually.of_forall
+      intro x
+      have hpt : Tendsto (fun n => g n x) atTop (𝓝 (Set.indicator F (fun _ => 1) x)) := by
+        rw [tendsto_pi_nhds] at hg_tendsto
+        exact hg_tendsto x
+      exact hpt
+  convert hconv using 1
+  funext n
+  exact hfunc_eq n
+
 /-- The diagonal product formula for CLOSED sets: ‖P(F)z‖² = μ_z(F).
 
     This is proven by approximating χ_F with continuous functions using thickenedIndicator:
@@ -356,19 +439,354 @@ theorem spectralProjection_norm_sq_closed (U : H →L[ℂ] H) (hU : U ∈ unitar
   have hT_norm_sq : ∀ n, ‖T n z‖^2 = ∫ x, (g n x)^2 ∂(spectralMeasureDiagonal U hU z) :=
     fun n => cfcOfCircleReal_norm_sq_measure' U hU (g n) z
   -- **Step 4: g_n² → χ_F pointwise (since g_n ∈ [0,1] and χ_F² = χ_F)**
+  let μ_z := spectralMeasureDiagonal U hU z
+  have hg_sq_tendsto : ∀ x, Tendsto (fun n => (g n x)^2) atTop
+      (𝓝 (Set.indicator F (fun _ => (1 : ℝ)) x)) := by
+    intro x
+    have hpt : Tendsto (fun n => g n x) atTop (𝓝 (Set.indicator F (fun _ => 1) x)) := by
+      rw [tendsto_pi_nhds] at hg_tendsto
+      exact hg_tendsto x
+    -- g_n x → χ_F(x) which is 0 or 1, and t^2 is continuous, so (g_n x)² → χ_F(x)² = χ_F(x)
+    have hsq : Set.indicator F (fun _ : Circle => (1 : ℝ)) x ^ 2 =
+               Set.indicator F (fun _ => (1 : ℝ)) x := by
+      by_cases hx : x ∈ F
+      · simp only [hx, Set.indicator_of_mem, one_pow]
+      · simp only [hx, Set.indicator_of_notMem, not_false_eq_true, sq, mul_zero]
+    rw [← hsq]
+    exact Tendsto.pow hpt 2
   -- **Step 5: By dominated convergence, ∫ g_n² dμ_z → μ_z(F)**
+  have hintegral_tendsto : Tendsto (fun n => ∫ x, (g n x)^2 ∂μ_z) atTop
+      (𝓝 (μ_z F).toReal) := by
+    -- First, relate μ_z(F).toReal to ∫ χ_F dμ_z
+    have hint_eq : (μ_z F).toReal = ∫ x, Set.indicator F (fun _ => (1 : ℝ)) x ∂μ_z := by
+      have h := integral_indicator_one (μ := μ_z) hF_closed.measurableSet
+      -- h : ∫ x, F.indicator 1 x ∂μ_z = μ_z.real F
+      -- F.indicator 1 = F.indicator (fun _ => 1) definitionally
+      exact h.symm
+    rw [hint_eq]
+    -- Apply dominated convergence
+    apply tendsto_integral_of_dominated_convergence (fun _ => (1 : ℝ))
+    -- F_measurable: g_n² is measurable (continuous)
+    · intro n
+      exact ((g n).continuous.pow 2).aestronglyMeasurable
+    -- bound_integrable: constant 1 is integrable (μ_z is finite)
+    · have hfinite : IsFiniteMeasure μ_z := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      exact integrable_const (1 : ℝ)
+    -- h_bound: ‖(g_n x)²‖ ≤ 1
+    · intro n
+      apply Filter.Eventually.of_forall
+      intro x
+      rw [Real.norm_of_nonneg (sq_nonneg _)]
+      calc (g n x)^2 ≤ 1^2 := sq_le_sq' (by linarith [hg_nonneg n x]) (hg_le_one n x)
+           _ = 1 := one_pow 2
+    -- h_lim: (g_n x)² → χ_F(x) pointwise a.e.
+    · apply Filter.Eventually.of_forall
+      exact hg_sq_tendsto
   -- **Step 6: {T_n z} is Cauchy**
-  -- **Step 7: Let L = lim T_n z, show L = P(F)z**
+  -- Using cfcOfCircleReal_sub: T_n - T_m = cfcOfCircleReal(g_n - g_m)
+  -- ‖T_n z - T_m z‖² = ‖cfcOfCircleReal(g_n - g_m) z‖² = ∫ (g_n - g_m)² dμ_z
+  have hT_diff_norm_sq : ∀ n m, ‖T n z - T m z‖^2 =
+      ∫ x, (g n x - g m x)^2 ∂μ_z := by
+    intro n m
+    have hdiff : T n z - T m z = cfcOfCircleReal U hU (g n - g m) z := by
+      have hsub := cfcOfCircleReal_sub U hU (g n) (g m)
+      -- T n z - T m z = cfcOfCircleReal(g n) z - cfcOfCircleReal(g m) z
+      --               = (cfcOfCircleReal(g n) - cfcOfCircleReal(g m)) z
+      --               = cfcOfCircleReal(g n - g m) z
+      calc T n z - T m z
+          = cfcOfCircleReal U hU (g n) z - cfcOfCircleReal U hU (g m) z := rfl
+        _ = (cfcOfCircleReal U hU (g n) - cfcOfCircleReal U hU (g m)) z :=
+            (ContinuousLinearMap.sub_apply _ _ _).symm
+        _ = cfcOfCircleReal U hU (g n - g m) z := by rw [hsub]
+    rw [hdiff]
+    have h := cfcOfCircleReal_norm_sq_measure' U hU (g n - g m) z
+    simp only [ContinuousMap.sub_apply] at h
+    exact h
+  -- Show (g_n - χ_F)² → 0 pointwise as n → ∞
+  -- This follows from g_n → χ_F pointwise
+  have hg_diff_tendsto_zero : ∀ x, Tendsto (fun n => (g n x - Set.indicator F (fun _ => (1 : ℝ)) x)^2)
+      atTop (𝓝 0) := by
+    intro x
+    have hpt : Tendsto (fun n => g n x) atTop (𝓝 (Set.indicator F (fun _ => 1) x)) := by
+      rw [tendsto_pi_nhds] at hg_tendsto
+      exact hg_tendsto x
+    have hdiff : Tendsto (fun n => g n x - Set.indicator F (fun _ => 1) x) atTop (𝓝 0) := by
+      convert Tendsto.sub hpt tendsto_const_nhds using 1
+      simp
+    have hsq : Tendsto (fun n => (g n x - Set.indicator F (fun _ => 1) x)^2) atTop (𝓝 (0^2)) :=
+      Tendsto.pow hdiff 2
+    simp only [ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow] at hsq
+    exact hsq
+  -- The integral ∫ (g_n - χ_F)² dμ_z → 0 by dominated convergence
+  have hintegral_diff_tendsto_zero : Tendsto (fun n => ∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z)
+      atTop (𝓝 0) := by
+    have hint_zero : (0 : ℝ) = ∫ x, (0 : ℝ) ∂μ_z := by simp
+    rw [hint_zero]
+    apply tendsto_integral_of_dominated_convergence (fun _ => (4 : ℝ))
+    · intro n
+      -- The function is measurable (g_n is continuous, indicator is measurable)
+      apply Measurable.aestronglyMeasurable
+      exact ((g n).continuous.measurable.sub (measurable_const.indicator hF_closed.measurableSet)).pow_const 2
+    · have hfinite : IsFiniteMeasure μ_z := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      exact integrable_const (4 : ℝ)
+    · intro n
+      apply Filter.Eventually.of_forall
+      intro x
+      rw [Real.norm_of_nonneg (sq_nonneg _)]
+      -- |g_n x - χ_F(x)|² ≤ 4 since both are in [0,1]
+      have h1 : |g n x - Set.indicator F (fun _ => 1) x| ≤ 2 := by
+        have hg_bound : g n x ∈ Set.Icc 0 1 := ⟨hg_nonneg n x, hg_le_one n x⟩
+        have hind_bound : Set.indicator F (fun _ : Circle => (1 : ℝ)) x ∈ Set.Icc 0 1 := by
+          by_cases hx : x ∈ F
+          · simp [hx]
+          · simp [hx]
+        calc |g n x - Set.indicator F (fun _ => 1) x|
+            ≤ |g n x| + |Set.indicator F (fun _ => 1) x| := by
+              have := abs_sub_le (g n x) 0 (Set.indicator F (fun _ => 1) x)
+              simp only [sub_zero, zero_sub, abs_neg] at this
+              exact this
+          _ ≤ 1 + 1 := by
+              apply add_le_add
+              · rw [abs_of_nonneg hg_bound.1]; exact hg_bound.2
+              · rw [abs_of_nonneg hind_bound.1]; exact hind_bound.2
+          _ = 2 := by ring
+      calc (g n x - Set.indicator F (fun _ => 1) x)^2
+          = |g n x - Set.indicator F (fun _ => 1) x|^2 := by rw [sq_abs]
+        _ ≤ 2^2 := sq_le_sq' (by linarith [abs_nonneg (g n x - Set.indicator F (fun _ => 1) x)]) h1
+        _ = 4 := by norm_num
+    · apply Filter.Eventually.of_forall
+      exact hg_diff_tendsto_zero
+  -- Now use the fact that Cauchy sequences converge in complete spaces
+  -- {T_n z} is Cauchy because ‖T_n z - T_m z‖² = ∫ (g_n - g_m)² dμ_z → 0
+  -- We'll show this in a more direct way using the limit.
+  --
+  -- **Step 7: Show T_n z → P(F)z weakly, then strongly**
+  -- For the weak convergence, we need ⟨x, T_n z⟩ → ⟨x, P(F)z⟩ for all x.
+  -- This follows from the spectral functional polarization and dominated convergence
+  -- on the polarized measure.
+  --
   -- **Step 8: Conclude ‖P(F)z‖² = lim ‖T_n z‖² = μ_z(F)**
-  --
-  -- The remaining steps require careful measure-theoretic arguments using:
-  -- - Dominated convergence theorem: g_n² → χ_F pointwise, |g_n²| ≤ 1, μ_z finite
-  -- - Cauchy criterion: ‖T_n z - T_m z‖² = ∫ (g_n - g_m)² dμ_z → 0
-  -- - Limit identification: ⟨x, L⟩ = lim ⟨x, T_n z⟩ = μ_{x,z}(F) = ⟨x, P(F)z⟩
-  --
-  -- This requires extending the dominated convergence infrastructure to work with
-  -- the spectral measure and the functional calculus.
-  sorry
+  -- We have ‖T_n z‖² → μ_z(F).toReal (from hintegral_tendsto via hT_norm_sq)
+  have hnorm_sq_tendsto : Tendsto (fun n => ‖T n z‖^2) atTop (𝓝 (μ_z F).toReal) := by
+    convert hintegral_tendsto using 1
+    funext n
+    exact hT_norm_sq n
+  -- **Step 7: Show T_n z → P(F)z weakly**
+  -- Using spectralFunctionalAux_polarization and spectralFunctionalAux_tendsto_closed
+  set P := spectralProjectionOfUnitary U hU F hF_closed.measurableSet with hP_def
+  -- Show ⟨x, T_n z⟩ → ⟨x, P z⟩ for all x
+  have hweak_conv : ∀ x, Tendsto (fun n => @inner ℂ H _ x (T n z)) atTop
+      (𝓝 (@inner ℂ H _ x (P z))) := by
+    intro x
+    -- By spectralFunctionalAux_polarization:
+    -- ⟨x, T_n z⟩ = ⟨x, cfc(g_n, U) z⟩
+    --            = (1/4)[Λ_{x+z}(g_n) - Λ_{x-z}(g_n) - i·Λ_{x+iz}(g_n) + i·Λ_{x-iz}(g_n)]
+    have hinner_eq : ∀ n, @inner ℂ H _ x (T n z) =
+        (1/4 : ℂ) * (spectralFunctionalAux U hU (x + z) (g n) -
+                     spectralFunctionalAux U hU (x - z) (g n) -
+                     Complex.I * spectralFunctionalAux U hU (x + Complex.I • z) (g n) +
+                     Complex.I * spectralFunctionalAux U hU (x - Complex.I • z) (g n)) := by
+      intro n
+      exact (spectralFunctionalAux_polarization U hU (g n) x z).symm
+    -- Each Λ_w(g_n) → μ_w(F).toReal by spectralFunctionalAux_tendsto_closed
+    have hΛ1 := spectralFunctionalAux_tendsto_closed U hU F hF_closed (x + z) hδ_pos hδ_lim
+    have hΛ2 := spectralFunctionalAux_tendsto_closed U hU F hF_closed (x - z) hδ_pos hδ_lim
+    have hΛ3 := spectralFunctionalAux_tendsto_closed U hU F hF_closed (x + Complex.I • z) hδ_pos hδ_lim
+    have hΛ4 := spectralFunctionalAux_tendsto_closed U hU F hF_closed (x - Complex.I • z) hδ_pos hδ_lim
+    -- Convert real limits to complex
+    have hΛ1' : Tendsto (fun n => (spectralFunctionalAux U hU (x + z) (g n) : ℂ)) atTop
+        (𝓝 ((spectralMeasureDiagonal U hU (x + z) F).toReal : ℂ)) :=
+      Complex.continuous_ofReal.continuousAt.tendsto.comp hΛ1
+    have hΛ2' : Tendsto (fun n => (spectralFunctionalAux U hU (x - z) (g n) : ℂ)) atTop
+        (𝓝 ((spectralMeasureDiagonal U hU (x - z) F).toReal : ℂ)) :=
+      Complex.continuous_ofReal.continuousAt.tendsto.comp hΛ2
+    have hΛ3' : Tendsto (fun n => (spectralFunctionalAux U hU (x + Complex.I • z) (g n) : ℂ)) atTop
+        (𝓝 ((spectralMeasureDiagonal U hU (x + Complex.I • z) F).toReal : ℂ)) :=
+      Complex.continuous_ofReal.continuousAt.tendsto.comp hΛ3
+    have hΛ4' : Tendsto (fun n => (spectralFunctionalAux U hU (x - Complex.I • z) (g n) : ℂ)) atTop
+        (𝓝 ((spectralMeasureDiagonal U hU (x - Complex.I • z) F).toReal : ℂ)) :=
+      Complex.continuous_ofReal.continuousAt.tendsto.comp hΛ4
+    -- Combine using arithmetic of limits
+    have hcomb : Tendsto (fun n =>
+        (1/4 : ℂ) * (spectralFunctionalAux U hU (x + z) (g n) -
+                     spectralFunctionalAux U hU (x - z) (g n) -
+                     Complex.I * spectralFunctionalAux U hU (x + Complex.I • z) (g n) +
+                     Complex.I * spectralFunctionalAux U hU (x - Complex.I • z) (g n)))
+        atTop (𝓝 ((1/4 : ℂ) * (
+          (spectralMeasureDiagonal U hU (x + z) F).toReal -
+          (spectralMeasureDiagonal U hU (x - z) F).toReal -
+          Complex.I * (spectralMeasureDiagonal U hU (x + Complex.I • z) F).toReal +
+          Complex.I * (spectralMeasureDiagonal U hU (x - Complex.I • z) F).toReal))) := by
+      apply Tendsto.const_mul
+      apply Tendsto.add
+      · apply Tendsto.sub
+        · apply Tendsto.sub hΛ1' hΛ2'
+        · exact Tendsto.const_mul Complex.I hΛ3'
+      · exact Tendsto.const_mul Complex.I hΛ4'
+    -- The limit equals spectralMeasurePolarized x z F = ⟨x, P z⟩
+    have hlim_eq : (1/4 : ℂ) * (
+          (spectralMeasureDiagonal U hU (x + z) F).toReal -
+          (spectralMeasureDiagonal U hU (x - z) F).toReal -
+          Complex.I * (spectralMeasureDiagonal U hU (x + Complex.I • z) F).toReal +
+          Complex.I * (spectralMeasureDiagonal U hU (x - Complex.I • z) F).toReal) =
+        spectralMeasurePolarized U hU x z F hF_closed.measurableSet := by
+      unfold spectralMeasurePolarized
+      ring
+    have hPinner : @inner ℂ H _ x (P z) =
+        spectralMeasurePolarized U hU x z F hF_closed.measurableSet := by
+      rw [hP_def]
+      unfold spectralProjectionOfUnitary
+      rw [← sesquilinearToOperator_inner]
+    -- Combine everything
+    simp only [hinner_eq]; rw [hPinner, ← hlim_eq]; exact hcomb
+  -- **Step 8: Show {T_n z} is Cauchy**
+  -- From hT_diff_norm_sq and the Cauchy criterion
+  have hCauchy : CauchySeq (fun n => T n z) := by
+    rw [Metric.cauchySeq_iff]
+    intro ε hε
+    -- Need N such that n, m ≥ N implies ‖T_n z - T_m z‖ < ε
+    -- ‖T_n z - T_m z‖² = ∫ (g_n - g_m)² dμ_z
+    -- Since ∫ (g_n - χ_F)² dμ_z → 0, for large n, m, this is small
+    have hε_sq : 0 < ε^2 / 4 := by positivity
+    -- Use hintegral_diff_tendsto_zero to get N₁ with ∫ (g_n - χ_F)² < ε²/4
+    have hdiff_atTop := Metric.tendsto_atTop.mp hintegral_diff_tendsto_zero
+    obtain ⟨N, hN⟩ := hdiff_atTop (ε^2 / 4) hε_sq
+    use N
+    intro n hn m hm
+    -- ‖T_n z - T_m z‖² ≤ 2 * (∫(g_n - χ_F)² + ∫(g_m - χ_F)²) by triangle inequality
+    -- Each term < ε²/2, so sum < ε², hence ‖...‖ < ε
+    have hdist_sq : dist (T n z) (T m z)^2 = ‖T n z - T m z‖^2 := by
+      rw [dist_eq_norm]
+    -- Use the bound: (a - b)² ≤ 2(a - c)² + 2(b - c)²
+    -- So ∫(g_n - g_m)² ≤ 2∫(g_n - χ_F)² + 2∫(g_m - χ_F)²
+    have hbound : ∫ x, (g n x - g m x)^2 ∂μ_z ≤
+        2 * ∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z +
+        2 * ∫ x, (g m x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z := by
+      have hfinite : IsFiniteMeasure μ_z := spectralMeasureDiagonal_isFiniteMeasure U hU z
+      -- First show pointwise bound
+      have hpw : ∀ x, (g n x - g m x)^2 ≤
+          2 * (g n x - Set.indicator F (fun _ => 1) x)^2 +
+          2 * (g m x - Set.indicator F (fun _ => 1) x)^2 := by
+        intro x
+        set a := g n x; set b := g m x; set c := Set.indicator F (fun _ => (1:ℝ)) x
+        have hsub : a - b = (a - c) - (b - c) := by ring
+        rw [hsub]
+        have hineq : ∀ u v : ℝ, (u - v)^2 ≤ 2 * u^2 + 2 * v^2 := by
+          intro u v
+          have h : 0 ≤ (u + v)^2 := sq_nonneg _
+          nlinarith [sq_nonneg u, sq_nonneg v, sq_nonneg (u - v), sq_nonneg (u + v)]
+        exact hineq (a - c) (b - c)
+      -- Integrability for the bound function
+      have hint_n : Integrable (fun x => (g n x - Set.indicator F (fun _ => 1) x)^2) μ_z := by
+        apply Integrable.of_mem_Icc 0 4
+        · exact ((g n).continuous.measurable.sub
+            (measurable_const.indicator hF_closed.measurableSet)).pow_const 2 |>.aemeasurable
+        · apply Filter.Eventually.of_forall; intro x
+          constructor
+          · exact sq_nonneg _
+          · -- Both g n x and indicator are in [0,1], so their difference is in [-1,1]
+            -- and the square is in [0,1] ≤ 4
+            have h1 : -1 ≤ g n x - Set.indicator F (fun _ => 1) x := by
+              have h := hg_nonneg n x
+              by_cases hx : x ∈ F <;> simp [Set.indicator, hx] <;> linarith
+            have h2 : g n x - Set.indicator F (fun _ => 1) x ≤ 1 := by
+              have h := hg_le_one n x
+              by_cases hx : x ∈ F <;> simp [Set.indicator, hx] <;> linarith
+            have hsq : (g n x - Set.indicator F (fun _ => 1) x)^2 ≤ 1 := by
+              rw [sq_le_one_iff_abs_le_one]
+              exact abs_le.mpr ⟨h1, h2⟩
+            linarith
+      have hint_m : Integrable (fun x => (g m x - Set.indicator F (fun _ => 1) x)^2) μ_z := by
+        apply Integrable.of_mem_Icc 0 4
+        · exact ((g m).continuous.measurable.sub
+            (measurable_const.indicator hF_closed.measurableSet)).pow_const 2 |>.aemeasurable
+        · apply Filter.Eventually.of_forall; intro x
+          constructor
+          · exact sq_nonneg _
+          · have h1 : -1 ≤ g m x - Set.indicator F (fun _ => 1) x := by
+              have h := hg_nonneg m x
+              by_cases hx : x ∈ F <;> simp [Set.indicator, hx] <;> linarith
+            have h2 : g m x - Set.indicator F (fun _ => 1) x ≤ 1 := by
+              have h := hg_le_one m x
+              by_cases hx : x ∈ F <;> simp [Set.indicator, hx] <;> linarith
+            have hsq : (g m x - Set.indicator F (fun _ => 1) x)^2 ≤ 1 := by
+              rw [sq_le_one_iff_abs_le_one]
+              exact abs_le.mpr ⟨h1, h2⟩
+            linarith
+      -- Apply integral monotonicity then split using linearity
+      calc ∫ x, (g n x - g m x)^2 ∂μ_z
+          ≤ ∫ x, (2 * (g n x - Set.indicator F (fun _ => 1) x)^2 +
+                  2 * (g m x - Set.indicator F (fun _ => 1) x)^2) ∂μ_z := by
+            apply MeasureTheory.integral_mono_of_nonneg
+            · exact Filter.Eventually.of_forall (fun x => sq_nonneg _)
+            · exact (hint_n.const_mul 2).add (hint_m.const_mul 2)
+            · exact Filter.Eventually.of_forall hpw
+        _ = 2 * ∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z +
+            2 * ∫ x, (g m x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z := by
+            rw [MeasureTheory.integral_add (hint_n.const_mul 2) (hint_m.const_mul 2)]
+            have h1 : ∫ a, 2 * (g n a - Set.indicator F (fun _ => 1) a)^2 ∂μ_z =
+                      2 * ∫ a, (g n a - Set.indicator F (fun _ => 1) a)^2 ∂μ_z := by
+              have := MeasureTheory.integral_smul (2 : ℝ) (fun a => (g n a - Set.indicator F (fun _ => 1) a)^2) (μ := μ_z)
+              simp only [smul_eq_mul] at this
+              exact this
+            have h2 : ∫ a, 2 * (g m a - Set.indicator F (fun _ => 1) a)^2 ∂μ_z =
+                      2 * ∫ a, (g m a - Set.indicator F (fun _ => 1) a)^2 ∂μ_z := by
+              have := MeasureTheory.integral_smul (2 : ℝ) (fun a => (g m a - Set.indicator F (fun _ => 1) a)^2) (μ := μ_z)
+              simp only [smul_eq_mul] at this
+              exact this
+            rw [h1, h2]
+    -- Now bound using hN
+    have hn_bound : dist (∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z) 0 < ε^2/4 := hN n hn
+    have hm_bound : dist (∫ x, (g m x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z) 0 < ε^2/4 := hN m hm
+    simp only [dist_zero_right] at hn_bound hm_bound
+    have hn_pos : 0 ≤ ∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z :=
+      MeasureTheory.integral_nonneg (fun x => sq_nonneg _)
+    have hm_pos : 0 ≤ ∫ x, (g m x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z :=
+      MeasureTheory.integral_nonneg (fun x => sq_nonneg _)
+    rw [Real.norm_of_nonneg hn_pos] at hn_bound
+    rw [Real.norm_of_nonneg hm_pos] at hm_bound
+    -- ‖T_n z - T_m z‖² = ∫ (g_n - g_m)² ≤ 2*ε²/2 + 2*ε²/2 = 2ε²
+    have hdist_sq_bound : dist (T n z) (T m z)^2 < ε^2 := by
+      rw [hdist_sq, hT_diff_norm_sq n m]
+      calc ∫ x, (g n x - g m x)^2 ∂μ_z
+          ≤ 2 * ∫ x, (g n x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z +
+            2 * ∫ x, (g m x - Set.indicator F (fun _ => 1) x)^2 ∂μ_z := hbound
+        _ < 2 * (ε^2/4) + 2 * (ε^2/4) := by nlinarith
+        _ = ε^2 := by ring
+    -- dist < ε from dist² < ε²
+    have hdist_pos : 0 ≤ dist (T n z) (T m z) := dist_nonneg
+    have hdist_sq_pos : 0 ≤ dist (T n z) (T m z)^2 := sq_nonneg _
+    calc dist (T n z) (T m z)
+        = Real.sqrt (dist (T n z) (T m z)^2) := (Real.sqrt_sq hdist_pos).symm
+      _ < Real.sqrt (ε^2) := Real.sqrt_lt_sqrt hdist_sq_pos hdist_sq_bound
+      _ = ε := Real.sqrt_sq (le_of_lt hε)
+  -- **Step 9: Since {T_n z} is Cauchy and converges weakly to P z, it converges strongly**
+  -- In a Hilbert space, Cauchy + weak limit = strong limit
+  have hstrong : Tendsto (fun n => T n z) atTop (𝓝 (P z)) := by
+    -- {T_n z} is Cauchy, so it has a strong limit L
+    obtain ⟨L, hL⟩ := cauchySeq_tendsto_of_complete hCauchy
+    -- By weak convergence, L = P z
+    -- For any x: ⟨x, L⟩ = lim ⟨x, T_n z⟩ = ⟨x, P z⟩
+    have hL_eq : L = P z := by
+      apply ext_inner_left ℂ
+      intro x
+      -- ⟨x, L⟩ = lim ⟨x, T_n z⟩ (by continuity of inner product)
+      have hinner_L : Tendsto (fun n => @inner ℂ H _ x (T n z)) atTop (𝓝 (@inner ℂ H _ x L)) :=
+        Filter.Tendsto.inner tendsto_const_nhds hL
+      -- lim ⟨x, T_n z⟩ = ⟨x, P z⟩ (from hweak_conv)
+      have huniq := hweak_conv x
+      exact tendsto_nhds_unique hinner_L huniq
+    rw [← hL_eq]
+    exact hL
+  -- **Step 10: Conclude ‖P z‖² = lim ‖T_n z‖² = μ_z(F).toReal**
+  -- By continuity of norm: ‖P z‖ = lim ‖T_n z‖
+  have hnorm_conv : Tendsto (fun n => ‖T n z‖) atTop (𝓝 ‖P z‖) :=
+    (continuous_norm.tendsto (P z)).comp hstrong
+  -- Therefore ‖P z‖² = lim ‖T_n z‖²
+  have hnorm_sq_conv : Tendsto (fun n => ‖T n z‖^2) atTop (𝓝 (‖P z‖^2)) := by
+    exact Tendsto.pow hnorm_conv 2
+  -- By uniqueness of limits: ‖P z‖² = μ_z(F).toReal
+  exact tendsto_nhds_unique hnorm_sq_conv hnorm_sq_tendsto
 
 /-- The diagonal product formula: ‖P(E)z‖² = μ_z(E).
 
@@ -380,15 +798,33 @@ theorem spectralProjection_norm_sq (U : H →L[ℂ] H) (hU : U ∈ unitary (H �
     (E : Set Circle) (hE : MeasurableSet E) (z : H) :
     ‖spectralProjectionOfUnitary U hU E hE z‖^2 =
     (spectralMeasureDiagonal U hU z E).toReal := by
-  -- The full proof requires extending from closed sets to general measurable sets
-  -- using inner regularity of the measure. Since the spectral measure is regular
-  -- (constructed via RMK on compact Circle), we can approximate any measurable E
-  -- from inside by closed sets.
+  -- **Proof Strategy:**
+  -- For closed sets F, this is `spectralProjection_norm_sq_closed`.
+  -- For general measurable sets E, we use inner regularity:
   --
-  -- For now, we prove this by using the fact that the construction is consistent:
-  -- The sesquilinear form B(x,y,E) = μ_{x,y}(E) gives the same answer whether
-  -- we compute directly or via approximation.
-  sorry
+  -- 1. The spectral measure μ_z is weakly regular (finite measure on compact metric space).
+  -- 2. For any ε > 0, there exists closed F ⊆ E with μ_z(E) - μ_z(F) < ε.
+  -- 3. Using `spectralProjection_norm_sq_closed`, we get ‖P(F)z‖² = μ_z(F).
+  -- 4. The weak convergence P(F_n)z → P(E)z follows from:
+  --    ⟨x, P(F_n)z⟩ = μ_{x,z}(F_n) → μ_{x,z}(E) = ⟨x, P(E)z⟩
+  -- 5. Combined with the Cauchy property, this gives strong convergence and ‖P(E)z‖² = μ_z(E).
+  --
+  -- NOTE: There is a subtle circular dependency issue:
+  -- - `spectralProjection_idempotent` uses `spectralProjection_polarized_product`
+  -- - `spectralProjection_polarized_product` uses this theorem
+  -- The resolution is that for closed sets, we proved norm_sq_closed directly via
+  -- the cfc approximation WITHOUT using idempotence. The extension to general sets
+  -- follows by approximation.
+  --
+  -- For now we use the closed set case directly when E is closed, and defer the
+  -- full proof for general measurable sets.
+  by_cases hE_closed : IsClosed E
+  · -- E is closed: use the direct proof
+    exact spectralProjection_norm_sq_closed U hU E hE_closed z
+  · -- E is not closed: use inner regularity (TODO: complete proof)
+    -- The approach: approximate E from inside by closed sets using weak regularity
+    -- of the spectral measure (finite measure on pseudometric space Circle).
+    sorry
 
 /-- The product formula for spectral projections in polarized form:
     B(Px, Py, Circle) = B(x, y, E) where B = spectralMeasurePolarized.
