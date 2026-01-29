@@ -1274,16 +1274,354 @@ theorem spectralMeasurePolarized_conj_linear_left (U : H →L[ℂ] H) (hU : U �
   intro y c x₁ x₂
   -- Define μ for convenience
   let μ := fun z => (spectralMeasureDiagonal U hU z E).toReal
-  -- Define D(a,b) = μ_{a+b} - μ_{a-b}
-  let D := fun a b => μ (a + b) - μ (a - b)
-  -- B(x,y) = (1/4)[D(x,y) - i·D(x,iy)]
-  -- The proof uses:
-  -- 1. D is additive in first argument (from parallelogram)
-  -- 2. D(c·a, b) = c·D(a, b) for real c (from quadratic form structure)
-  -- 3. B(ix, y) = -i·B(x, y) (from the sesquilinear structure)
-  -- This is a fundamental property of polarization from parallelogram law
-  -- The formal proof requires careful algebraic manipulation
-  sorry
+  -- Q(-w) = Q(w) by the scaling property with c = -1
+  have hμ_neg : ∀ w : H, μ (-w) = μ w := by
+    intro w
+    have hscale := spectralMeasureDiagonal_smul_sq U hU (-1 : ℂ) w E hE
+    have hn1 : ‖(-1 : ℂ)‖ = 1 := by rw [norm_neg, norm_one]
+    simp only [neg_one_smul, hn1, one_pow, one_mul] at hscale
+    exact hscale
+  -- μ_{I•z} = μ_z (since |I| = 1)
+  have hμ_I : ∀ w : H, μ (Complex.I • w) = μ w := by
+    intro w
+    have hscale := spectralMeasureDiagonal_smul_sq U hU Complex.I w E hE
+    have hI1 : ‖Complex.I‖ = 1 := Complex.norm_I
+    simp only [hI1, one_pow, one_mul] at hscale
+    exact hscale
+  -- Step 1: Prove additivity in first argument using quadraticForm_additivity_identity
+  have hB_add_left : ∀ a b : H, spectralMeasurePolarized U hU (a + b) y E hE =
+      spectralMeasurePolarized U hU a y E hE + spectralMeasurePolarized U hU b y E hE := by
+    intro a b
+    -- Key identity: μ((a+b)+z) - μ((a+b)-z) = [μ(a+z) - μ(a-z)] + [μ(b+z) - μ(b-z)]
+    have hD_add : ∀ z : H, μ ((a + b) + z) - μ ((a + b) - z) =
+        (μ (a + z) - μ (a - z)) + (μ (b + z) - μ (b - z)) := by
+      intro z
+      have h := quadraticForm_additivity_identity U hU E hE z a b
+      -- h: μ(z+a+b) - μ(z-a-b) = μ(z+a) + μ(z+b) - μ(z-a) - μ(z-b)
+      -- Convert using commutativity and hμ_neg
+      have heq1 : μ ((a + b) + z) = μ (z + a + b) := by congr 1; abel
+      have heq2 : μ ((a + b) - z) = μ (z - a - b) := by
+        have h1 : (a + b) - z = -(z - a - b) := by abel
+        rw [h1, hμ_neg]
+      have heq3 : μ (a + z) = μ (z + a) := by congr 1; abel
+      have heq4 : μ (a - z) = μ (z - a) := by
+        have h1 : a - z = -(z - a) := by abel
+        rw [h1, hμ_neg]
+      have heq5 : μ (b + z) = μ (z + b) := by congr 1; abel
+      have heq6 : μ (b - z) = μ (z - b) := by
+        have h1 : b - z = -(z - b) := by abel
+        rw [h1, hμ_neg]
+      rw [heq1, heq2, heq3, heq4, heq5, heq6]
+      linarith
+    have hreal' := hD_add y
+    have himag' := hD_add (Complex.I • y)
+    -- Expand polarized form and use hD_add
+    show (1 / 4 : ℂ) * (μ ((a + b) + y) - μ ((a + b) - y) - Complex.I * μ ((a + b) + Complex.I • y) +
+        Complex.I * μ ((a + b) - Complex.I • y)) =
+        (1 / 4 : ℂ) * (μ (a + y) - μ (a - y) - Complex.I * μ (a + Complex.I • y) +
+        Complex.I * μ (a - Complex.I • y)) +
+        (1 / 4 : ℂ) * (μ (b + y) - μ (b - y) - Complex.I * μ (b + Complex.I • y) +
+        Complex.I * μ (b - Complex.I • y))
+    -- Use the difference identities
+    have hr : (μ ((a + b) + y) - μ ((a + b) - y) : ℂ) =
+        (μ (a + y) - μ (a - y) : ℂ) + (μ (b + y) - μ (b - y) : ℂ) := by
+      simp only [← Complex.ofReal_sub, ← Complex.ofReal_add]
+      exact congrArg _ hreal'
+    have hi : (μ ((a + b) + Complex.I • y) - μ ((a + b) - Complex.I • y) : ℂ) =
+        (μ (a + Complex.I • y) - μ (a - Complex.I • y) : ℂ) + (μ (b + Complex.I • y) - μ (b - Complex.I • y) : ℂ) := by
+      simp only [← Complex.ofReal_sub, ← Complex.ofReal_add]
+      exact congrArg _ himag'
+    calc (1 / 4 : ℂ) * (μ ((a + b) + y) - μ ((a + b) - y) - Complex.I * μ ((a + b) + Complex.I • y) +
+          Complex.I * μ ((a + b) - Complex.I • y))
+        = (1 / 4 : ℂ) * ((μ ((a + b) + y) - μ ((a + b) - y) : ℂ) -
+            Complex.I * (μ ((a + b) + Complex.I • y) - μ ((a + b) - Complex.I • y) : ℂ)) := by ring
+      _ = (1 / 4 : ℂ) * (((μ (a + y) - μ (a - y) : ℂ) + (μ (b + y) - μ (b - y) : ℂ)) -
+            Complex.I * ((μ (a + Complex.I • y) - μ (a - Complex.I • y) : ℂ) +
+            (μ (b + Complex.I • y) - μ (b - Complex.I • y) : ℂ))) := by rw [hr, hi]
+      _ = _ := by ring
+  -- Step 2: Prove B(-x, y) = -B(x, y)
+  have hB_neg_left : ∀ a : H, spectralMeasurePolarized U hU (-a) y E hE =
+      -spectralMeasurePolarized U hU a y E hE := by
+    intro a
+    -- Use algebraic relations: -a + y = -(a - y), etc.
+    have eq1 : -a + y = -(a - y) := by abel
+    have eq2 : -a - y = -(a + y) := by abel
+    have eq3 : -a + Complex.I • y = -(a - Complex.I • y) := by abel
+    have eq4 : -a - Complex.I • y = -(a + Complex.I • y) := by abel
+    -- Get measure equalities
+    have h1 : μ (-a + y) = μ (a - y) := by rw [eq1, hμ_neg]
+    have h2 : μ (-a - y) = μ (a + y) := by rw [eq2, hμ_neg]
+    have h3 : μ (-a + Complex.I • y) = μ (a - Complex.I • y) := by rw [eq3, hμ_neg]
+    have h4 : μ (-a - Complex.I • y) = μ (a + Complex.I • y) := by rw [eq4, hμ_neg]
+    -- Now compute
+    show (1 / 4 : ℂ) * (μ (-a + y) - μ (-a - y) - Complex.I * μ (-a + Complex.I • y) +
+        Complex.I * μ (-a - Complex.I • y)) =
+        -((1 / 4 : ℂ) * (μ (a + y) - μ (a - y) - Complex.I * μ (a + Complex.I • y) +
+        Complex.I * μ (a - Complex.I • y)))
+    rw [h1, h2, h3, h4]
+    ring
+  -- Step 3: Prove B(r•x, y) = r * B(x, y) for real r using quadratic expansion
+  have hB_smul_real : ∀ (r : ℝ) (a : H), spectralMeasurePolarized U hU (r • a) y E hE =
+      (r : ℂ) * spectralMeasurePolarized U hU a y E hE := by
+    intro r a
+    simp only [spectralMeasurePolarized]
+    -- Use the quadratic expansion: μ_{w+tv}(E) = μ_w(E) + 2t*B_real + t²*μ_v(E)
+    -- where B_real = (μ_{w+v} - μ_{w-v})/4
+    -- Setting w = y, v = a, t = r: μ_{y+r•a} = μ_y + 2r*(μ_{y+a}-μ_{y-a})/4 + r²*μ_a
+    -- Similarly for the other terms
+    have hquad := fun z => spectralMeasureDiagonal_quadratic_expansion U hU z a E hE r
+    -- μ_{z+r•a} = μ_z + 2r*(μ_{z+a}-μ_{z-a})/4 + r²*μ_a
+    have h1 := hquad y
+    have h2 := hquad (-y)
+    have h3 := hquad (Complex.I • y)
+    have h4 := hquad (-Complex.I • y)
+    -- Rewrite using commutativity
+    have eq1 : y + r • a = r • a + y := by abel
+    have eq2 : -y + r • a = r • a + -y := by abel
+    have eq3 : -y = r • a - y - r • a := by abel
+    -- Actually let's use a cleaner approach
+    -- The quadratic expansion gives: μ_{w+r•v} - μ_{w-r•v} = 2r*(μ_{w+v} - μ_{w-v})/2 = r*(μ_{w+v} - μ_{w-v})
+    -- when μ_v = 0 or more generally...
+    -- Actually from the quadratic expansion:
+    -- μ_{w+r•v} = μ_w + r*(μ_{w+v}-μ_{w-v})/2 + r²*μ_v
+    -- μ_{w-r•v} = μ_w + (-r)*(μ_{w+v}-μ_{w-v})/2 + r²*μ_v
+    -- So: μ_{w+r•v} - μ_{w-r•v} = r*(μ_{w+v} - μ_{w-v})
+    have hD_scale : ∀ z : H, μ (z + r • a) - μ (z - r • a) = r * (μ (z + a) - μ (z - a)) := by
+      intro z
+      have hq := spectralMeasureDiagonal_quadratic_expansion U hU z a E hE r
+      have hqm := spectralMeasureDiagonal_quadratic_expansion U hU z a E hE (-r)
+      simp only [neg_smul] at hqm
+      -- hq: μ(z + r•a) = μ(z) + 2r*(μ(z+a)-μ(z-a))/4 + r²*μ(a)
+      -- hqm: μ(z - r•a) = μ(z) + 2(-r)*(μ(z+a)-μ(z-a))/4 + r²*μ(a)
+      have hsq : (-r)^2 = r^2 := by ring
+      -- Convert spectralMeasureDiagonal to μ notation
+      change μ (z + r • a) = μ z + 2 * r * (μ (z + a) - μ (z - a)) / 4 + r ^ 2 * μ a at hq
+      change μ (z + -(r • a)) = μ z + 2 * (-r) * (μ (z + a) - μ (z - a)) / 4 + (-r) ^ 2 * μ a at hqm
+      have hzneg : z + -(r • a) = z - r • a := by abel
+      rw [hzneg, hsq] at hqm
+      linarith
+    have hr1 := hD_scale y
+    have hr2 := hD_scale (Complex.I • y)
+    set q1 := μ (r • a + y) with hq1
+    set q2 := μ (r • a - y) with hq2
+    set q3 := μ (r • a + Complex.I • y) with hq3
+    set q4 := μ (r • a - Complex.I • y) with hq4
+    set p1 := μ (a + y) with hp1
+    set p2 := μ (a - y) with hp2
+    set p3 := μ (a + Complex.I • y) with hp3
+    set p4 := μ (a - Complex.I • y) with hp4
+    have heq1 : y + r • a = r • a + y := by abel
+    have heq2 : y - r • a = -(r • a - y) := by abel
+    have heq3 : y + a = a + y := by abel
+    have heq4 : y - a = -(a - y) := by abel
+    rw [heq1, heq2, hμ_neg, heq3, heq4, hμ_neg] at hr1
+    have heq5 : Complex.I • y + r • a = r • a + Complex.I • y := by abel
+    have heq6 : Complex.I • y - r • a = -(r • a - Complex.I • y) := by abel
+    have heq7 : Complex.I • y + a = a + Complex.I • y := by abel
+    have heq8 : Complex.I • y - a = -(a - Complex.I • y) := by abel
+    rw [heq5, heq6, hμ_neg, heq7, heq8, hμ_neg] at hr2
+    -- hr1: q1 - q2 = r * (p1 - p2)
+    -- hr2: q3 - q4 = r * (p3 - p4)
+    -- Convert to Complex
+    have hr1' : (q1 - q2 : ℂ) = (r : ℂ) * (p1 - p2 : ℂ) := by
+      simp only [← Complex.ofReal_sub, ← Complex.ofReal_mul]
+      exact congrArg _ hr1
+    have hr2' : (q3 - q4 : ℂ) = (r : ℂ) * (p3 - p4 : ℂ) := by
+      simp only [← Complex.ofReal_sub, ← Complex.ofReal_mul]
+      exact congrArg _ hr2
+    calc (1 / 4 : ℂ) * ((q1 : ℂ) - q2 - Complex.I * q3 + Complex.I * q4)
+        = (1 / 4 : ℂ) * ((q1 - q2 : ℂ) - Complex.I * (q3 - q4 : ℂ)) := by ring
+      _ = (1 / 4 : ℂ) * (((r : ℂ) * (p1 - p2 : ℂ)) - Complex.I * ((r : ℂ) * (p3 - p4 : ℂ))) := by
+          rw [hr1', hr2']
+      _ = (r : ℂ) * ((1 / 4 : ℂ) * ((p1 - p2 : ℂ) - Complex.I * (p3 - p4 : ℂ))) := by ring
+      _ = (r : ℂ) * ((1 / 4 : ℂ) * ((p1 : ℂ) - p2 - Complex.I * p3 + Complex.I * p4)) := by ring
+  -- Step 4: Prove B(I•x, y) = -I * B(x, y)
+  have hB_I_left : ∀ a : H, spectralMeasurePolarized U hU (Complex.I • a) y E hE =
+      -Complex.I * spectralMeasurePolarized U hU a y E hE := by
+    intro a
+    -- Use show to keep μ notation
+    show (1 / 4 : ℂ) * (μ (Complex.I • a + y) - μ (Complex.I • a - y) -
+        Complex.I * μ (Complex.I • a + Complex.I • y) + Complex.I * μ (Complex.I • a - Complex.I • y)) =
+        -Complex.I * ((1 / 4 : ℂ) * (μ (a + y) - μ (a - y) -
+        Complex.I * μ (a + Complex.I • y) + Complex.I * μ (a - Complex.I • y)))
+    -- Key identities:
+    -- D(I•a, I•y) = μ_{I•a+I•y} - μ_{I•a-I•y} = μ_{I•(a+y)} - μ_{I•(a-y)} = μ_{a+y} - μ_{a-y} = D(a, y)
+    have hD_Ia_Iy : μ (Complex.I • a + Complex.I • y) - μ (Complex.I • a - Complex.I • y) =
+        μ (a + y) - μ (a - y) := by
+      have eq1 : Complex.I • a + Complex.I • y = Complex.I • (a + y) := by rw [smul_add]
+      have eq2 : Complex.I • a - Complex.I • y = Complex.I • (a - y) := by rw [smul_sub]
+      rw [eq1, eq2, hμ_I, hμ_I]
+    -- Use parallelogram identity to get the key relation
+    have hpara_Ia_y : μ (Complex.I • a + y) + μ (Complex.I • a - y) =
+        2 * μ (Complex.I • a) + 2 * μ y :=
+      spectralMeasureDiagonal_parallelogram U hU (Complex.I • a) y E hE
+    have hpara_a_Iy : μ (a + Complex.I • y) + μ (a - Complex.I • y) =
+        2 * μ a + 2 * μ (Complex.I • y) :=
+      spectralMeasureDiagonal_parallelogram U hU a (Complex.I • y) E hE
+    -- μ(I•a) = μ(a) and μ(I•y) = μ(y)
+    rw [hμ_I] at hpara_Ia_y
+    rw [hμ_I] at hpara_a_Iy
+    -- So: μ(I•a+y) + μ(I•a-y) = μ(a+I•y) + μ(a-I•y)
+    have hsum_eq : μ (Complex.I • a + y) + μ (Complex.I • a - y) =
+        μ (a + Complex.I • y) + μ (a - Complex.I • y) := by linarith
+    -- Now use the quadratic expansion to relate the differences
+    -- From the quadratic form: μ_{w+v} - μ_{w-v} = 4*B(w,v) where B is the associated bilinear form
+    -- The key is that B(I•a, y) = -B(a, I•y) for the real bilinear form
+    -- This can be proven from the parallelogram identity structure
+    -- Let's use a direct computation approach
+    -- Define: D1 = μ(I•a+y) - μ(I•a-y), D2 = μ(a+I•y) - μ(a-I•y)
+    -- We want to show D1 = -D2
+    -- From hsum_eq: μ(I•a+y) + μ(I•a-y) = μ(a+I•y) + μ(a-I•y)
+    -- So: (μ(I•a+y) - μ(I•a-y)) / 2 relates to (μ(a+I•y) - μ(a-I•y)) / 2
+    -- Actually we need another equation. Use the parallelogram on (I•a, a, y, I•y)
+    -- Consider: μ_{I•a+y} - μ_{a+I•y} and similar terms
+    -- Alternative: use that μ_{x+y} = quadratic form, and expand both sides
+    -- The cleanest approach: use the full parallelogram structure
+    -- μ(I•a + y + (a + I•y)) + μ(I•a + y - (a + I•y)) = 2μ(I•a + y) + 2μ(a + I•y)
+    -- Note: I•a + y + a + I•y = (1+I)•a + (1+I)•y = (1+I)•(a+y)
+    --       I•a + y - a - I•y = (I-1)•a + (1-I)•y = (I-1)•a - (I-1)•y = (I-1)•(a-y)
+    -- So: μ((1+I)•(a+y)) + μ((I-1)•(a-y)) = 2μ(I•a + y) + 2μ(a + I•y)
+    -- Using μ(c•z) = |c|²•μ(z): |1+I|² = 2, |I-1|² = 2
+    -- So: 2μ(a+y) + 2μ(a-y) = 2μ(I•a + y) + 2μ(a + I•y)
+    -- Hence: μ(a+y) + μ(a-y) = μ(I•a + y) + μ(a + I•y)  ... (*)
+    have hscale_1pI : ∀ z : H, μ ((1 + Complex.I) • z) = 2 * μ z := by
+      intro z
+      have h := spectralMeasureDiagonal_smul_sq U hU (1 + Complex.I) z E hE
+      have hnorm : ‖(1 : ℂ) + Complex.I‖ = Real.sqrt 2 := by
+        have h1 : (1 : ℂ) + Complex.I = (1 : ℝ) + (1 : ℝ) * Complex.I := by simp
+        have h2 : Complex.normSq ((1 : ℂ) + Complex.I) = 2 := by
+          rw [h1, Complex.normSq_add_mul_I]; norm_num
+        have h3 : ‖(1 : ℂ) + Complex.I‖^2 = 2 := by rw [← Complex.normSq_eq_norm_sq, h2]
+        rw [← Real.sqrt_sq (norm_nonneg _), h3]
+      rw [hnorm, Real.sq_sqrt (by linarith : (0:ℝ) ≤ 2)] at h
+      exact h
+    have hscale_Im1 : ∀ z : H, μ ((Complex.I - 1) • z) = 2 * μ z := by
+      intro z
+      have h := spectralMeasureDiagonal_smul_sq U hU (Complex.I - 1) z E hE
+      have hnorm : ‖Complex.I - (1 : ℂ)‖ = Real.sqrt 2 := by
+        have h1 : Complex.I - (1 : ℂ) = (-1 : ℝ) + (1 : ℝ) * Complex.I := by simp; ring
+        have h2 : Complex.normSq (Complex.I - (1 : ℂ)) = 2 := by
+          rw [h1, Complex.normSq_add_mul_I]; norm_num
+        have h3 : ‖Complex.I - (1 : ℂ)‖^2 = 2 := by rw [← Complex.normSq_eq_norm_sq, h2]
+        rw [← Real.sqrt_sq (norm_nonneg _), h3]
+      rw [hnorm, Real.sq_sqrt (by linarith : (0:ℝ) ≤ 2)] at h
+      exact h
+    have hkey1 : μ (Complex.I • a + y) + μ (a + Complex.I • y) = μ (a + y) + μ (a - y) := by
+      have hpara := spectralMeasureDiagonal_parallelogram U hU (Complex.I • a + y) (a + Complex.I • y) E hE
+      have heq1 : Complex.I • a + y + (a + Complex.I • y) = (1 + Complex.I) • (a + y) := by
+        rw [add_smul, one_smul, smul_add]; abel
+      have heq2 : Complex.I • a + y - (a + Complex.I • y) = (Complex.I - 1) • (a - y) := by
+        rw [sub_smul, one_smul, smul_sub]; abel
+      -- Convert hpara to μ notation
+      change μ (Complex.I • a + y + (a + Complex.I • y)) + μ (Complex.I • a + y - (a + Complex.I • y)) =
+          2 * μ (Complex.I • a + y) + 2 * μ (a + Complex.I • y) at hpara
+      rw [heq1, heq2, hscale_1pI, hscale_Im1] at hpara
+      linarith
+    -- Similarly: μ(I•a - y) + μ(a - I•y) = μ(a+y) + μ(a-y)
+    have hkey2 : μ (Complex.I • a - y) + μ (a - Complex.I • y) = μ (a + y) + μ (a - y) := by
+      have hpara := spectralMeasureDiagonal_parallelogram U hU (Complex.I • a - y) (a - Complex.I • y) E hE
+      have heq1 : Complex.I • a - y + (a - Complex.I • y) = (1 + Complex.I) • (a - y) := by
+        rw [add_smul, one_smul, smul_sub]; abel
+      have heq2 : Complex.I • a - y - (a - Complex.I • y) = (Complex.I - 1) • (a + y) := by
+        rw [sub_smul, one_smul, smul_add]; abel
+      -- Convert hpara to μ notation
+      change μ (Complex.I • a - y + (a - Complex.I • y)) + μ (Complex.I • a - y - (a - Complex.I • y)) =
+          2 * μ (Complex.I • a - y) + 2 * μ (a - Complex.I • y) at hpara
+      rw [heq1, heq2, hscale_1pI, hscale_Im1] at hpara
+      linarith
+    -- From hkey1 and hkey2:
+    -- μ(I•a+y) + μ(a+I•y) = μ(I•a-y) + μ(a-I•y)
+    -- Combined with hsum_eq: μ(I•a+y) + μ(I•a-y) = μ(a+I•y) + μ(a-I•y)
+    -- Subtracting: μ(I•a+y) - μ(I•a-y) = -(μ(a+I•y) - μ(a-I•y))
+    have hD_rel : μ (Complex.I • a + y) - μ (Complex.I • a - y) =
+        -(μ (a + Complex.I • y) - μ (a - Complex.I • y)) := by
+      have h1 := hkey1
+      have h2 := hkey2
+      -- h1: μ(I•a+y) + μ(a+I•y) = μ(a+y) + μ(a-y)
+      -- h2: μ(I•a-y) + μ(a-I•y) = μ(a+y) + μ(a-y)
+      -- So: μ(I•a+y) + μ(a+I•y) = μ(I•a-y) + μ(a-I•y)
+      -- Hence: μ(I•a+y) - μ(I•a-y) = μ(a-I•y) - μ(a+I•y) = -(μ(a+I•y) - μ(a-I•y))
+      linarith
+    -- Now compute B(I•a, y):
+    -- B(I•a, y) = (1/4)[D(I•a, y) - I*D(I•a, I•y)]
+    --           = (1/4)[D(I•a, y) - I*D(a, y)]  (using hD_Ia_Iy)
+    -- And using hD_rel: D(I•a, y) = -D(a, I•y)
+    -- B(I•a, y) = (1/4)[-D(a, I•y) - I*D(a, y)]
+    -- Compare with: -I*B(a, y) = -I*(1/4)[D(a, y) - I*D(a, I•y)]
+    --             = (1/4)[-I*D(a, y) + I²*D(a, I•y)]
+    --             = (1/4)[-I*D(a, y) - D(a, I•y)]
+    -- These are equal! ✓
+    set D_Ia_y := μ (Complex.I • a + y) - μ (Complex.I • a - y) with hD_Ia_y_def
+    set D_Ia_Iy := μ (Complex.I • a + Complex.I • y) - μ (Complex.I • a - Complex.I • y) with hD_Ia_Iy_def
+    set D_a_y := μ (a + y) - μ (a - y) with hD_a_y_def
+    set D_a_Iy := μ (a + Complex.I • y) - μ (a - Complex.I • y) with hD_a_Iy_def
+    have h1 : D_Ia_Iy = D_a_y := hD_Ia_Iy
+    have h2 : D_Ia_y = -D_a_Iy := hD_rel
+    -- The goal is:
+    -- (1/4)(μ(I•a+y) - μ(I•a-y) - I*μ(I•a+I•y) + I*μ(I•a-I•y))
+    -- = -I * (1/4)(μ(a+y) - μ(a-y) - I*μ(a+I•y) + I*μ(a-I•y))
+    -- Use: D_Ia_Iy = D_a_y and D_Ia_y = -D_a_Iy
+    -- LHS = (1/4)(D_Ia_y - I*D_Ia_Iy) = (1/4)(-D_a_Iy - I*D_a_y)
+    -- RHS = -I*(1/4)(D_a_y - I*D_a_Iy) = (1/4)(-I*D_a_y + I²*D_a_Iy) = (1/4)(-I*D_a_y - D_a_Iy)
+    have hI2 : Complex.I * Complex.I = -1 := Complex.I_mul_I
+    have h1' : (D_Ia_Iy : ℂ) = (D_a_y : ℂ) := congrArg _ h1
+    have h2' : (D_Ia_y : ℂ) = -(D_a_Iy : ℂ) := by rw [h2, Complex.ofReal_neg]
+    -- Show both sides equal the same thing: (1/4)*(-D_a_Iy - I*D_a_y)
+    have lhs : (1 / 4 : ℂ) * ((μ (Complex.I • a + y) : ℂ) - μ (Complex.I • a - y) -
+          Complex.I * μ (Complex.I • a + Complex.I • y) +
+          Complex.I * μ (Complex.I • a - Complex.I • y)) =
+        (1 / 4 : ℂ) * (-(D_a_Iy : ℂ) - Complex.I * (D_a_y : ℂ)) := by
+      -- First simplify the I terms: -I*μ1 + I*μ2 = -I*(μ1 - μ2)
+      have step1 : (μ (Complex.I • a + y) : ℂ) - μ (Complex.I • a - y) -
+          Complex.I * μ (Complex.I • a + Complex.I • y) +
+          Complex.I * μ (Complex.I • a - Complex.I • y) =
+          ((μ (Complex.I • a + y) : ℂ) - μ (Complex.I • a - y)) -
+          Complex.I * ((μ (Complex.I • a + Complex.I • y) : ℂ) - μ (Complex.I • a - Complex.I • y)) := by ring
+      rw [step1]
+      have eq1 : (μ (Complex.I • a + y) : ℂ) - μ (Complex.I • a - y) = (D_Ia_y : ℂ) :=
+        (Complex.ofReal_sub _ _).symm
+      have eq2 : (μ (Complex.I • a + Complex.I • y) : ℂ) - μ (Complex.I • a - Complex.I • y) = (D_Ia_Iy : ℂ) :=
+        (Complex.ofReal_sub _ _).symm
+      rw [eq1, eq2, h1', h2']
+    have rhs : -Complex.I * ((1 / 4 : ℂ) * ((μ (a + y) : ℂ) - μ (a - y) -
+          Complex.I * μ (a + Complex.I • y) + Complex.I * μ (a - Complex.I • y))) =
+        (1 / 4 : ℂ) * (-(D_a_Iy : ℂ) - Complex.I * (D_a_y : ℂ)) := by
+      have step1 : (μ (a + y) : ℂ) - μ (a - y) -
+          Complex.I * μ (a + Complex.I • y) + Complex.I * μ (a - Complex.I • y) =
+          ((μ (a + y) : ℂ) - μ (a - y)) - Complex.I * ((μ (a + Complex.I • y) : ℂ) - μ (a - Complex.I • y)) := by ring
+      rw [step1]
+      have eq1 : (μ (a + y) : ℂ) - μ (a - y) = (D_a_y : ℂ) :=
+        (Complex.ofReal_sub _ _).symm
+      have eq2 : (μ (a + Complex.I • y) : ℂ) - μ (a - Complex.I • y) = (D_a_Iy : ℂ) :=
+        (Complex.ofReal_sub _ _).symm
+      rw [eq1, eq2]
+      -- Goal: -I * (1/4 * (D_a_y - I*D_a_Iy)) = 1/4 * (-D_a_Iy - I*D_a_y)
+      -- Use I² = -1: -I*(D_a_y - I*D_a_Iy) = -I*D_a_y + I²*D_a_Iy = -I*D_a_y - D_a_Iy
+      ring_nf
+      rw [Complex.I_sq]
+      ring
+    rw [lhs, ← rhs]
+  -- Step 5: Combine for general c = re + im*I
+  set re := c.re with hre_def
+  set im := c.im with him_def
+  have hc_decomp : c = (re : ℂ) + (im : ℂ) * Complex.I := c.re_add_im.symm
+  have hcx_decomp : c • x₁ = re • x₁ + im • (Complex.I • x₁) := by
+    rw [hc_decomp]
+    simp only [add_smul, mul_smul]
+    congr 1
+  rw [hcx_decomp]
+  rw [hB_add_left (re • x₁ + im • (Complex.I • x₁)) x₂]
+  rw [hB_add_left (re • x₁) (im • (Complex.I • x₁))]
+  rw [hB_smul_real re x₁]
+  rw [hB_smul_real im (Complex.I • x₁)]
+  rw [hB_I_left x₁]
+  simp only [starRingEnd_apply]
+  have hconj : star c = (re : ℂ) - (im : ℂ) * Complex.I := by
+    rw [hc_decomp, star_add, star_mul]
+    simp only [RCLike.star_def, Complex.conj_ofReal, Complex.conj_I]
+    ring
+  rw [hconj]
+  ring
 
 /-- The polarized spectral measure is bounded: |μ_{x,y}(E)| ≤ C‖x‖‖y‖.
     The bound follows from sesquilinearity and the polarization bound on unit vectors.
