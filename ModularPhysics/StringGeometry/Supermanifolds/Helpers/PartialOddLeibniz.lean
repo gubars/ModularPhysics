@@ -624,4 +624,141 @@ theorem leibniz_sign_eq_right {I J : Finset (Fin q)} {a : Fin q}
     _ = ((-1 : ℤ) ^ I.card : ℝ) * (reorderSign I (J \ {a}) : ℝ) *
          ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) := by ring
 
+/-!
+## Sign cancellation for overlapping case I ∩ J = {a}
+-/
+
+/-- Key lemma: when a ∈ I, we have |I.filter(<a)| + |I.filter(a<·)| = |I| - 1.
+    This is because I partitions into {x < a} ∪ {a} ∪ {x > a}. -/
+theorem filter_card_partition {I : Finset (Fin q)} {a : Fin q} (ha : a ∈ I) :
+    (I.filter (· < a)).card + (I.filter (a < ·)).card = I.card - 1 := by
+  -- Partition I into three parts: {x < a}, {a}, {x > a}
+  have hd1 : Disjoint (I.filter (· < a)) (I.filter (a < ·)) := by
+    rw [Finset.disjoint_iff_ne]
+    intro x hx y hy heq
+    simp only [Finset.mem_filter] at hx hy
+    subst heq
+    exact absurd (lt_trans hx.2 hy.2) (lt_irrefl _)
+  have ha_not_in : a ∉ I.filter (· < a) ∪ I.filter (a < ·) := by
+    simp only [Finset.mem_union, Finset.mem_filter, lt_self_iff_false, and_false, or_self,
+               not_false_eq_true]
+  have hunion : I = I.filter (· < a) ∪ I.filter (a < ·) ∪ {a} := by
+    ext x
+    simp only [Finset.mem_union, Finset.mem_filter, Finset.mem_singleton]
+    constructor
+    · intro hx
+      rcases lt_trichotomy x a with hlt | heq | hgt
+      · left; left; exact ⟨hx, hlt⟩
+      · right; exact heq
+      · left; right; exact ⟨hx, hgt⟩
+    · intro hx
+      rcases hx with (⟨hx, _⟩ | ⟨hx, _⟩) | rfl
+      · exact hx
+      · exact hx
+      · exact ha
+  have hcard_I : I.card = (I.filter (· < a) ∪ I.filter (a < ·)).card + 1 := by
+    conv_lhs => rw [hunion]
+    rw [Finset.card_union_of_disjoint (Finset.disjoint_singleton_right.mpr ha_not_in)]
+    simp only [Finset.card_singleton]
+  calc (I.filter (· < a)).card + (I.filter (a < ·)).card
+      = (I.filter (· < a) ∪ I.filter (a < ·)).card := (Finset.card_union_of_disjoint hd1).symm
+    _ = I.card - 1 := by omega
+
+/-- Sign cancellation identity when I ∩ J = {a}.
+    The two terms in the Leibniz rule cancel:
+    reorderSign(I\{a}, J) * (-1)^|I.filter(<a)| + (-1)^|I| * reorderSign(I, J\{a}) * (-1)^|J.filter(<a)| = 0 -/
+theorem leibniz_sign_cancel {I J : Finset (Fin q)} {a : Fin q}
+    (haI : a ∈ I) (haJ : a ∈ J) (hIJ : I ∩ J = {a}) :
+    (reorderSign (I \ {a}) J : ℝ) * ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) +
+    ((-1 : ℤ) ^ I.card : ℝ) * (reorderSign I (J \ {a}) : ℝ) *
+    ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ) = 0 := by
+  -- First establish that both products have disjoint supports
+  have hdisj1 : (I \ {a}) ∩ J = ∅ := by
+    rw [sdiff_inter_eq_inter_sdiff, hIJ]
+    simp only [Finset.sdiff_self]
+  have hdisj2 : I ∩ (J \ {a}) = ∅ := by
+    rw [inter_sdiff_eq_inter_sdiff, hIJ]
+    simp only [Finset.sdiff_self]
+  -- Simplify the filters (since a is not < a)
+  rw [filter_lt_sdiff_singleton, filter_lt_sdiff_singleton_right]
+  -- Let C = reorderSign (I\{a}) (J\{a})
+  -- reorderSign (I\{a}) J = (-1)^|(I\{a}).filter(a<·)| * C = (-1)^|I.filter(a<·)| * C
+  -- reorderSign I (J\{a}) = (-1)^|(J\{a}).filter(<a)| * C = (-1)^|J.filter(<a)| * C
+  -- Term1 = reorderSign(I\{a}, J) * (-1)^|I.filter(<a)| = C * (-1)^{|I| - 1}
+  -- Term2 = (-1)^|I| * reorderSign(I, J\{a}) * (-1)^|J.filter(<a)| = C * (-1)^|I|
+  -- Sum = C * ((-1)^{|I|-1} + (-1)^|I|) = 0
+  have hdisj3 : (I \ {a}) ∩ (J \ {a}) = ∅ := by
+    ext x
+    simp only [Finset.mem_inter, Finset.mem_sdiff, Finset.mem_singleton, Finset.notMem_empty,
+               iff_false, not_and, and_imp]
+    intro hxI hxa hxJ _
+    have hmem : x ∈ I ∩ J := Finset.mem_inter.mpr ⟨hxI, hxJ⟩
+    rw [hIJ, Finset.mem_singleton] at hmem
+    exact hxa hmem
+  -- Get hsign1' using reorderSign_sdiff_singleton_right
+  have hsign_IaJ : reorderSign (I \ {a}) J =
+      (-1 : ℤ) ^ ((I \ {a}).filter (a < ·)).card * reorderSign (I \ {a}) (J \ {a}) :=
+    reorderSign_sdiff_singleton_right haJ hdisj1
+  -- Get hsign2' using reorderSign_sdiff_singleton
+  have hsign_IJa : reorderSign I (J \ {a}) =
+      (-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card * reorderSign (I \ {a}) (J \ {a}) :=
+    reorderSign_sdiff_singleton haI hdisj2
+  -- Simplify filters
+  have hfilter1 : (I \ {a}).filter (a < ·) = I.filter (a < ·) := by
+    ext x
+    simp only [Finset.mem_filter, Finset.mem_sdiff, Finset.mem_singleton]
+    constructor
+    · intro ⟨⟨hxI, _⟩, hxa⟩; exact ⟨hxI, hxa⟩
+    · intro ⟨hxI, hxa⟩
+      refine ⟨⟨hxI, ?_⟩, hxa⟩
+      intro hxeq; subst hxeq; exact absurd hxa (lt_irrefl _)
+  have hfilter2 : (J \ {a}).filter (· < a) = J.filter (· < a) := filter_lt_sdiff_singleton_right
+  rw [hfilter1] at hsign_IaJ
+  rw [hfilter2] at hsign_IJa
+  -- Now substitute
+  let C := reorderSign (I \ {a}) (J \ {a})
+  have hC1 : (reorderSign (I \ {a}) J : ℝ) = ((-1 : ℤ) ^ (I.filter (a < ·)).card : ℝ) * (C : ℝ) := by
+    simp only [hsign_IaJ]; push_cast; ring
+  have hC2 : (reorderSign I (J \ {a}) : ℝ) = ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) * (C : ℝ) := by
+    simp only [hsign_IJa]; push_cast; ring
+  rw [hC1, hC2]
+  -- Term1 = (-1)^A_I * C * (-1)^k_I = C * (-1)^(A_I + k_I) = C * (-1)^(|I|-1)
+  -- Term2 = (-1)^|I| * (-1)^k_J * C * (-1)^k_J = C * (-1)^|I| * (-1)^(2k_J) = C * (-1)^|I|
+  have hcard := filter_card_partition haI
+  -- (-1)^(k_I + A_I) = (-1)^(|I| - 1)
+  have hpow1 : ((-1 : ℤ) ^ (I.filter (· < a)).card : ℝ) * ((-1 : ℤ) ^ (I.filter (a < ·)).card : ℝ) =
+      ((-1 : ℤ) ^ (I.card - 1) : ℝ) := by
+    push_cast
+    rw [← pow_add, hcard]
+  -- (-1)^(2k_J) = 1
+  have hpow2 : ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) * ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) =
+      (1 : ℝ) := by
+    push_cast
+    rw [← pow_add, ← two_mul, pow_mul]
+    simp only [neg_one_sq, one_pow]
+  -- Combine
+  calc ((-1 : ℤ) ^ (I.filter (a < ·)).card : ℝ) * (C : ℝ) *
+         ((-1 : ℤ) ^ (I.filter (· < a)).card : ℝ) +
+       ((-1 : ℤ) ^ I.card : ℝ) * (((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) * (C : ℝ)) *
+         ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ)
+      = (C : ℝ) * (((-1 : ℤ) ^ (I.filter (· < a)).card : ℝ) *
+          ((-1 : ℤ) ^ (I.filter (a < ·)).card : ℝ)) +
+        (C : ℝ) * ((-1 : ℤ) ^ I.card : ℝ) *
+          (((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ) * ((-1 : ℤ) ^ (J.filter (· < a)).card : ℝ)) := by ring
+    _ = (C : ℝ) * ((-1 : ℤ) ^ (I.card - 1) : ℝ) + (C : ℝ) * ((-1 : ℤ) ^ I.card : ℝ) * 1 := by
+        rw [hpow1, hpow2]
+    _ = (C : ℝ) * (((-1 : ℤ) ^ (I.card - 1) : ℝ) + ((-1 : ℤ) ^ I.card : ℝ)) := by ring
+    _ = (C : ℝ) * 0 := by
+        congr 1
+        -- (-1)^(n-1) + (-1)^n = 0 for any n ≥ 1
+        have hn : 0 < I.card := Finset.card_pos.mpr ⟨a, haI⟩
+        have hsub : I.card - 1 + 1 = I.card := Nat.sub_add_cancel hn
+        have heq : ((-1 : ℤ) ^ I.card : ℝ) = ((-1 : ℤ) ^ (I.card - 1) : ℝ) * (-1 : ℝ) := by
+          have h : ((-1 : ℤ) ^ I.card) = ((-1 : ℤ) ^ (I.card - 1)) * (-1 : ℤ) := by
+            conv_lhs => rw [← hsub, pow_succ]
+          exact_mod_cast h
+        rw [heq]
+        ring
+    _ = 0 := by ring
+
 end Supermanifolds

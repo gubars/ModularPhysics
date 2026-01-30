@@ -333,7 +333,8 @@ theorem partialOdd_odd_derivation' {I J : Finset (Fin q)} (a : Fin q)
           rfl
   · -- Overlapping case: I ∩ J ≠ ∅
     -- f * g = 0
-    have hfg_zero : f * g = 0 := mul_eq_zero_of_inter_nonempty f g I J hf hg hIJ
+    have hIJ' : I ∩ J ≠ ∅ := hIJ
+    have hfg_zero : f * g = 0 := mul_eq_zero_of_inter_nonempty f g I J hf hg hIJ'
     rw [hfg_zero]
     -- LHS: ∂_a 0 = 0
     have lhs_zero : partialOdd a (0 : SuperDomainFunction p q) = 0 := by
@@ -350,10 +351,248 @@ theorem partialOdd_odd_derivation' {I J : Finset (Fin q)} (a : Fin q)
         simp only [zero, smul_zero, SmoothFunction.zero_apply]
     rw [lhs_zero]
     -- RHS: Need to show (∂_a f)g + (-1)^|I| f(∂_a g) = 0
-    -- Both products have overlapping supports too
-    -- (I \ {a}) ∩ J is nonempty or empty based on whether a ∈ I ∩ J
-    -- Actually, this is subtle - after removing a, supports might become disjoint
-    -- But we need to show the whole RHS is 0
-    sorry
+    -- Case split on whether a is in the intersection
+    by_cases haI : a ∈ I
+    · by_cases haJ : a ∈ J
+      · -- a ∈ I ∩ J: The tricky case
+        -- ∂_a f is supported at I \ {a}, ∂_a g is supported at J \ {a}
+        -- (I \ {a}) ∩ J = (I ∩ J) \ {a}
+        -- I ∩ (J \ {a}) = (I ∩ J) \ {a}
+        -- If (I ∩ J) \ {a} ≠ ∅, both products are 0
+        -- If I ∩ J = {a}, need sign cancellation
+        by_cases hIJ_singleton : I ∩ J = {a}
+        · -- I ∩ J = {a}: Both products are nonzero, need cancellation
+          -- This is the subtle sign cancellation case
+          -- After removing a, supports become disjoint
+          have hdf_support : ∀ K ≠ I \ {a}, (partialOdd a f).coefficients K = 0 :=
+            partialOdd_homogeneous_support a f I hf haI
+          have hdg_support : ∀ K ≠ J \ {a}, (partialOdd a g).coefficients K = 0 :=
+            partialOdd_homogeneous_support a g J hg haJ
+          -- (I \ {a}) ∩ J = ∅ when I ∩ J = {a}
+          have hdisj1 : (I \ {a}) ∩ J = ∅ := by
+            ext x
+            simp only [Finset.mem_inter, Finset.mem_sdiff, Finset.mem_singleton]
+            constructor
+            · intro ⟨⟨hxI, hxa⟩, hxJ⟩
+              have hxIJ : x ∈ I ∩ J := Finset.mem_inter.mpr ⟨hxI, hxJ⟩
+              rw [hIJ_singleton, Finset.mem_singleton] at hxIJ
+              exact absurd hxIJ hxa
+            · simp
+          have hdisj2 : I ∩ (J \ {a}) = ∅ := by
+            ext x
+            simp only [Finset.mem_inter, Finset.mem_sdiff, Finset.mem_singleton]
+            constructor
+            · intro ⟨hxI, hxJ, hxa⟩
+              have hxIJ : x ∈ I ∩ J := Finset.mem_inter.mpr ⟨hxI, hxJ⟩
+              rw [hIJ_singleton, Finset.mem_singleton] at hxIJ
+              exact absurd hxIJ hxa
+            · simp
+          -- Both products are nonzero - need to show they cancel
+          -- First term: (∂_a f) * g supported at (I \ {a}) ∪ J
+          -- Second term: f * (∂_a g) supported at I ∪ (J \ {a})
+          -- Both unions equal I ∪ J (since a ∈ I ∩ J)
+          have hunion1 : (I \ {a}) ∪ J = I ∪ J := by
+            ext x
+            simp only [Finset.mem_union, Finset.mem_sdiff, Finset.mem_singleton]
+            constructor
+            · intro h; rcases h with ⟨hxI, _⟩ | hxJ
+              · exact Or.inl hxI
+              · exact Or.inr hxJ
+            · intro h; rcases h with hxI | hxJ
+              · by_cases hxa : x = a
+                · subst hxa; exact Or.inr haJ
+                · exact Or.inl ⟨hxI, hxa⟩
+              · exact Or.inr hxJ
+          have hunion2 : I ∪ (J \ {a}) = I ∪ J := by
+            ext x
+            simp only [Finset.mem_union, Finset.mem_sdiff, Finset.mem_singleton]
+            constructor
+            · intro h; rcases h with hxI | ⟨hxJ, _⟩
+              · exact Or.inl hxI
+              · exact Or.inr hxJ
+            · intro h; rcases h with hxI | hxJ
+              · exact Or.inl hxI
+              · by_cases hxa : x = a
+                · subst hxa; exact Or.inl haI
+                · exact Or.inr ⟨hxJ, hxa⟩
+          -- Both products supported at I ∪ J, need sign cancellation
+          -- Expand the expressions using the homogeneous product formula
+          have hprod1_coeff : ∀ K, (partialOdd a f * g).coefficients K =
+              if K = (I \ {a}) ∪ J ∧ (I \ {a}) ∩ J = ∅ then
+                (reorderSign (I \ {a}) J : ℝ) • ((partialOdd a f).coefficients (I \ {a}) * g.coefficients J)
+              else 0 := fun K => mul_homogeneous_coefficients (partialOdd a f) g (I \ {a}) J hdf_support hg K
+          have hprod2_coeff : ∀ K, (f * partialOdd a g).coefficients K =
+              if K = I ∪ (J \ {a}) ∧ I ∩ (J \ {a}) = ∅ then
+                (reorderSign I (J \ {a}) : ℝ) • (f.coefficients I * (partialOdd a g).coefficients (J \ {a}))
+              else 0 := fun K => mul_homogeneous_coefficients f (partialOdd a g) I (J \ {a}) hf hdg_support K
+          -- Need to show the sum is 0
+          apply SuperDomainFunction.ext'; intro K x
+          -- Expand the add coefficients at the toFun level
+          simp only [add_coefficients, SmoothFunction.add_apply]
+          -- The smul ((-1)^I.card • h).coefficients K = (-1)^I.card • h.coefficients K
+          -- Use the fact that (-1)^n ∈ {1, -1} to handle the smul
+          have hsmul_toFun : ∀ K', (((-1 : ℝ) ^ I.card • (f * partialOdd a g)).coefficients K').toFun x =
+              ((-1 : ℝ) ^ I.card) * ((f * partialOdd a g).coefficients K').toFun x := fun K' => by
+            -- (-1)^n is either 1 or -1, use Nat.even_or_odd
+            rcases Nat.even_or_odd I.card with ⟨k, hk⟩ | ⟨k, hk⟩
+            · -- Even case: (-1)^(2k) = 1
+              have h1 : ((-1 : ℝ) ^ I.card) = 1 := by
+                rw [hk, pow_add]
+                calc ((-1 : ℝ) ^ k) * ((-1 : ℝ) ^ k) = ((-1) * (-1)) ^ k := by rw [← mul_pow]
+                  _ = 1 ^ k := by norm_num
+                  _ = 1 := one_pow k
+              simp only [h1, one_smul, one_mul]
+            · -- Odd case: (-1)^(2k+1) = -1
+              have h1 : ((-1 : ℝ) ^ I.card) = -1 := by
+                rw [hk, pow_add, pow_mul]; simp
+              simp only [h1, neg_smul, one_smul, neg_coefficients, SmoothFunction.neg_apply,
+                         neg_mul, one_mul]
+          conv_rhs =>
+            rw [hprod1_coeff K]
+            arg 2
+            rw [hsmul_toFun K, hprod2_coeff K]
+          -- Case split on K
+          by_cases hK : K = I ∪ J
+          · -- K = I ∪ J: need the sign identity
+            subst hK
+            simp only [hunion1, hunion2, hdisj1, hdisj2, and_self, ↓reduceIte]
+            -- Now need to show the two terms cancel
+            -- (∂_a f)_{I\{a}} = (-1)^{filter(<a)} * f_I
+            -- (∂_a g)_{J\{a}} = (-1)^{filter(<a)} * g_J
+            have hdf_coeff : (partialOdd a f).coefficients (I \ {a}) =
+                ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) • f.coefficients I := by
+              ext y
+              simp only [partialOdd, Finset.mem_sdiff, Finset.mem_singleton, haI, not_true_eq_false,
+                         and_false, SmoothFunction.smul_apply]
+              have h1 : insert a (I \ {a}) = I := insert_sdiff_self haI
+              simp only [h1, not_false_eq_true, ↓reduceIte, SmoothFunction.smul_apply]
+              norm_cast
+            have hdg_coeff : (partialOdd a g).coefficients (J \ {a}) =
+                ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ) • g.coefficients J := by
+              ext y
+              simp only [partialOdd, Finset.mem_sdiff, Finset.mem_singleton, haJ, not_true_eq_false,
+                         and_false, SmoothFunction.smul_apply]
+              have h1 : insert a (J \ {a}) = J := insert_sdiff_self haJ
+              simp only [h1, not_false_eq_true, ↓reduceIte, SmoothFunction.smul_apply]
+              norm_cast
+            rw [hdf_coeff, hdg_coeff]
+            -- Now simplify the smul/mul structure
+            simp only [SmoothFunction.smul_apply, SmoothFunction.mul_apply]
+            -- Use the sign cancellation identity
+            have hsign : (reorderSign (I \ {a}) J : ℝ) * ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) +
+                         ((-1 : ℤ) ^ I.card : ℝ) * (reorderSign I (J \ {a}) : ℝ) *
+                         ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ) = 0 :=
+              leibniz_sign_cancel haI haJ hIJ_singleton
+            -- The goal is: 0 = (sign1 * coeff_f * coeff_g) + ((-1)^|I| * sign2 * coeff_f * coeff_g)
+            -- Factor out coeff_f * coeff_g and use hsign
+            have hgoal : (reorderSign (I \ {a}) J : ℝ) * ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) *
+                (f.coefficients I).toFun x * (g.coefficients J).toFun x +
+                ((-1 : ℝ) ^ I.card) * ((reorderSign I (J \ {a}) : ℝ) *
+                ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ) *
+                (f.coefficients I).toFun x * (g.coefficients J).toFun x) = 0 := by
+              have h : ((-1 : ℝ) ^ I.card) = ((-1 : ℤ) ^ I.card : ℝ) := by push_cast; rfl
+              rw [h]
+              calc (reorderSign (I \ {a}) J : ℝ) * ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) *
+                      (f.coefficients I).toFun x * (g.coefficients J).toFun x +
+                    ((-1 : ℤ) ^ I.card : ℝ) * ((reorderSign I (J \ {a}) : ℝ) *
+                    ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ) *
+                    (f.coefficients I).toFun x * (g.coefficients J).toFun x)
+                  = ((reorderSign (I \ {a}) J : ℝ) * ((-1 : ℤ) ^ ((I \ {a}).filter (· < a)).card : ℝ) +
+                     ((-1 : ℤ) ^ I.card : ℝ) * (reorderSign I (J \ {a}) : ℝ) *
+                     ((-1 : ℤ) ^ ((J \ {a}).filter (· < a)).card : ℝ)) *
+                    ((f.coefficients I).toFun x * (g.coefficients J).toFun x) := by ring
+                _ = 0 * ((f.coefficients I).toFun x * (g.coefficients J).toFun x) := by rw [hsign]
+                _ = 0 := by ring
+            -- Match the goal to hgoal
+            show (zero.coefficients (I ∪ J)).toFun x = _
+            simp only [zero, SmoothFunction.zero_apply]
+            -- The goal is 0 = RHS, and hgoal says LHS = 0 where LHS ≈ RHS
+            -- Rewrite the casts in the goal
+            simp_rw [← Int.cast_pow] at hgoal ⊢
+            linarith [hgoal]
+          · -- K ≠ I ∪ J: both terms are 0
+            have hK1 : ¬(K = (I \ {a}) ∪ J ∧ (I \ {a}) ∩ J = ∅) := by
+              intro ⟨h, _⟩; rw [hunion1] at h; exact hK h
+            have hK2 : ¬(K = I ∪ (J \ {a}) ∧ I ∩ (J \ {a}) = ∅) := by
+              intro ⟨h, _⟩; rw [hunion2] at h; exact hK h
+            simp only [hK1, hK2, ↓reduceIte, SmoothFunction.zero_apply, mul_zero, add_zero]
+            rfl
+        · -- (I ∩ J) \ {a} ≠ ∅: Both products are 0
+          have hIJa : (I ∩ J) \ {a} ≠ ∅ := by
+            rw [Finset.nonempty_iff_ne_empty.symm]
+            have hne : (I ∩ J).Nonempty := Finset.nonempty_iff_ne_empty.mpr hIJ'
+            obtain ⟨x, hx⟩ := hne
+            by_cases hxa : x = a
+            · -- x = a, so there must be another element in I ∩ J since I ∩ J ≠ {a}
+              by_contra hempty
+              have hsub : I ∩ J ⊆ {a} := by
+                intro y hy
+                rw [Finset.mem_singleton]
+                by_contra hya
+                have hmem : y ∈ (I ∩ J) \ {a} := Finset.mem_sdiff.mpr ⟨hy, by rwa [Finset.mem_singleton]⟩
+                exact hempty ⟨y, hmem⟩
+              have heq : I ∩ J = {a} := Finset.Subset.antisymm hsub
+                (Finset.singleton_subset_iff.mpr (Finset.mem_inter.mpr ⟨haI, haJ⟩))
+              exact hIJ_singleton heq
+            · exact ⟨x, Finset.mem_sdiff.mpr ⟨hx, by rwa [Finset.mem_singleton]⟩⟩
+          have hdf_support : ∀ K ≠ I \ {a}, (partialOdd a f).coefficients K = 0 :=
+            partialOdd_homogeneous_support a f I hf haI
+          have hdg_support : ∀ K ≠ J \ {a}, (partialOdd a g).coefficients K = 0 :=
+            partialOdd_homogeneous_support a g J hg haJ
+          -- (I \ {a}) ∩ J ⊇ (I ∩ J) \ {a} ≠ ∅
+          have hover1 : (I \ {a}) ∩ J ≠ ∅ := by
+            rw [Finset.nonempty_iff_ne_empty.symm]
+            obtain ⟨x, hx⟩ := Finset.nonempty_iff_ne_empty.mpr hIJa
+            rw [Finset.mem_sdiff, Finset.mem_inter] at hx
+            exact ⟨x, Finset.mem_inter.mpr ⟨Finset.mem_sdiff.mpr ⟨hx.1.1, hx.2⟩, hx.1.2⟩⟩
+          have hover2 : I ∩ (J \ {a}) ≠ ∅ := by
+            rw [Finset.nonempty_iff_ne_empty.symm]
+            obtain ⟨x, hx⟩ := Finset.nonempty_iff_ne_empty.mpr hIJa
+            rw [Finset.mem_sdiff, Finset.mem_inter] at hx
+            exact ⟨x, Finset.mem_inter.mpr ⟨hx.1.1, Finset.mem_sdiff.mpr ⟨hx.1.2, hx.2⟩⟩⟩
+          -- Both products are 0
+          have hprod1 : partialOdd a f * g = 0 :=
+            mul_eq_zero_of_inter_nonempty (partialOdd a f) g (I \ {a}) J hdf_support hg hover1
+          have hprod2 : f * partialOdd a g = 0 :=
+            mul_eq_zero_of_inter_nonempty f (partialOdd a g) I (J \ {a}) hf hdg_support hover2
+          simp only [hprod1, hprod2, smul_zero, add_zero]
+      · -- a ∈ I, a ∉ J
+        -- ∂_a g = 0
+        have hg_zero : partialOdd a g = 0 := partialOdd_eq_zero_of_not_mem' a g J hg haJ
+        -- (∂_a f) * g has supports (I \ {a}) and J
+        -- (I \ {a}) ∩ J = (I ∩ J) \ {a} = I ∩ J (since a ∉ J)
+        have hdf_support : ∀ K ≠ I \ {a}, (partialOdd a f).coefficients K = 0 :=
+          partialOdd_homogeneous_support a f I hf haI
+        have hover : (I \ {a}) ∩ J ≠ ∅ := by
+          rw [Finset.nonempty_iff_ne_empty.symm]
+          obtain ⟨x, hx⟩ := Finset.nonempty_iff_ne_empty.mpr hIJ'
+          rw [Finset.mem_inter] at hx
+          have hxa : x ≠ a := fun h => haJ (h ▸ hx.2)
+          have hxa' : x ∉ ({a} : Finset (Fin q)) := by rwa [Finset.mem_singleton]
+          exact ⟨x, Finset.mem_inter.mpr ⟨Finset.mem_sdiff.mpr ⟨hx.1, hxa'⟩, hx.2⟩⟩
+        have hprod : partialOdd a f * g = 0 :=
+          mul_eq_zero_of_inter_nonempty (partialOdd a f) g (I \ {a}) J hdf_support hg hover
+        rw [hprod, hg_zero, mul_zero, smul_zero, zero_add]
+    · -- a ∉ I
+      -- ∂_a f = 0
+      have hf_zero : partialOdd a f = 0 := partialOdd_eq_zero_of_not_mem' a f I hf haI
+      by_cases haJ : a ∈ J
+      · -- a ∈ J: f * (∂_a g) has supports I and (J \ {a})
+        -- I ∩ (J \ {a}) = (I ∩ J) \ {a} = I ∩ J (since a ∉ I)
+        have hdg_support : ∀ K ≠ J \ {a}, (partialOdd a g).coefficients K = 0 :=
+          partialOdd_homogeneous_support a g J hg haJ
+        have hover : I ∩ (J \ {a}) ≠ ∅ := by
+          rw [Finset.nonempty_iff_ne_empty.symm]
+          obtain ⟨x, hx⟩ := Finset.nonempty_iff_ne_empty.mpr hIJ'
+          rw [Finset.mem_inter] at hx
+          have hxa : x ≠ a := fun h => haI (h ▸ hx.1)
+          have hxa' : x ∉ ({a} : Finset (Fin q)) := by rwa [Finset.mem_singleton]
+          exact ⟨x, Finset.mem_inter.mpr ⟨hx.1, Finset.mem_sdiff.mpr ⟨hx.2, hxa'⟩⟩⟩
+        have hprod : f * partialOdd a g = 0 :=
+          mul_eq_zero_of_inter_nonempty f (partialOdd a g) I (J \ {a}) hf hdg_support hover
+        rw [hf_zero, zero_mul, hprod, smul_zero, zero_add]
+      · -- a ∉ I, a ∉ J: Both derivatives are 0
+        have hg_zero : partialOdd a g = 0 := partialOdd_eq_zero_of_not_mem' a g J hg haJ
+        rw [hf_zero, zero_mul, hg_zero, mul_zero, smul_zero, zero_add]
 
 end Supermanifolds
