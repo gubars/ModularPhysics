@@ -2678,6 +2678,42 @@ theorem spectralProjection_inner_product_intersection (U : H →L[ℂ] H) (hU : 
           rw [h2, h3, h4]
     _ = @inner ℂ H _ (PEF x) (PEF y) := by ring
 
+/-- **Multiplicativity of spectral projections**: P(E ∩ F) = P(E) ∘ P(F).
+
+    This is a key PVM axiom, proven using spectralProjection_inner_product_intersection. -/
+theorem spectralProjection_multiplicative (U : H →L[ℂ] H) (hU : U ∈ unitary (H →L[ℂ] H))
+    (E F : Set Circle) (hE : MeasurableSet E) (hF : MeasurableSet F) :
+    spectralProjectionOfUnitary U hU (E ∩ F) (hE.inter hF) =
+    spectralProjectionOfUnitary U hU E hE ∘L spectralProjectionOfUnitary U hU F hF := by
+  set PE := spectralProjectionOfUnitary U hU E hE with hPE_def
+  set PF := spectralProjectionOfUnitary U hU F hF with hPF_def
+  set PEF := spectralProjectionOfUnitary U hU (E ∩ F) (hE.inter hF) with hPEF_def
+  have hPE_adj := spectralProjection_selfAdjoint U hU E hE
+  -- The operators are equal iff they agree on all inner products
+  ext y
+  apply ext_inner_left ℂ
+  intro x
+  -- Goal: ⟨x, PEF y⟩ = ⟨x, (PE ∘L PF) y⟩
+  -- The RHS is ⟨x, PE (PF y)⟩ = ⟨PE x, PF y⟩ by self-adjointness
+  have hRHS_step1 : @inner ℂ H _ x ((PE ∘L PF) y) = @inner ℂ H _ (PE x) (PF y) := by
+    rw [ContinuousLinearMap.comp_apply]
+    rw [← ContinuousLinearMap.adjoint_inner_left, hPE_adj]
+  -- Use the factored lemma: ⟨PE x, PF y⟩ = ⟨PEF x, PEF y⟩
+  have hkey := spectralProjection_inner_product_intersection U hU E F hE hF x y
+  simp only at hkey
+  rw [hRHS_step1, hkey]
+  -- Goal: ⟨x, PEF y⟩ = ⟨PEF x, PEF y⟩
+  -- This follows from PEF being self-adjoint and idempotent
+  have hPEF_adj := spectralProjection_selfAdjoint U hU (E ∩ F) (hE.inter hF)
+  have hPEF_idem := spectralProjection_idempotent U hU (E ∩ F) (hE.inter hF)
+  symm
+  have step1 : @inner ℂ H _ (PEF x) (PEF y) = @inner ℂ H _ x (PEF (PEF y)) := by
+    rw [← ContinuousLinearMap.adjoint_inner_right PEF, hPEF_adj]
+  have step2 : @inner ℂ H _ x (PEF (PEF y)) = @inner ℂ H _ x (PEF y) := by
+    have h : PEF (PEF y) = (PEF ∘L PEF) y := rfl
+    rw [h, hPEF_idem]
+  rw [step1, step2]
+
 /-! ### The Spectral Theorem -/
 
 /-- **Spectral Theorem for Unitaries (via RMK)**

@@ -1301,6 +1301,21 @@ theorem cayley_unitary (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     _ = C.U x := by rw [h_left_inv]
     _ = y := hx
 
+/-- The Cayley transform U lies in the unitary group.
+    This combines the two unitarity conditions U*U = 1 and UU* = 1. -/
+theorem cayley_mem_unitary (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) :
+    C.U ∈ unitary (H →L[ℂ] H) := by
+  rw [Unitary.mem_iff]
+  have hstar : star C.U = C.U.adjoint := ContinuousLinearMap.star_eq_adjoint C.U
+  constructor
+  · -- star U * U = 1
+    simp only [hstar, ContinuousLinearMap.mul_def]
+    exact C.adjoint_eq_inv
+  · -- U * star U = 1
+    simp only [hstar, ContinuousLinearMap.mul_def]
+    exact cayley_unitary T hT hsa C
+
 /-- The inverse Cayley transform formula: T ∘ (T + i)⁻¹ = (1 + U)/2.
     For any z ∈ H, let y = (T + i)⁻¹ z ∈ dom(T). Then Ty = (Uz + z)/2.
     This is equivalent to the standard formula T = i(1 + U)(1 - U)⁻¹ on ran(1 - U). -/
