@@ -181,25 +181,35 @@ end Martingale
 
 /-! ## Submartingales and Supermartingales -/
 
-/-- A submartingale: E[X_t | F_s] ≥ X_s for s ≤ t -/
+/-- A submartingale: E[X_t | F_s] ≥ X_s for s ≤ t.
+    Expressed via the integral characterization: for all F_s-measurable A,
+    ∫_A X_s dμ ≤ ∫_A X_t dμ. -/
 structure Submartingale {Ω : Type*} [MeasurableSpace Ω] {ι : Type*} [Preorder ι]
     (F : Filtration Ω ι) (μ : Measure Ω)
     [MeasurableSpace ℝ] where
   toAdapted : AdaptedProcess F ℝ
   integrable : ∀ t : ι, Integrable (toAdapted.process t) μ
+  /-- The submartingale property via conditional expectation:
+      for all F_s-measurable sets A, ∫_A X_s dμ ≤ ∫_A X_t dμ -/
   submartingale_property : ∀ s t : ι, s ≤ t →
-    ∀ ω : Ω, toAdapted.process s ω ≤
-      ∫ ω', toAdapted.process t ω' ∂μ
+    ∀ A : Set Ω, @MeasurableSet Ω (F.σ_algebra s) A →
+    ∫ ω, toAdapted.process s ω ∂(μ.restrict A) ≤
+    ∫ ω, toAdapted.process t ω ∂(μ.restrict A)
 
-/-- A supermartingale: E[X_t | F_s] ≤ X_s for s ≤ t -/
+/-- A supermartingale: E[X_t | F_s] ≤ X_s for s ≤ t.
+    Expressed via the integral characterization: for all F_s-measurable A,
+    ∫_A X_s dμ ≥ ∫_A X_t dμ. -/
 structure Supermartingale {Ω : Type*} [MeasurableSpace Ω] {ι : Type*} [Preorder ι]
     (F : Filtration Ω ι) (μ : Measure Ω)
     [MeasurableSpace ℝ] where
   toAdapted : AdaptedProcess F ℝ
   integrable : ∀ t : ι, Integrable (toAdapted.process t) μ
+  /-- The supermartingale property via conditional expectation:
+      for all F_s-measurable sets A, ∫_A X_s dμ ≥ ∫_A X_t dμ -/
   supermartingale_property : ∀ s t : ι, s ≤ t →
-    ∀ ω : Ω, toAdapted.process s ω ≥
-      ∫ ω', toAdapted.process t ω' ∂μ
+    ∀ A : Set Ω, @MeasurableSet Ω (F.σ_algebra s) A →
+    ∫ ω, toAdapted.process s ω ∂(μ.restrict A) ≥
+    ∫ ω, toAdapted.process t ω ∂(μ.restrict A)
 
 /-! ## Quadratic Variation -/
 

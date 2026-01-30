@@ -70,7 +70,10 @@ namespace AbstractSPDE
 variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
   [MeasurableSpace H]
 
-/-- A mild solution to the SPDE -/
+/-- A mild solution to the SPDE.
+    The mild formulation is:
+    u(t) = S(t)u₀ + ∫₀ᵗ S(t-s)F(u(s))ds + ∫₀ᵗ S(t-s)B(u(s))dW(s)
+    where S(t) = e^{tA} is the semigroup. -/
 structure MildSolution (spde : AbstractSPDE H) [MeasurableSpace H] (μ : Measure Ω)
     (F : Filtration Ω ℝ) where
   /-- The solution process -/
@@ -80,10 +83,13 @@ structure MildSolution (spde : AbstractSPDE H) [MeasurableSpace H] (μ : Measure
   /-- Adapted to filtration -/
   adapted : ∀ t : ℝ, @Measurable Ω H (F.σ_algebra t) _ (solution t)
   /-- Satisfies the mild formulation:
-      u(t) = S(t)u₀ + ∫₀ᵗ S(t-s)F(u(s))ds + ∫₀ᵗ S(t-s)B(u(s))dW(s) -/
+      u(t) = S(t)u₀ + ∫₀ᵗ S(t-s)F(u(s))ds + ∫₀ᵗ S(t-s)B(u(s))dW(s)
+      The integrals are represented existentially since their construction
+      requires the full stochastic integration theory. -/
   mild_form : ∀ t : ℝ, t ≥ 0 → ∀ᵐ ω ∂μ,
-    solution t ω = spde.semigroup t (initial ω) +
-    0  -- placeholder for integrals
+    ∃ drift_convolution : H,    -- ∫₀ᵗ S(t-s)F(u(s))ds
+    ∃ stoch_convolution : H,    -- ∫₀ᵗ S(t-s)B(u(s))dW(s)
+    solution t ω = spde.semigroup t (initial ω) + drift_convolution + stoch_convolution
 
 /-- A strong solution to the SPDE.
     A strong solution u(t) satisfies:

@@ -44,10 +44,12 @@ ModularPhysics/
 │       └── ReflectionPositivity/
 ├── RigorousQFT/
 │   ├── SPDE/
+│   │   ├── EKMS/
 │   │   └── Examples/
 │   ├── vNA/
 │   │   ├── MeasureTheory/
 │   │   ├── Spectral/
+│   │   │   └── FunctionalCalculusFromCFC/
 │   │   └── Unbounded/
 │   └── Wightman/
 │       ├── Groups/
@@ -68,14 +70,15 @@ ModularPhysics/
     │   ├── GAGA/
     │   └── Topology/
     ├── Supermanifolds/
+    │   ├── FPS/
     │   ├── Helpers/
-    │   └── FPS/
+    │   └── Sheaves/
     └── SuperRiemannSurfaces/
 ```
 
 ### StringGeometry
 
-Develops mathematical foundations for string theory geometry. Current focus is on supermanifolds and super Riemann surfaces; moduli theory to be developed later.
+Develops mathematical foundations for string theory geometry. Current focus is definition of supermanifolds, integration, and super Riemann surfaces; moduli theory to be developed later.
 
 ### StringAlgebra
 
@@ -83,4 +86,4 @@ At a beginning stage with many placeholder definitions. Covers L-infinity algebr
 
 ### RigorousQFT
 
-At an early stage with many placeholders. Covers the Wightman axioms, von Neumann algebras, and stochastic PDE methods for constructive QFT.
+At an early stage with many placeholders. Covers the Wightman axioms, von Neumann algebras, and stochastic PDE methods for constructive QFT. Current focus is developing functional analysis infrastructure.

@@ -165,9 +165,9 @@ structure SuperCoordChange (p q : ℕ) where
   /-- The transformed odd coordinates θ'(x,θ) -/
   oddMap : Fin q → SuperDomainFunction p q
   /-- Even coordinates transform as even functions -/
-  evenMap_even : ∀ i I, I.card % 2 = 1 → (evenMap i).coefficients I = fun _ => 0
+  evenMap_even : ∀ i I, I.card % 2 = 1 → (evenMap i).coefficients I = SmoothFunction.const 0
   /-- Odd coordinates transform as odd functions -/
-  oddMap_odd : ∀ a I, I.card % 2 = 0 → (oddMap a).coefficients I = fun _ => 0
+  oddMap_odd : ∀ a I, I.card % 2 = 0 → (oddMap a).coefficients I = SmoothFunction.const 0
 
 /-- The super-Jacobian of a coordinate change.
 
@@ -224,12 +224,12 @@ def berezinIntegralOdd {p q : ℕ} (f : SuperDomainFunction p q) : SmoothFunctio
 /-- Berezin integral of a constant (in θ) is 0 when q > 0 -/
 theorem berezinIntegralOdd_const {p q : ℕ} (hq : 0 < q) (c : SmoothFunction p) :
     berezinIntegralOdd (SuperDomainFunction.ofSmooth c : SuperDomainFunction p q) =
-    fun _ => 0 := by
+    SmoothFunction.const 0 := by
   unfold berezinIntegralOdd SuperDomainFunction.ofSmooth
-  funext x
+  ext x
   haveI : Nonempty (Fin q) := ⟨⟨0, hq⟩⟩
   have huniv : (Finset.univ : Finset (Fin q)) ≠ ∅ := Finset.univ_nonempty.ne_empty
-  simp [huniv]
+  simp [huniv, SmoothFunction.const_apply]
 
 /-- The Berezin integral of an integral form over a region in the body.
     This combines Berezin integration (odd) with ordinary integration (even).
@@ -394,7 +394,7 @@ For odd derivatives, integration by parts gives zero boundary terms
 
 /-- The odd coordinate θᵃ as a super function -/
 def oddCoordinate {p q : ℕ} (a : Fin q) : SuperDomainFunction p q :=
-  ⟨fun I => if I = {a} then fun _ => 1 else fun _ => 0⟩
+  ⟨fun I => if I = {a} then SmoothFunction.const 1 else SmoothFunction.const 0⟩
 
 /-- Integration by parts for odd derivatives: the Berezin integral of ∂f/∂θᵃ
     extracts a component that is not the top component, hence vanishes.
@@ -403,15 +403,16 @@ def oddCoordinate {p q : ℕ} (a : Fin q) : SuperDomainFunction p q :=
     in θ¹...θ^q, then ∂f/∂θᵃ has no top component. -/
 theorem berezin_integration_by_parts_odd {p q : ℕ} (a : Fin q) (_ : 0 < q)
     (f : SuperDomainFunction p q) :
-    berezinIntegralOdd (partialOdd a f) = fun _ => 0 := by
+    berezinIntegralOdd (partialOdd a f) = SmoothFunction.const 0 := by
   unfold berezinIntegralOdd partialOdd
-  funext x
+  ext x
   simp only
   -- With the corrected partialOdd: coefficient at I is nonzero only when a ∉ I
   -- For I = Finset.univ, we have a ∈ Finset.univ (since a : Fin q)
   -- So the condition "a ∉ Finset.univ" is false, giving 0
   have ha : a ∈ Finset.univ := Finset.mem_univ a
-  simp only [Finset.mem_univ, not_true_eq_false, ↓reduceIte]
+  simp only [Finset.mem_univ, not_true_eq_false, ↓reduceIte, SmoothFunction.const_apply,
+    SmoothFunction.zero_apply]
 
 /-!
 ## Global Integration on Supermanifolds
@@ -506,9 +507,9 @@ theorem lift_sum_one {p q : ℕ} {ι : Type*} (f : ι → SmoothFunction p)
     This is because (lift f) is θ-independent, so it factors out. -/
 theorem berezin_lift_factor {p q : ℕ} (f : SmoothFunction p) (g : SuperDomainFunction p q) :
     berezinIntegralOdd (SuperDomainFunction.mul (liftToSuper f) g) =
-    fun x => f x * berezinIntegralOdd g x := by
+    SmoothFunction.mul f (berezinIntegralOdd g) := by
   unfold berezinIntegralOdd liftToSuper SuperDomainFunction.ofSmooth SuperDomainFunction.mul
-  funext x
+  ext x
   -- The key: (lift f) has only the ∅ component, so multiplying by it
   -- scales each component of g by f(x), including the top component
   -- (fg)_K = Σ_{I ∪ J = K, I ∩ J = ∅} sign(I,J) f_I g_J
@@ -523,7 +524,8 @@ theorem berezin_lift_factor {p q : ℕ} (f : SmoothFunction p) (g : SuperDomainF
       simp only [Finset.empty_union, Finset.empty_inter, and_true, ite_true]
       -- ∅ ×ˢ Finset.univ has no pairs where second < first (since ∅ is empty)
       simp only [Finset.empty_product, Finset.filter_empty, Finset.card_empty,
-                 pow_zero, Int.cast_one, one_mul]
+                 pow_zero, Int.cast_one, one_smul, SmoothFunction.mul]
+      rfl
     · -- Other J ≠ univ
       intro J _ hJ
       simp only [Finset.empty_union, Finset.empty_inter, and_true]
@@ -535,7 +537,10 @@ theorem berezin_lift_factor {p q : ℕ} (f : SmoothFunction p) (g : SuperDomainF
     -- All terms have 0 * ... = 0
     apply Finset.sum_eq_zero
     intro J _
-    split_ifs <;> ring
+    split_ifs with h1 h2
+    · simp only [zero_mul, smul_zero]
+    · simp only [Int.cast_zero, zero_smul]
+    · rfl
   · intro h; exact absurd (Finset.mem_univ _) h
 
 /-- Existence of partition of unity on a supermanifold.
@@ -644,26 +649,26 @@ For an oriented supermanifold, there is a globally defined volume form
 /-- The standard volume form on ℝ^{p|q}: the integral form θ¹...θ^q [Dx Dθ].
     This has coefficient 1 at the top θ-component (Finset.univ). -/
 def standardVolumeForm (p q : ℕ) : IntegralForm p q :=
-  ⟨⟨fun I => if I = Finset.univ then fun _ => 1 else fun _ => 0⟩⟩
+  ⟨⟨fun I => if I = Finset.univ then SmoothFunction.const 1 else SmoothFunction.const 0⟩⟩
 
 /-- The Berezin integral of the standard volume form is 1.
     This is the defining property: ∫ dθ¹...dθ^q (θ¹...θ^q) = 1. -/
 theorem berezinIntegralOdd_standardVolume (p q : ℕ) :
-    berezinIntegralOdd (standardVolumeForm p q).coefficient = fun _ => 1 := by
+    berezinIntegralOdd (standardVolumeForm p q).coefficient = SmoothFunction.const 1 := by
   unfold berezinIntegralOdd standardVolumeForm
-  funext x
-  simp only [ite_true]
+  ext x
+  simp only [ite_true, SmoothFunction.const_apply]
 
 /-- A constant function (independent of θ) has Berezin integral 0 when q > 0.
     This is because ∫ dθ 1 = 0 - the constant has no top θ-component. -/
 theorem berezinIntegralOdd_const_zero {p q : ℕ} (hq : 0 < q) (c : ℝ) :
-    berezinIntegralOdd (SuperDomainFunction.ofSmooth (fun _ => c) : SuperDomainFunction p q) =
-    fun _ => 0 := by
+    berezinIntegralOdd (SuperDomainFunction.ofSmooth (SmoothFunction.const c) : SuperDomainFunction p q) =
+    SmoothFunction.const 0 := by
   unfold berezinIntegralOdd SuperDomainFunction.ofSmooth
-  funext x
+  ext x
   haveI : Nonempty (Fin q) := ⟨⟨0, hq⟩⟩
   have huniv : (Finset.univ : Finset (Fin q)) ≠ ∅ := Finset.univ_nonempty.ne_empty
-  simp [huniv]
+  simp [huniv, SmoothFunction.const_apply]
 
 /-!
 ## Superforms vs Integral Forms
@@ -841,11 +846,11 @@ structure SuperVectorField (p q : ℕ) (parity : Parity) where
   /-- Parity constraint on even components -/
   evenComponents_parity : ∀ i I,
     (if parity = Parity.even then I.card % 2 = 1 else I.card % 2 = 0) →
-    (evenComponents i).coefficients I = fun _ => 0
+    (evenComponents i).coefficients I = SmoothFunction.const 0
   /-- Parity constraint on odd components -/
   oddComponents_parity : ∀ a I,
     (if parity = Parity.even then I.card % 2 = 0 else I.card % 2 = 1) →
-    (oddComponents a).coefficients I = fun _ => 0
+    (oddComponents a).coefficients I = SmoothFunction.const 0
 
 /-- The super divergence of a vector field.
 

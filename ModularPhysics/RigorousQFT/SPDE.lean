@@ -10,6 +10,7 @@ import ModularPhysics.RigorousQFT.SPDE.StochasticIntegration
 import ModularPhysics.RigorousQFT.SPDE.RegularityStructures
 import ModularPhysics.RigorousQFT.SPDE.SPDE
 import ModularPhysics.RigorousQFT.SPDE.Examples
+import ModularPhysics.RigorousQFT.SPDE.EKMS
 
 /-!
 # Stochastic Partial Differential Equations
@@ -35,6 +36,8 @@ a systematic framework for making sense of these singular SPDEs.
 * `SPDE.lean` - Abstract SPDEs, solutions, well-posedness
 * `Examples/Phi4.lean` - The Φ⁴ model
 * `Examples/YangMills2D.lean` - 2D Yang-Mills theory
+* `Examples/Burgers.lean` - The stochastic Burgers equation
+* `EKMS/` - EKMS theory of invariant measures for Burgers equation
 
 ## Key Concepts
 
@@ -72,12 +75,27 @@ The stochastic Yang-Mills equation: ∂_t A = -d*_A F_A + ξ
 This defines Langevin dynamics for the Yang-Mills measure,
 a key object in gauge theory and QFT.
 
+### EKMS Theory for Burgers Equation
+
+The E-Khanin-Mazel-Sinai theory establishes the existence and uniqueness
+of invariant measures for the randomly forced inviscid Burgers equation:
+
+  ∂_t u + ∂_x(u²/2) = f(x, t)
+
+Key results formalized:
+- One-sided minimizers and their uniqueness (Theorem 1.1)
+- Two-sided minimizers and the main shock (Theorems 5.1, 5.2)
+- The unique invariant measure via "one force, one solution" (Theorem 4.2)
+- Hyperbolicity and Pesin theory (Theorem 1.4)
+
 ## References
 
 * Hairer, "A theory of regularity structures" (Inventiones 2014)
 * Da Prato, Zabczyk, "Stochastic Equations in Infinite Dimensions"
 * Chandra, Chevyrev, Hairer, Shen, "Langevin dynamic for the 2D Yang-Mills measure"
 * Karatzas, Shreve, "Brownian Motion and Stochastic Calculus"
+* E, Khanin, Mazel, Sinai, "Invariant measures for Burgers equation with
+  stochastic forcing" (Annals of Mathematics 2000)
 
 -/
 
