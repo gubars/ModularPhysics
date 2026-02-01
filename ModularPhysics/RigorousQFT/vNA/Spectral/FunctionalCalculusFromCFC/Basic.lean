@@ -64,8 +64,10 @@ instance : CStarRing (H →L[ℂ] H) := by infer_instance
 
 instance : Algebra ℂ (H →L[ℂ] H) := by infer_instance
 
-/-- A unitary operator is normal (hence has CFC available). -/
-theorem unitary_isStarNormal (U : H →L[ℂ] H)
+/-- A unitary operator is normal (hence has CFC available).
+    This version takes explicit proof of U*U = 1 and UU* = 1.
+    Named with prime to avoid conflict with version in SpectralFunctionalViaRMK. -/
+theorem unitary_isStarNormal' (U : H →L[ℂ] H)
     (hU_left : U.adjoint ∘L U = 1) (hU_right : U ∘L U.adjoint = 1) :
     IsStarNormal U := by
   constructor
@@ -356,7 +358,7 @@ theorem cayleyTransform_isStarNormal (T : UnboundedOperator H) (hT : T.IsDensely
   -- The surjectivity of U follows from the Cayley transform construction:
   -- Range(T-i) = H for self-adjoint T (deficiency indices are 0)
   have hU_right : C.U ∘L C.U.adjoint = 1 := cayley_unitary T hT hsa C
-  exact unitary_isStarNormal C.U hU_left hU_right
+  exact unitary_isStarNormal' C.U hU_left hU_right
 
 /-- For an unbounded self-adjoint operator T with Cayley transform U,
     we define f(T) := g(U) where g = f ∘ (inverse Cayley).
@@ -458,8 +460,10 @@ theorem unbounded_cfc_one (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
 /-! ### Complex spectral measure via RMK -/
 
 /-- The positive functional Λ_x(f) = Re⟨x, f(T)x⟩ for x ∈ H and continuous f.
-    This is the starting point for the RMK construction. -/
-noncomputable def spectralFunctional (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+    This is the starting point for the RMK construction.
+    Named `unboundedSpectralFunctional` to avoid conflict with `spectralFunctional` in
+    SpectralFunctionalViaRMK.lean (which is for unitary operators). -/
+noncomputable def unboundedSpectralFunctional (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) (C : CayleyTransform T hT hsa) (x : H) :
     C(ℝ, ℂ) → ℂ :=
   fun f => @inner ℂ H _ x ((UnboundedCFC T hT hsa C f) x)

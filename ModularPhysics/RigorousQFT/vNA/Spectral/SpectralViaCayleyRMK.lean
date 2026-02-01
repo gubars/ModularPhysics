@@ -1440,11 +1440,24 @@ theorem spectralMeasureFromRMK_univ (T : UnboundedOperator H) (hT : T.IsDenselyD
     simp only [himg_meas]
   rw [hset_eq, htotal]
 
-/-! ### Spectral Theorem via RMK -/
+/-! ### PVM Properties via RMK -/
 
-/-- The spectral theorem for self-adjoint operators via RMK.
-    This version bypasses CFC and uses the Riesz-Markov-Kakutani theorem directly. -/
-theorem spectral_theorem_via_RMK (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
+/-- **PVM (Projection-Valued Measure) properties** for the spectral measure constructed via RMK.
+
+    This theorem proves that `spectralMeasureFromRMK` satisfies the algebraic properties
+    of a projection-valued measure:
+    - P(∅) = 0
+    - P(ℝ) = 1
+    - P(E)² = P(E) (idempotent / orthogonal projection)
+    - P(E)* = P(E) (self-adjoint)
+    - P(E ∩ F) = P(E) ∘ P(F) (multiplicative)
+
+    **Important**: This does NOT prove the T-P connection (the spectral representation
+    T = ∫ λ dP(λ)). The connection between T and P comes from the construction:
+    P is built from the Cayley transform U = (T-i)(T+i)⁻¹, and the relationship
+    `f(T) = ∫ f(λ) dP(λ)` requires additional work to establish (see `spectral_theorem`
+    in `Unbounded/Spectral.lean` for the full statement). -/
+theorem spectralMeasure_isPVM_via_RMK (T : UnboundedOperator H) (hT : T.IsDenselyDefined)
     (hsa : T.IsSelfAdjoint hT) :
     ∃ (C : CayleyTransform T hT hsa),
       let P := fun E hE => spectralMeasureFromRMK T hT hsa C E hE
