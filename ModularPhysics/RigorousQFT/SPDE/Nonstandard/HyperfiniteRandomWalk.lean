@@ -298,6 +298,14 @@ noncomputable def HyperfiniteWalk.stepIndex (W : HyperfiniteWalk) (t : ℝ) (ht 
   Foundation.Hypernat.timeStepIndex (t / W.totalTime) (div_nonneg ht (le_of_lt W.totalTime_pos))
     W.numSteps W.numSteps_pos
 
+/-- stepIndex is monotone: if s ≤ t then stepIndex s ≤ stepIndex t. -/
+theorem HyperfiniteWalk.stepIndex_mono (W : HyperfiniteWalk)
+    (s t : ℝ) (hs : 0 ≤ s) (ht : 0 ≤ t) (hst : s ≤ t) :
+    W.stepIndex s hs ≤ W.stepIndex t ht := by
+  unfold stepIndex
+  apply Foundation.Hypernat.timeStepIndex_mono
+  exact div_le_div_of_nonneg_right hst (le_of_lt W.totalTime_pos)
+
 /-- The time at hypernatural step K: K · dt -/
 noncomputable def HyperfiniteWalk.timeAtHypernat (W : HyperfiniteWalk)
     (K : Foundation.Hypernat) : ℝ* :=

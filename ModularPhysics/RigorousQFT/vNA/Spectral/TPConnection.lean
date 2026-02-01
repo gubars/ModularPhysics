@@ -352,6 +352,39 @@ theorem diagonal_spectral_integral_real (U : H →L[ℂ] H) (hU : U ∈ unitary 
       ∫ w, (f w : ℂ) ∂(spectralMeasureDiagonal U hU z) := integral_ofReal.symm
   exact h1.trans h2
 
+/-! ### Helper lemmas for cfcViaInverseCayley -/
+
+/-- cfcViaInverseCayley respects addition -/
+lemma cfcViaInverseCayley_add (f g : C(ℝ, ℂ)) :
+    cfcViaInverseCayley (f + g) = cfcViaInverseCayley f + cfcViaInverseCayley g := by
+  ext w; simp only [cfcViaInverseCayley, Pi.add_apply, ContinuousMap.add_apply]; split_ifs <;> rfl
+
+/-- cfcViaInverseCayley respects scalar multiplication -/
+lemma cfcViaInverseCayley_smul (c : ℂ) (f : C(ℝ, ℂ)) :
+    cfcViaInverseCayley (c • f) = c • cfcViaInverseCayley f := by
+  ext w; simp only [cfcViaInverseCayley, Pi.smul_apply, ContinuousMap.smul_apply, smul_eq_mul]; split_ifs <;> rfl
+
+/-- For a real-valued function f : C(ℝ, ℝ), embed it as C(ℝ, ℂ) -/
+def realToComplexMap (f : C(ℝ, ℝ)) : C(ℝ, ℂ) :=
+  ⟨fun t => Complex.ofReal (f t), Complex.continuous_ofReal.comp f.continuous⟩
+
+/-- The complex function decomposes as real + i·imaginary via cfcViaInverseCayley -/
+lemma cfcViaInverseCayley_re_im_decomp (f : C(ℝ, ℂ)) :
+    let f_Re : C(ℝ, ℝ) := ⟨fun t => (f t).re, Complex.continuous_re.comp f.continuous⟩
+    let f_Im : C(ℝ, ℝ) := ⟨fun t => (f t).im, Complex.continuous_im.comp f.continuous⟩
+    cfcViaInverseCayley f =
+      cfcViaInverseCayley (realToComplexMap f_Re) + Complex.I • cfcViaInverseCayley (realToComplexMap f_Im) := by
+  ext w
+  simp only [cfcViaInverseCayley, realToComplexMap, ContinuousMap.coe_mk, Pi.add_apply,
+             Pi.smul_apply, smul_eq_mul]
+  split_ifs with h
+  · -- w ≠ 1
+    have := Complex.re_add_im (f (inverseCayleyMap w h))
+    rw [mul_comm]; exact this.symm
+  · -- w = 1
+    have := Complex.re_add_im (f 0)
+    rw [mul_comm]; exact this.symm
+
 /-! ### The Main T-P Connection Theorem -/
 
 /-- **The T-P Connection Theorem**

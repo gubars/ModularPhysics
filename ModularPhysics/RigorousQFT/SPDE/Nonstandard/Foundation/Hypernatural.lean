@@ -420,6 +420,36 @@ theorem lt_hyperfloor_succ (x : ℝ*) (_hx : 0 ≤ x) : x < (hyperfloor x _hx).v
   intro n
   exact Nat.lt_floor_add_one _
 
+/-- Hyperfloor is monotone: if x ≤ y then floor(x) ≤ floor(y). -/
+theorem hyperfloor_mono {x y : ℝ*} (hx : 0 ≤ x) (hy : 0 ≤ y) (hxy : x ≤ y) :
+    hyperfloor x hx ≤ hyperfloor y hy := by
+  rw [le_def']
+  -- Need: (hyperfloor x).val ≤ (hyperfloor y).val
+  -- hyperfloor x = ofNatSeq (fun n => Nat.floor (rep_x n))
+  -- hyperfloor y = ofNatSeq (fun n => Nat.floor (rep_y n))
+  -- Since x ≤ y, we have rep_x n ≤ rep_y n almost everywhere
+  -- By Nat.floor_le_floor, floor(rep_x n) ≤ floor(rep_y n) almost everywhere
+  unfold hyperfloor ofNatSeq ofSeq
+  apply Germ.coe_le.mpr
+  -- Get the representative sequences
+  have hspec_x := Classical.choose_spec (ofSeq_surjective x)
+  have hspec_y := Classical.choose_spec (ofSeq_surjective y)
+  -- The inequality x ≤ y becomes rep_x ≤ rep_y almost everywhere
+  have hrep_le : ∀ᶠ n in hyperfilter ℕ,
+      Classical.choose (ofSeq_surjective x) n ≤ Classical.choose (ofSeq_surjective y) n := by
+    rw [← hspec_x, ← hspec_y] at hxy
+    unfold ofSeq at hxy
+    exact Germ.coe_le.mp hxy
+  -- Also need 0 ≤ rep_x n almost everywhere (for floor to be well-defined)
+  have hrep_nn : ∀ᶠ n in hyperfilter ℕ, 0 ≤ Classical.choose (ofSeq_surjective x) n := by
+    rw [← hspec_x] at hx
+    unfold ofSeq at hx
+    exact Germ.coe_le.mp hx
+  -- Combine and apply Nat.floor_le_floor
+  apply Filter.Eventually.mono (hrep_le.and hrep_nn)
+  intro n ⟨hle, hnn⟩
+  exact Nat.cast_le.mpr (Nat.floor_le_floor hle)
+
 /-- Given a positive standard real t and a positive hyperreal N (typically infinite),
     compute the hypernatural k such that k * (1/N) ≈ t.
     This is useful for finding the time step index. -/
@@ -461,6 +491,17 @@ theorem lt_timeStepIndex_succ_mul_dt (t : ℝ) (ht : 0 ≤ t) (N : Hypernat) (hN
     _ < ((hyperfloor ((t : ℝ*) * N.val) _).val + 1) / N.val := by
         apply div_lt_div_of_pos_right hfloor hNpos
     _ = ((hyperfloor ((t : ℝ*) * N.val) _).val + 1) * (1 / N.val) := by ring
+
+/-- timeStepIndex is monotone in the time parameter -/
+theorem timeStepIndex_mono {s t : ℝ} (hs : 0 ≤ s) (ht : 0 ≤ t) (hst : s ≤ t)
+    (N : Hypernat) (hNpos : 0 < N.val) :
+    timeStepIndex s hs N hNpos ≤ timeStepIndex t ht N hNpos := by
+  unfold timeStepIndex
+  apply hyperfloor_mono
+  -- (s : ℝ*) * N.val ≤ (t : ℝ*) * N.val
+  apply mul_le_mul_of_nonneg_right
+  · exact_mod_cast hst
+  · exact le_of_lt hNpos
 
 end Hypernat
 

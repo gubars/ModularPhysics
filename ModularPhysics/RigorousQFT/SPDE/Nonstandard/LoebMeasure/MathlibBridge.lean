@@ -302,6 +302,107 @@ theorem LevelwiseSet.preLoeb_add_disjoint (A B : LevelwiseSet) (h : A.AreDisjoin
       simp only [dif_neg hA, dif_neg hB, dif_neg hAB]
       exact st_add hA hB
 
+/-! ## Subadditivity
+
+The pre-Loeb measure is subadditive: preLoeb(A ∪ B) ≤ preLoeb(A) + preLoeb(B).
+This follows from |A ∪ B| ≤ |A| + |B|.
+-/
+
+/-- The cardinality of a union is at most the sum of cardinalities -/
+theorem LevelwiseSet.cardAtLevel_union_le (A B : LevelwiseSet) (n : ℕ) :
+    (A.union B).cardAtLevel n ≤ A.cardAtLevel n + B.cardAtLevel n := by
+  unfold cardAtLevel union
+  simp only
+  have hfinA : (A.sets n).Finite := Set.toFinite _
+  have hfinB : (B.sets n).Finite := Set.toFinite _
+  have hfinU : (A.sets n ∪ B.sets n).Finite := Set.toFinite _
+  have hunion : hfinU.toFinset ⊆ hfinA.toFinset ∪ hfinB.toFinset := by
+    intro x hx
+    simp only [Set.Finite.mem_toFinset, Set.mem_union, Finset.mem_union] at hx ⊢
+    exact hx
+  calc hfinU.toFinset.card
+      ≤ (hfinA.toFinset ∪ hfinB.toFinset).card := Finset.card_le_card hunion
+    _ ≤ hfinA.toFinset.card + hfinB.toFinset.card := Finset.card_union_le _ _
+
+/-- The hyperfinite probability is subadditive -/
+theorem LevelwiseSet.hyperProb_le_add (A B : LevelwiseSet) :
+    (A.union B).hyperProb ≤ A.hyperProb + B.hyperProb := by
+  unfold hyperProb ofSeq
+  have hle : ∀ n, (if n = 0 then (0 : ℝ) else ((A.union B).cardAtLevel n : ℝ) / 2^n) ≤
+                  (if n = 0 then 0 else (A.cardAtLevel n : ℝ) / 2^n) +
+                  (if n = 0 then 0 else (B.cardAtLevel n : ℝ) / 2^n) := by
+    intro n
+    split_ifs with hn
+    · simp
+    · have hcard := cardAtLevel_union_le A B n
+      have hpos : (0 : ℝ) < 2^n := pow_pos (by norm_num) n
+      calc ((A.union B).cardAtLevel n : ℝ) / 2^n
+          ≤ (A.cardAtLevel n + B.cardAtLevel n : ℕ) / 2^n := by
+            apply div_le_div_of_nonneg_right _ (le_of_lt hpos)
+            exact Nat.cast_le.mpr hcard
+        _ = (A.cardAtLevel n : ℝ) / 2^n + (B.cardAtLevel n : ℝ) / 2^n := by
+            simp only [Nat.cast_add, add_div]
+  have hle' : (fun n => if n = 0 then (0 : ℝ) else ((A.union B).cardAtLevel n : ℝ) / 2^n) ≤
+              (fun n => if n = 0 then 0 else (A.cardAtLevel n : ℝ) / 2^n) +
+              (fun n => if n = 0 then 0 else (B.cardAtLevel n : ℝ) / 2^n) := by
+    intro n
+    simp only [Pi.add_apply]
+    exact hle n
+  calc ofSeq (fun n => if n = 0 then (0 : ℝ) else ((A.union B).cardAtLevel n : ℝ) / 2^n)
+      ≤ ofSeq ((fun n => if n = 0 then 0 else (A.cardAtLevel n : ℝ) / 2^n) +
+                    (fun n => if n = 0 then 0 else (B.cardAtLevel n : ℝ) / 2^n)) := by
+        exact Germ.coe_le.mpr (Eventually.of_forall hle')
+    _ = ofSeq (fun n => if n = 0 then 0 else (A.cardAtLevel n : ℝ) / 2^n) +
+        ofSeq (fun n => if n = 0 then 0 else (B.cardAtLevel n : ℝ) / 2^n) := rfl
+
+/-- The pre-Loeb measure is subadditive -/
+theorem LevelwiseSet.preLoeb_le_add (A B : LevelwiseSet) :
+    (A.union B).preLoeb ≤ A.preLoeb + B.preLoeb := by
+  unfold preLoeb
+  -- All hyperProbs are in [0,1], hence not infinite
+  have hyperProb_not_infinite : ∀ X : LevelwiseSet, ¬Infinite X.hyperProb := by
+    intro X
+    rw [not_infinite_iff_exist_lt_gt]
+    refine ⟨-1, 2, ?_, ?_⟩
+    · calc (-1 : ℝ*) < 0 := by norm_num
+        _ ≤ X.hyperProb := by
+          unfold hyperProb ofSeq
+          apply Germ.coe_le.mpr
+          apply Eventually.of_forall
+          intro n
+          simp only
+          split_ifs <;> positivity
+    · calc X.hyperProb ≤ 1 := by
+            unfold hyperProb ofSeq
+            apply Germ.coe_le.mpr
+            apply Eventually.of_forall
+            intro n
+            simp only
+            split_ifs with hn
+            · linarith
+            · apply div_le_one_of_le₀
+              · have hcard : X.cardAtLevel n ≤ 2^n := by
+                  unfold cardAtLevel
+                  have hfin : (X.sets n).Finite := Set.toFinite _
+                  calc hfin.toFinset.card
+                      ≤ (Finset.univ : Finset (CoinFlips n)).card := Finset.card_le_card (Finset.subset_univ _)
+                    _ = Fintype.card (CoinFlips n) := Finset.card_univ
+                    _ = 2^n := by simp [Fintype.card_bool, Fintype.card_fin]
+                calc (X.cardAtLevel n : ℝ) ≤ (2^n : ℕ) := Nat.cast_le.mpr hcard
+                  _ = 2^n := by norm_cast
+              · exact pow_nonneg (by norm_num) _
+        _ < 2 := by norm_num
+  have hU : ¬Infinite (A.union B).hyperProb := hyperProb_not_infinite (A.union B)
+  have hA : ¬Infinite A.hyperProb := hyperProb_not_infinite A
+  have hB : ¬Infinite B.hyperProb := hyperProb_not_infinite B
+  have hAB : ¬Infinite (A.hyperProb + B.hyperProb) := not_infinite_add hA hB
+  simp only [dif_neg hU, dif_neg hA, dif_neg hB]
+  have hle := hyperProb_le_add A B
+  -- st(union) ≤ st(A + B) = st(A) + st(B)
+  calc st (A.union B).hyperProb
+      ≤ st (A.hyperProb + B.hyperProb) := st_le_of_le hU hAB hle
+    _ = st A.hyperProb + st B.hyperProb := st_add hA hB
+
 /-! ## Toward Carathéodory Extension
 
 For a full Mathlib measure, we need to:
@@ -321,32 +422,374 @@ noncomputable def loebOuterMeasureValue (E : LevelwiseSet) : ℝ≥0∞ :=
       E.sets k ⊆ ⋃ i ∈ Finset.range (m + 1), (cover i).sets k),
     ∑' i, ENNReal.ofReal (cover i).preLoeb
 
-/-! ## Summary and Next Steps
+/-! ## Constructing the Mathlib OuterMeasure
 
-This file provides the conceptual framework for bridging to Mathlib's measure theory.
+For a full Mathlib measure, we need to define an OuterMeasure and verify
+the Carathéodory condition.
+-/
 
-**What's Done:**
-- `LevelwiseSet`: Concrete representation of internal sets as families indexed by ℕ
-- `hyperProb`, `preLoeb`: Hyperfinite probability and its standard part
-- Basic properties: nonnegativity, boundedness, empty/full set measures
-- `loebOuterMeasureValue`: Outer measure definition via covers
+/-- The sample space type: sequences of coin flips for each level n.
+    The Loeb measure will be defined on the ultraproduct Germ (hyperfilter ℕ) Ω_n
+    where Ω_n = Fin n → Bool. -/
+abbrev HyperfiniteSampleSpace := Germ (↑(hyperfilter ℕ) : Filter ℕ) (ℕ → (ℕ → Bool))
 
-**What Needs Work:**
-- Prove `preLoeb_add_disjoint` (finite additivity)
-- Show the outer measure is indeed an `OuterMeasure`
-- Verify Carathéodory condition for internal sets
-- Construct the Mathlib `Measure` instance
+/-! ## Outer Measure from Pre-Loeb
+
+We define the outer measure via countable covers by internal (levelwise) sets.
+-/
+
+/-- A countable cover of a levelwise set by internal sets.
+    This represents a sequence of internal sets whose union contains the target. -/
+structure LevelwiseCover (E : LevelwiseSet) where
+  /-- The covering sets -/
+  cover : ℕ → LevelwiseSet
+  /-- Coverage property: eventually at each level, E is contained in the union -/
+  covers : ∀ m, ∀ᶠ k in hyperfilter ℕ, E.sets k ⊆ ⋃ i ∈ Finset.range (m + 1), (cover i).sets k
+
+/-- The cost of a cover: the sum of pre-Loeb measures. -/
+noncomputable def LevelwiseCover.cost {E : LevelwiseSet} (C : LevelwiseCover E) : ℝ≥0∞ :=
+  ∑' i, ENNReal.ofReal (C.cover i).preLoeb
+
+/-- The outer measure defined via covers.
+    μ*(E) = inf { Σ preLoeb(Aᵢ) : E ⊆ ⋃ Aᵢ eventually } -/
+noncomputable def loebOuterMeasure' (E : LevelwiseSet) : ℝ≥0∞ :=
+  ⨅ (C : LevelwiseCover E), C.cost
+
+/-- The trivial cover of E by itself (with zeros for other indices). -/
+noncomputable def trivialCover (E : LevelwiseSet) : LevelwiseCover E where
+  cover := fun n => if n = 0 then E else LevelwiseSet.empty
+  covers := fun m => by
+    apply Filter.Eventually.of_forall
+    intro k x hx
+    -- Goal: x ∈ ⋃ i ∈ Finset.range (m + 1), (if i = 0 then E else empty).sets k
+    -- We show x ∈ E.sets k = (cover 0).sets k
+    rw [Set.mem_iUnion]
+    use 0
+    rw [Set.mem_iUnion]
+    use Finset.mem_range.mpr (Nat.zero_lt_succ m)
+    -- Goal: x ∈ (if 0 = 0 then E else empty).sets k
+    simp only [↓reduceIte]
+    exact hx
+
+/-- The outer measure is bounded above by the pre-Loeb measure. -/
+theorem loebOuterMeasure'_le_preLoeb (E : LevelwiseSet) :
+    loebOuterMeasure' E ≤ ENNReal.ofReal E.preLoeb := by
+  unfold loebOuterMeasure'
+  apply iInf_le_of_le (trivialCover E)
+  -- Show cost of trivial cover ≤ preLoeb(E)
+  unfold LevelwiseCover.cost trivialCover
+  simp only
+  -- The sum is preLoeb(E) + 0 + 0 + ...
+  have hsum : ∑' i, ENNReal.ofReal ((if i = 0 then E else LevelwiseSet.empty).preLoeb) =
+      ENNReal.ofReal E.preLoeb := by
+    rw [tsum_eq_single 0]
+    · simp only [if_true]
+    · intro n hn
+      simp only [if_neg hn]
+      rw [LevelwiseSet.preLoeb_empty]
+      simp
+  exact le_of_eq hsum
+
+/-- The outer measure of the empty set is 0. -/
+theorem loebOuterMeasure'_empty : loebOuterMeasure' LevelwiseSet.empty = 0 := by
+  apply le_antisymm
+  · -- Upper bound via trivial cover
+    calc loebOuterMeasure' LevelwiseSet.empty
+        ≤ ENNReal.ofReal LevelwiseSet.empty.preLoeb := loebOuterMeasure'_le_preLoeb _
+      _ = ENNReal.ofReal 0 := by rw [LevelwiseSet.preLoeb_empty]
+      _ = 0 := by simp
+  · exact zero_le _
+
+/-- The outer measure is monotone with respect to eventual subset. -/
+theorem loebOuterMeasure'_mono {E F : LevelwiseSet}
+    (h : ∀ᶠ k in hyperfilter ℕ, E.sets k ⊆ F.sets k) :
+    loebOuterMeasure' E ≤ loebOuterMeasure' F := by
+  unfold loebOuterMeasure'
+  -- For each cover C of F, construct a cover of E with same cost
+  -- Then iInf over E ≤ iInf over F by comparing at each F-cover
+  apply le_iInf
+  intro C
+  -- C is a cover of F, so it's also a cover of E (since E ⊆ F eventually)
+  let C' : LevelwiseCover E := {
+    cover := C.cover
+    covers := fun m => by
+      apply Filter.Eventually.mono (h.and (C.covers m))
+      intro k ⟨hEF, hcover⟩ x hx
+      exact hcover (hEF hx)
+  }
+  calc ⨅ D : LevelwiseCover E, D.cost ≤ C'.cost := iInf_le _ C'
+    _ = C.cost := rfl
+
+/-! ## Carathéodory Measurability
+
+An internal set A is Carathéodory measurable if for all E:
+  μ*(E) = μ*(E ∩ A) + μ*(E ∩ Aᶜ)
+-/
+
+/-- Intersection of levelwise sets. -/
+def LevelwiseSet.inter (A B : LevelwiseSet) : LevelwiseSet where
+  sets := fun n => A.sets n ∩ B.sets n
+
+/-- Set difference of levelwise sets. -/
+def LevelwiseSet.diff (A B : LevelwiseSet) : LevelwiseSet where
+  sets := fun n => A.sets n \ B.sets n
+
+/-- Complement of a levelwise set (relative to full coin flip space). -/
+def LevelwiseSet.compl' (A : LevelwiseSet) : LevelwiseSet where
+  sets := fun n => (A.sets n)ᶜ
+
+/-- (E ∩ A) and (E \ A) are disjoint levelwise sets. -/
+theorem LevelwiseSet.inter_diff_disjoint (E A : LevelwiseSet) :
+    (E.inter A).AreDisjoint (E.diff A) := by
+  intro n
+  simp only [inter, diff, Set.disjoint_iff]
+  intro x ⟨⟨hxE, hxA⟩, hxEA, hxnA⟩
+  exact hxnA hxA
+
+/-- (E ∩ A) ∪ (E \ A) = E at each level. -/
+theorem LevelwiseSet.inter_union_diff (E A : LevelwiseSet) :
+    ∀ n, (E.inter A).sets n ∪ (E.diff A).sets n = E.sets n := by
+  intro n
+  simp only [inter, diff]
+  ext x
+  simp only [Set.mem_union, Set.mem_inter_iff, Set.mem_diff]
+  constructor
+  · intro h
+    cases h with
+    | inl h => exact h.1
+    | inr h => exact h.1
+  · intro hxE
+    by_cases hxA : x ∈ A.sets n
+    · left; exact ⟨hxE, hxA⟩
+    · right; exact ⟨hxE, hxA⟩
+
+/-- The union (E ∩ A) ∪ (E \ A) equals E as a levelwise set. -/
+theorem LevelwiseSet.inter_union_diff_eq (E A : LevelwiseSet) :
+    (E.inter A).union (E.diff A) = E := by
+  have h : ∀ n, ((E.inter A).union (E.diff A)).sets n = E.sets n := inter_union_diff E A
+  cases E with | mk sets => simp only [union, inter, diff] at h ⊢; congr; funext n; exact h n
+
+/-- A levelwise set is Carathéodory measurable if it "splits" all sets correctly. -/
+def LoebCaratheodoryMeasurable (A : LevelwiseSet) : Prop :=
+  ∀ E : LevelwiseSet, loebOuterMeasure' E =
+    loebOuterMeasure' (E.inter A) + loebOuterMeasure' (E.diff A)
+
+/-- Interleave two sequences: (a₀, b₀, a₁, b₁, ...) -/
+def interleave {α : Type*} (a b : ℕ → α) : ℕ → α :=
+  fun n => if n % 2 = 0 then a (n / 2) else b (n / 2)
+
+/-- The sum of an interleaved sequence equals the sum of the two parts. -/
+theorem tsum_interleave_eq_add {a b : ℕ → ℝ≥0∞} :
+    ∑' n, interleave a b n = ∑' n, a n + ∑' n, b n := by
+  -- Use tsum_even_add_odd: ∑ f(2k) + ∑ f(2k+1) = ∑ f(n)
+  have heven : (fun k => interleave a b (2 * k)) = a := by
+    ext n
+    unfold interleave
+    have h : (2 * n) % 2 = 0 := Nat.mul_mod_right 2 n
+    simp only [h, ↓reduceIte, Nat.mul_div_right _ (by norm_num : 0 < 2)]
+  have hodd : (fun k => interleave a b (2 * k + 1)) = b := by
+    ext n
+    unfold interleave
+    have h : (2 * n + 1) % 2 ≠ 0 := by omega
+    rw [if_neg h]
+    congr 1
+    omega
+  rw [← tsum_even_add_odd ENNReal.summable ENNReal.summable, heven, hodd]
+
+/-- Internal sets are Carathéodory measurable.
+
+    This is the key theorem enabling the Carathéodory extension.
+    The proof uses finite additivity of preLoeb on internal sets.
+
+    **Proof Strategy**:
+    - (≤) Subadditivity: E = (E ∩ A) ∪ (E \ A), so μ*(E) ≤ μ*(E ∩ A) + μ*(E \ A)
+      by combining covers of the two parts
+    - (≥) Superadditivity: Any cover C of E splits into covers of (E ∩ A) and (E \ A)
+      with cost(C) ≥ μ*(E ∩ A) + μ*(E \ A) because we can extract covers from C -/
+theorem loebCaratheodory_of_internal (A : LevelwiseSet) :
+    LoebCaratheodoryMeasurable A := by
+  intro E
+  apply le_antisymm
+  · -- μ*(E) ≤ μ*(E ∩ A) + μ*(E \ A) by subadditivity
+    -- Given any covers C of (E ∩ A) and D of (E \ A), interleave them to cover E
+    -- We show: ⨅ X, X.cost ≤ (⨅ C, C.cost) + (⨅ D, D.cost)
+    -- For each pair (C, D), construct X with X.cost = C.cost + D.cost
+    -- Then ⨅ X ≤ X.cost = C.cost + D.cost, and taking inf over (C,D) gives the result
+    show loebOuterMeasure' E ≤ loebOuterMeasure' (E.inter A) + loebOuterMeasure' (E.diff A)
+    unfold loebOuterMeasure'
+    -- Rewrite RHS: (⨅ C) + (⨅ D) = ⨅ C, ⨅ D, (C + D) using ENNReal lemmas
+    conv_rhs => rw [ENNReal.iInf_add]; arg 1; ext C; rw [ENNReal.add_iInf]
+    -- Now goal is: ⨅ X ≤ ⨅ C, ⨅ D, (C.cost + D.cost)
+    apply le_iInf
+    intro C  -- C is a cover of E.inter A
+    apply le_iInf
+    intro D  -- D is a cover of E.diff A
+    -- Combine C and D into a cover of E using unions at each index
+    -- This avoids the interleaving coverage issues at low levels
+    let CD : LevelwiseCover E := {
+        cover := fun i => (C.cover i).union (D.cover i)
+        covers := fun m => by
+          -- E = (E ∩ A) ∪ (E \ A), C covers E ∩ A, D covers E \ A
+          have hC := C.covers m
+          have hD := D.covers m
+          apply Filter.Eventually.mono (hC.and hD)
+          intro k ⟨hCk, hDk⟩ x hxE
+          have hdecomp := LevelwiseSet.inter_union_diff E A k
+          rw [← hdecomp] at hxE
+          cases hxE with
+          | inl hxEA =>
+            obtain ⟨i, hi, hxi⟩ := Set.mem_iUnion₂.mp (hCk hxEA)
+            rw [Set.mem_iUnion₂]
+            refine ⟨i, hi, ?_⟩
+            simp only [LevelwiseSet.union, Set.mem_union]
+            left; exact hxi
+          | inr hxEA' =>
+            obtain ⟨i, hi, hxi⟩ := Set.mem_iUnion₂.mp (hDk hxEA')
+            rw [Set.mem_iUnion₂]
+            refine ⟨i, hi, ?_⟩
+            simp only [LevelwiseSet.union, Set.mem_union]
+            right; exact hxi
+      }
+    -- Cost bound: preLoeb(A ∪ B) ≤ preLoeb(A) + preLoeb(B) by subadditivity
+    calc ⨅ X : LevelwiseCover E, X.cost ≤ CD.cost := iInf_le _ CD
+      _ = ∑' n, ENNReal.ofReal ((C.cover n).union (D.cover n)).preLoeb := rfl
+      _ ≤ ∑' n, (ENNReal.ofReal (C.cover n).preLoeb + ENNReal.ofReal (D.cover n).preLoeb) := by
+        apply ENNReal.tsum_le_tsum
+        intro n
+        -- Use preLoeb subadditivity: preLoeb(A ∪ B) ≤ preLoeb(A) + preLoeb(B)
+        have hle := LevelwiseSet.preLoeb_le_add (C.cover n) (D.cover n)
+        have hnnC : 0 ≤ (C.cover n).preLoeb := LevelwiseSet.preLoeb_nonneg _
+        have hnnD : 0 ≤ (D.cover n).preLoeb := LevelwiseSet.preLoeb_nonneg _
+        calc ENNReal.ofReal ((C.cover n).union (D.cover n)).preLoeb
+            ≤ ENNReal.ofReal ((C.cover n).preLoeb + (D.cover n).preLoeb) :=
+              ENNReal.ofReal_le_ofReal hle
+          _ = ENNReal.ofReal (C.cover n).preLoeb + ENNReal.ofReal (D.cover n).preLoeb :=
+              ENNReal.ofReal_add hnnC hnnD
+      _ = ∑' n, ENNReal.ofReal (C.cover n).preLoeb +
+          ∑' n, ENNReal.ofReal (D.cover n).preLoeb := ENNReal.tsum_add
+      _ = C.cost + D.cost := rfl
+  · -- μ*(E ∩ A) + μ*(E \ A) ≤ μ*(E)
+    -- For any cover C of E, the restrictions C_i ∩ A cover E ∩ A
+    -- and the restrictions C_i \ A cover E \ A
+    unfold loebOuterMeasure'
+    -- We show: (⨅ C, C.cost) + (⨅ D, D.cost) ≤ ⨅ X, X.cost
+    -- For any X covering E, construct covers XA of E ∩ A and XA' of E \ A
+    -- Then (⨅ C) + (⨅ D) ≤ XA.cost + XA'.cost = X.cost
+    apply le_iInf
+    intro X  -- X is a cover of E
+    -- Construct cover of E ∩ A by restricting X
+    let XA : LevelwiseCover (E.inter A) := {
+      cover := fun n => (X.cover n).inter A
+      covers := fun m => by
+        apply Filter.Eventually.mono (X.covers m)
+        intro k hXk x hx
+        -- x ∈ (E ∩ A) ⊆ E, so x ∈ ⋃ X_i
+        have hxE : x ∈ E.sets k := hx.1
+        have hxA : x ∈ A.sets k := hx.2
+        obtain ⟨i, hi, hxi⟩ := Set.mem_iUnion₂.mp (hXk hxE)
+        rw [Set.mem_iUnion₂]
+        use i, hi
+        simp only [LevelwiseSet.inter]
+        exact ⟨hxi, hxA⟩
+    }
+    -- Construct cover of E \ A by restricting X
+    let XA' : LevelwiseCover (E.diff A) := {
+      cover := fun n => (X.cover n).diff A
+      covers := fun m => by
+        apply Filter.Eventually.mono (X.covers m)
+        intro k hXk x hx
+        -- x ∈ (E \ A) ⊆ E, so x ∈ ⋃ X_i
+        have hxE : x ∈ E.sets k := hx.1
+        have hxnA : x ∉ A.sets k := hx.2
+        obtain ⟨i, hi, hxi⟩ := Set.mem_iUnion₂.mp (hXk hxE)
+        rw [Set.mem_iUnion₂]
+        use i, hi
+        simp only [LevelwiseSet.diff]
+        exact ⟨hxi, hxnA⟩
+    }
+    -- Now show costs add up: X_i = (X_i ∩ A) ∪ (X_i \ A) disjointly
+    -- So preLoeb(X_i) = preLoeb(X_i ∩ A) + preLoeb(X_i \ A)
+    calc (⨅ C : LevelwiseCover (E.inter A), C.cost) +
+         (⨅ D : LevelwiseCover (E.diff A), D.cost)
+        ≤ XA.cost + XA'.cost := by
+          apply add_le_add (iInf_le _ XA) (iInf_le _ XA')
+      _ = ∑' n, ENNReal.ofReal ((X.cover n).inter A).preLoeb +
+          ∑' n, ENNReal.ofReal ((X.cover n).diff A).preLoeb := rfl
+      _ = X.cost := by
+            -- Key: preLoeb(B ∩ A) + preLoeb(B \ A) = preLoeb(B) by finite additivity
+            rw [← ENNReal.tsum_add]
+            unfold LevelwiseCover.cost
+            apply tsum_congr
+            intro n
+            let B := X.cover n
+            -- (B ∩ A) and (B \ A) are disjoint
+            have hdisj : (B.inter A).AreDisjoint (B.diff A) :=
+              LevelwiseSet.inter_diff_disjoint B A
+            -- Their union equals B
+            have hunion : (B.inter A).union (B.diff A) = B :=
+              LevelwiseSet.inter_union_diff_eq B A
+            -- By finite additivity: preLoeb((B ∩ A) ∪ (B \ A)) = preLoeb(B ∩ A) + preLoeb(B \ A)
+            have hadd : ((B.inter A).union (B.diff A)).preLoeb =
+                (B.inter A).preLoeb + (B.diff A).preLoeb :=
+              LevelwiseSet.preLoeb_add_disjoint (B.inter A) (B.diff A) hdisj
+            -- Substitute using hunion to get: B.preLoeb = (B.inter A).preLoeb + (B.diff A).preLoeb
+            rw [hunion] at hadd
+            -- Convert to ENNReal
+            have hnn1 : 0 ≤ (B.inter A).preLoeb := LevelwiseSet.preLoeb_nonneg _
+            have hnn2 : 0 ≤ (B.diff A).preLoeb := LevelwiseSet.preLoeb_nonneg _
+            rw [hadd, ENNReal.ofReal_add hnn1 hnn2]
+
+/-! ## Construction of the Mathlib Measure
+
+Using Carathéodory's theorem, we extend the outer measure to a measure
+on the σ-algebra of Carathéodory-measurable sets.
+-/
+
+/-- The Loeb outer measure as a Mathlib OuterMeasure on coin flip sequences.
+
+    We define this on the type `ℕ → Bool` (infinite coin flip sequences).
+    For now, this is a placeholder; the proper construction would use
+    the ultraproduct structure and connect to `loebOuterMeasure'`.
+
+    Note: This uses Classical decidability for set membership. -/
+noncomputable def loebOuterMeasureOnCoinFlips : OuterMeasure (ℕ → Bool) :=
+  OuterMeasure.ofFunction
+    (fun s : Set (ℕ → Bool) =>
+      -- Placeholder: proper construction needs ultraproduct connection
+      @dite _ (s = ∅) (Classical.propDecidable _) (fun _ => 0)
+        (fun _ => @dite _ (s = Set.univ) (Classical.propDecidable _)
+          (fun _ => 1) (fun _ => ENNReal.ofReal (1/2))))
+    (by simp only [dif_pos])
+
+/-! ## Summary
+
+**Completed (All Proofs Without Sorries):**
+- `LevelwiseSet`: Concrete representation of internal sets
+- `hyperProb`, `preLoeb`: Hyperfinite probability and standard part
+- `preLoeb_add_disjoint`: Finite additivity
+- `cardAtLevel_union_le`, `hyperProb_le_add`, `preLoeb_le_add`: Subadditivity
+- `loebOuterMeasure'`: Outer measure via covers
+- `loebOuterMeasure'_empty`: μ*(∅) = 0
+- `loebOuterMeasure'_mono`: Monotonicity
+- `loebCaratheodory_of_internal`: **Internal sets are Carathéodory measurable**
 
 **Key Insight:**
-The hard work is already done in `SigmaAdditivity.lean`. The bridge to Mathlib
-is mostly about setting up the right type-theoretic structures to apply the
-existing `OuterMeasure.toMeasure` construction.
+The Carathéodory extension theorem (Mathlib's `OuterMeasure.toMeasure`) can now
+be applied once we connect our `loebOuterMeasure'` (on `LevelwiseSet`) to a
+proper Mathlib `OuterMeasure` on a concrete carrier type.
 
-Once complete, Anderson's theorem can be stated as:
-```
-theorem anderson :
-    Measure.map (standardPart : HyperfiniteWalk → C([0,1], ℝ)) loebMeasure = wienerMeasure
-```
+The σ-additivity theorem `DecreasingConcreteEvents.sigma_additivity` in
+`SigmaAdditivity.lean` provides the crucial property: for decreasing
+internal sets with empty intersection, the measures converge to 0.
+
+**Remaining Work:**
+1. Define the proper carrier space (ultraproduct `Germ (hyperfilter ℕ) (Fin n → Bool)`)
+2. Connect `loebOuterMeasure'` to Mathlib's `OuterMeasure` structure
+3. Connect to Mathlib's `OuterMeasure.toMeasure`
+4. Prove Anderson's theorem: Measure.map st loebMeasure = wienerMeasure
+
+The foundational work (σ-additivity via saturation) is complete.
+The remaining work is type-theoretic: setting up the correct Mathlib structures.
 -/
 
 end SPDE.Nonstandard

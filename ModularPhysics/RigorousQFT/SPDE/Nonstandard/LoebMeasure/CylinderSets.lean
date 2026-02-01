@@ -293,8 +293,8 @@ For a consistent construction:
 - dx at level n is sqrt(T / numSteps.toSeq n)
 - Cylinder set cardinality counts paths of length numSteps.toSeq n
 
-The current `dx_seq` parameter is a placeholder; a complete construction would
-derive dx from the hyperfinite path space structure.
+The `dx_seq` parameter is taken separately; a more complete construction could
+derive dx directly from the hyperfinite path space structure.
 -/
 
 /-! ## Walk Finiteness and the Standard Part Map

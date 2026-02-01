@@ -9,21 +9,38 @@ import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.MaximalInequality
 import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.SContinuity
 import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.SContinuityAS
 import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.LocalCLT
+import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.AndersonTheorem
+import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.ItoCorrespondence
+import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.HyperfiniteSDE
+import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.SDESolution
+import ModularPhysics.RigorousQFT.SPDE.Nonstandard.Anderson.ExplicitSolutions
 
 /-!
-# Anderson's Theorem Infrastructure
+# Anderson's Theorem and Stochastic Calculus
 
-This module provides the probability theory infrastructure needed for Anderson's theorem,
-which states that the pushforward of Loeb measure on hyperfinite random walks under the
-standard part map equals Wiener measure.
+This module provides the complete infrastructure for Anderson's theorem and
+nonstandard stochastic calculus, establishing the connection between hyperfinite
+random walks and classical Brownian motion/SDEs.
 
 ## Contents
 
+### Probability Infrastructure
 * `RandomWalkMoments` - Second moment E[S_k²] = k and Chebyshev bounds
 * `MaximalInequality` - P(max |S_i| > M) ≤ (k+1)²/M²
 * `SContinuity` - Increment variance and modulus of continuity bounds
 * `SContinuityAS` - S-continuity almost surely via Borel-Cantelli
 * `LocalCLT` - Local central limit theorem infrastructure
+
+### Anderson's Theorem
+* `AndersonTheorem` - Main theorem: st_* μ_L = μ_W (Loeb pushforward = Wiener measure)
+
+### Itô Calculus
+* `ItoCorrespondence` - st(Σ Hₖ·ΔWₖ) = ∫ H dW (hyperfinite → Itô integral)
+
+### Stochastic Differential Equations
+* `HyperfiniteSDE` - Hyperfinite SDEs as difference equations
+* `SDESolution` - Standard part gives classical SDE solutions
+* `ExplicitSolutions` - Explicit formulas for GBM and OU processes (requires Itô's lemma)
 
 ## Main Results
 
@@ -37,12 +54,25 @@ standard part map equals Wiener measure.
 ### Infrastructure (With Sorries for Detailed Calculations)
 * `violationProbGlobalThreshold_bound` - P(violation) ≤ 1/C² for Borel-Cantelli
 * `levyModulus_implies_S_continuous` - Lévy modulus ⟹ S-continuity
-* `S_continuity_loeb_almost_surely` - Main theorem structure
 * `local_clt_error_bound` - Binomial → Gaussian convergence
+* `anderson_theorem` - st_* μ_L = μ_W
+* `ito_correspondence` - st(hyperfinite integral) = Itô integral
+* `standardPart_satisfies_sde` - Standard part solves classical SDE
+
+## The Nonstandard Approach
+
+The key insight is that stochastic calculus becomes elementary in the hyperfinite setting:
+
+1. **Brownian motion**: B(t) = st(W_⌊t/dt⌋) where W is a hyperfinite random walk
+2. **Itô integral**: ∫ H dW = st(Σ Hₖ·ΔWₖ) - a pathwise sum
+3. **Itô's lemma**: Just Taylor series with Δ² = dt (not 0!)
+4. **SDEs**: dX = a(X)dt + b(X)dW becomes X_{k+1} = X_k + a(X_k)dt + b(X_k)ΔW_k
 
 ## References
 
 * Anderson, R. M. "A nonstandard representation for Brownian motion and Itô integration" (1976)
+* Lindstrøm, T. "Hyperfinite stochastic integration" (1980s)
+* Albeverio, S. et al. "Nonstandard Methods in Stochastic Analysis and Mathematical Physics"
 * Lévy's modulus of continuity theorem
 * Feller, W. "An Introduction to Probability Theory" (local CLT)
 -/
