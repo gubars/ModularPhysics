@@ -30,51 +30,196 @@ open MeasureTheory
 
 variable {Ω : Type*} [MeasurableSpace Ω]
 
+/-! ## Unbounded Operators (Real Hilbert Spaces) -/
+
+/-- An unbounded linear operator on a real Hilbert space H.
+    This is essential for SPDEs since generators like the Laplacian are unbounded.
+
+    An unbounded operator A consists of:
+    - A dense domain D(A) ⊆ H
+    - A linear map A : D(A) → H -/
+structure UnboundedOperatorReal (H : Type*) [NormedAddCommGroup H] [InnerProductSpace ℝ H] where
+  /-- The domain of the operator as a submodule -/
+  domain : Submodule ℝ H
+  /-- The operator is a linear map on its domain -/
+  toFun : domain → H
+  /-- Linearity: A(x + y) = Ax + Ay -/
+  map_add' : ∀ x y, toFun (x + y) = toFun x + toFun y
+  /-- Scalar multiplication: A(cx) = c(Ax) -/
+  map_smul' : ∀ (c : ℝ) x, toFun (c • x) = c • toFun x
+
+namespace UnboundedOperatorReal
+
+variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℝ H]
+
+instance : CoeFun (UnboundedOperatorReal H) (fun A => A.domain → H) :=
+  ⟨UnboundedOperatorReal.toFun⟩
+
+/-- The domain is densely defined -/
+def IsDenselyDefined (A : UnboundedOperatorReal H) : Prop :=
+  A.domain.topologicalClosure = ⊤
+
+/-- The operator is closed if its graph is closed in H × H -/
+def IsClosedOperator (A : UnboundedOperatorReal H) : Prop :=
+  _root_.IsClosed {p : H × H | ∃ x : A.domain, (x : H) = p.1 ∧ A x = p.2}
+
+/-- Self-adjoint unbounded operator: ⟨Ax, y⟩ = ⟨x, Ay⟩ for x, y ∈ D(A)
+    and D(A) = D(A*) -/
+def IsSelfAdjoint (A : UnboundedOperatorReal H) : Prop :=
+  ∀ x y : A.domain, @inner ℝ H _ (A x) y = @inner ℝ H _ x (A y)
+
+/-- Negative definite: ⟨Ax, x⟩ ≤ 0 for all x ∈ D(A) -/
+def IsNegativeDefinite (A : UnboundedOperatorReal H) : Prop :=
+  ∀ x : A.domain, @inner ℝ H _ (A x) x ≤ 0
+
+end UnboundedOperatorReal
+
+/-! ## C₀-Semigroups -/
+
+/-- A C₀-semigroup (strongly continuous semigroup) on a Banach space H.
+
+    This is the fundamental object for evolution equations:
+    - S(t) : H → H is a bounded linear operator for each t ≥ 0
+    - S(0) = I
+    - S(t+s) = S(t)S(s)
+    - t ↦ S(t)x is continuous for all x ∈ H -/
+structure C0Semigroup (H : Type*) [NormedAddCommGroup H] [NormedSpace ℝ H]
+    [CompleteSpace H] where
+  /-- The semigroup operators S(t) -/
+  S : ℝ → H →L[ℝ] H
+  /-- S(0) = I -/
+  S_zero : S 0 = ContinuousLinearMap.id ℝ H
+  /-- Semigroup property: S(t+s) = S(t) ∘ S(s) for t, s ≥ 0 -/
+  S_add : ∀ t s : ℝ, t ≥ 0 → s ≥ 0 → S (t + s) = (S t).comp (S s)
+  /-- Strong continuity: S(t)x → x as t → 0⁺ for all x -/
+  S_continuous : ∀ x : H,
+    Filter.Tendsto (fun t => S t x) (nhdsWithin 0 (Set.Ici 0)) (nhds x)
+  /-- Uniform bound: ‖S(t)‖ ≤ M e^{ωt} for some M, ω -/
+  growth_bound : ∃ M ω : ℝ, M ≥ 1 ∧ ∀ t : ℝ, t ≥ 0 → ‖S t‖ ≤ M * Real.exp (ω * t)
+
+namespace C0Semigroup
+
+variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
+
+/-- The generator A of a C₀-semigroup: Ax = lim_{t→0⁺} (S(t)x - x)/t.
+    The domain D(A) is the set of x for which this limit exists. -/
+noncomputable def generator (SG : C0Semigroup H) : UnboundedOperatorReal H where
+  domain := {
+    carrier := {x : H | ∃ y : H, Filter.Tendsto
+      (fun t => (1/t) • (SG.S t x - x)) (nhdsWithin 0 (Set.Ioi 0)) (nhds y)}
+    add_mem' := by
+      intro x y ⟨ax, hax⟩ ⟨ay, hay⟩
+      use ax + ay
+      have hx : Filter.Tendsto (fun t => (1/t) • (SG.S t x - x)) (nhdsWithin 0 (Set.Ioi 0)) (nhds ax) := hax
+      have hy : Filter.Tendsto (fun t => (1/t) • (SG.S t y - y)) (nhdsWithin 0 (Set.Ioi 0)) (nhds ay) := hay
+      have : ∀ t : ℝ, (1/t) • (SG.S t (x + y) - (x + y)) =
+          (1/t) • (SG.S t x - x) + (1/t) • (SG.S t y - y) := by
+        intro t
+        simp only [map_add, add_sub_add_comm, smul_add]
+      simp only [this]
+      exact Filter.Tendsto.add hx hy
+    zero_mem' := by
+      use 0
+      simp only [map_zero, sub_self, smul_zero]
+      exact tendsto_const_nhds
+    smul_mem' := by
+      intro c x ⟨ax, hax⟩
+      use c • ax
+      have heq : ∀ t : ℝ, (1/t) • (SG.S t (c • x) - c • x) = c • ((1/t) • (SG.S t x - x)) := by
+        intro t
+        rw [(SG.S t).map_smul]
+        rw [smul_sub (1/t) (c • (SG.S t) x) (c • x)]
+        rw [smul_comm (1/t) c ((SG.S t) x), smul_comm (1/t) c x]
+        rw [← smul_sub c ((1/t) • (SG.S t) x) ((1/t) • x)]
+        rw [← smul_sub (1/t) ((SG.S t) x) x]
+      simp only [heq]
+      exact Filter.Tendsto.const_smul hax c
+  }
+  toFun := fun x => Classical.choose x.2
+  map_add' := fun x y => by
+    -- The sum of limits equals limit of sums
+    sorry
+  map_smul' := fun c x => by
+    -- Scalar multiple of limit equals limit of scalar multiple
+    sorry
+
+/-- The generator is densely defined (Hille-Yosida) -/
+theorem generator_dense (SG : C0Semigroup H) : SG.generator.IsDenselyDefined := by
+  sorry
+
+/-- The generator is closed -/
+theorem generator_closed (SG : C0Semigroup H) : SG.generator.IsClosedOperator := by
+  sorry
+
+/-- A contraction semigroup: ‖S(t)‖ ≤ 1 for all t ≥ 0 -/
+def IsContraction (SG : C0Semigroup H) : Prop :=
+  ∀ t : ℝ, t ≥ 0 → ‖SG.S t‖ ≤ 1
+
+/-- For contraction semigroups, the generator is negative definite -/
+theorem generator_negative_of_contraction (SG : C0Semigroup H) (hc : SG.IsContraction) :
+    SG.generator.IsNegativeDefinite := by
+  sorry
+
+end C0Semigroup
+
 /-! ## Abstract SPDE Framework -/
 
 /-- An abstract SPDE on a Hilbert space H.
     du = Au dt + F(u) dt + B(u) dW
 
-    The operator A is the generator of a C₀-semigroup S(t) = e^{tA}.
-    The semigroup satisfies:
+    The operator A is the GENERATOR of a C₀-semigroup S(t) = e^{tA}.
+    Crucially, A is typically UNBOUNDED (e.g., the Laplacian Δ).
+
+    The semigroup S(t) satisfies:
     1. S(0) = I
     2. S(t+s) = S(t)S(s) (semigroup property)
-    3. lim_{t→0} S(t)x = x for all x ∈ H (strong continuity) -/
+    3. lim_{t→0} S(t)x = x for all x ∈ H (strong continuity)
+    4. Ax = lim_{t→0} (S(t)x - x)/t for x ∈ D(A) (generator property)
+
+    Key examples:
+    - Heat equation: A = Δ (Laplacian), S(t) = heat semigroup
+    - Wave equation: A generates the wave group
+    - Stochastic Navier-Stokes: A = PΔ (Stokes operator) -/
 structure AbstractSPDE (H : Type*) [NormedAddCommGroup H] [InnerProductSpace ℝ H]
     [CompleteSpace H] where
-  /-- The linear operator A (generator of a semigroup) -/
-  A : H →L[ℝ] H
-  /-- The nonlinear drift F -/
+  /-- The C₀-semigroup S(t) = e^{tA} -/
+  semigroup : C0Semigroup H
+  /-- The nonlinear drift F : H → H -/
   F : H → H
-  /-- The diffusion coefficient B -/
+  /-- The diffusion coefficient B : H → L(H, H) -/
   B : H → H →L[ℝ] H
-  /-- Domain of A (dense subspace where A is defined) -/
-  domain_A : Set H
-  /-- The semigroup S(t) = e^{tA} -/
-  semigroup : ℝ → H →L[ℝ] H
-  /-- S(0) = I -/
-  semigroup_zero : semigroup 0 = ContinuousLinearMap.id ℝ H
-  /-- Semigroup property: S(t+s) = S(t) ∘ S(s) -/
-  semigroup_add : ∀ t s : ℝ, t ≥ 0 → s ≥ 0 →
-    semigroup (t + s) = (semigroup t).comp (semigroup s)
-  /-- Strong continuity: S(t)x → x as t → 0⁺ for all x -/
-  semigroup_continuous : ∀ x : H,
-    Filter.Tendsto (fun t => semigroup t x) (nhdsWithin 0 (Set.Ici 0)) (nhds x)
-  /-- Generator property: A = lim_{t→0} (S(t) - I)/t on domain_A -/
-  generator : ∀ x ∈ domain_A,
-    Filter.Tendsto (fun t => (1/t) • (semigroup t x - x))
-      (nhdsWithin 0 (Set.Ioi 0)) (nhds (A x))
+  /-- Lipschitz condition on F (for well-posedness) -/
+  F_lipschitz : ∃ L : ℝ, ∀ u v : H, ‖F u - F v‖ ≤ L * ‖u - v‖
+  /-- Linear growth condition on F -/
+  F_growth : ∃ C : ℝ, ∀ u : H, ‖F u‖ ≤ C * (1 + ‖u‖)
+  /-- Lipschitz condition on B -/
+  B_lipschitz : ∃ L : ℝ, ∀ u v : H, ‖B u - B v‖ ≤ L * ‖u - v‖
 
 namespace AbstractSPDE
 
 variable {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℝ H] [CompleteSpace H]
-  [MeasurableSpace H]
+
+/-- The generator A of the SPDE (unbounded operator) -/
+noncomputable def generator (spde : AbstractSPDE H) : UnboundedOperatorReal H :=
+  spde.semigroup.generator
+
+/-- The domain of A -/
+def domain_A (spde : AbstractSPDE H) : Set H :=
+  spde.generator.domain.carrier
+
+/-- Shorthand for the semigroup operators -/
+def S (spde : AbstractSPDE H) : ℝ → H →L[ℝ] H :=
+  spde.semigroup.S
+
+variable [MeasurableSpace H]
 
 /-- A mild solution to the SPDE.
     The mild formulation is:
     u(t) = S(t)u₀ + ∫₀ᵗ S(t-s)F(u(s))ds + ∫₀ᵗ S(t-s)B(u(s))dW(s)
-    where S(t) = e^{tA} is the semigroup. -/
-structure MildSolution (spde : AbstractSPDE H) [MeasurableSpace H] (μ : Measure Ω)
+    where S(t) = e^{tA} is the semigroup.
+
+    This is the natural solution concept when the initial data is not in D(A). -/
+structure MildSolution (spde : AbstractSPDE H) (μ : Measure Ω)
     (F : Filtration Ω ℝ) where
   /-- The solution process -/
   solution : ℝ → Ω → H
@@ -82,6 +227,8 @@ structure MildSolution (spde : AbstractSPDE H) [MeasurableSpace H] (μ : Measure
   initial : Ω → H
   /-- Adapted to filtration -/
   adapted : ∀ t : ℝ, @Measurable Ω H (F.σ_algebra t) _ (solution t)
+  /-- Continuous paths a.s. -/
+  continuous_paths : ∀ᵐ ω ∂μ, Continuous (fun t => solution t ω)
   /-- Satisfies the mild formulation:
       u(t) = S(t)u₀ + ∫₀ᵗ S(t-s)F(u(s))ds + ∫₀ᵗ S(t-s)B(u(s))dW(s)
       The integrals are represented existentially since their construction
@@ -89,7 +236,7 @@ structure MildSolution (spde : AbstractSPDE H) [MeasurableSpace H] (μ : Measure
   mild_form : ∀ t : ℝ, t ≥ 0 → ∀ᵐ ω ∂μ,
     ∃ drift_convolution : H,    -- ∫₀ᵗ S(t-s)F(u(s))ds
     ∃ stoch_convolution : H,    -- ∫₀ᵗ S(t-s)B(u(s))dW(s)
-    solution t ω = spde.semigroup t (initial ω) + drift_convolution + stoch_convolution
+    solution t ω = spde.S t (initial ω) + drift_convolution + stoch_convolution
 
 /-- A strong solution to the SPDE.
     A strong solution u(t) satisfies:

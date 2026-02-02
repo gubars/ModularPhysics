@@ -247,7 +247,19 @@ structure PredictableProcess {Ω : Type*} [MeasurableSpace Ω]
 
 /-! ## Local Martingales -/
 
-/-- A local martingale: a process that is a martingale when stopped -/
+/-- The stopped process X^τ defined as X_{t ∧ τ} -/
+def stoppedProcess {Ω : Type*} [MeasurableSpace Ω]
+    {F : Filtration Ω ℝ}
+    (X : ℝ → Ω → E) (τ : StoppingTime F) : ℝ → Ω → E :=
+  fun t ω => X (min t (τ.time ω)) ω
+
+/-- A local martingale: a process that is a martingale when stopped.
+
+    This is the correct definition: M is a local martingale if there exists
+    a sequence of stopping times τₙ ↑ ∞ such that each stopped process
+    M^{τₙ} is a (true) martingale.
+
+    The stopped process M^τ_t = M_{t ∧ τ}. -/
 structure LocalMartingale {Ω : Type*} [MeasurableSpace Ω]
     (F : Filtration Ω ℝ) (μ : Measure Ω)
     (E : Type*) [NormedAddCommGroup E] [NormedSpace ℝ E]
@@ -256,9 +268,57 @@ structure LocalMartingale {Ω : Type*} [MeasurableSpace Ω]
   process : ℝ → Ω → E
   /-- Adapted to F -/
   adapted : ∀ t : ℝ, @Measurable Ω E (F.σ_algebra t) _ (process t)
-  /-- There exists a localizing sequence of stopping times -/
-  localizing_sequence : ∃ (τ : ℕ → StoppingTime F),
-    (∀ n : ℕ, ∀ ω : Ω, (τ n).time ω ≤ (τ (n + 1)).time ω) ∧
-    (∀ ω : Ω, Filter.Tendsto (fun n => (τ n).time ω) Filter.atTop Filter.atTop)
+  /-- The localizing sequence of stopping times -/
+  localizing_seq : ℕ → StoppingTime F
+  /-- The stopping times are increasing -/
+  localizing_increasing : ∀ n : ℕ, ∀ ω : Ω, (localizing_seq n).time ω ≤ (localizing_seq (n + 1)).time ω
+  /-- The stopping times tend to infinity -/
+  localizing_to_infty : ∀ ω : Ω, Filter.Tendsto (fun n => (localizing_seq n).time ω) Filter.atTop Filter.atTop
+  /-- CRITICAL: The stopped process is a martingale for each n.
+      This is what distinguishes a local martingale from just any adapted process. -/
+  stopped_is_martingale : ∀ n : ℕ,
+    -- Integrability of stopped process
+    (∀ t : ℝ, Integrable (stoppedProcess process (localizing_seq n) t) μ) ∧
+    -- Martingale property: for s ≤ t and A ∈ F_s,
+    -- ∫_A M^{τ_n}_t dμ = ∫_A M^{τ_n}_s dμ
+    (∀ s t : ℝ, s ≤ t →
+      ∀ A : Set Ω, @MeasurableSet Ω (F.σ_algebra s) A →
+      ∫ ω in A, stoppedProcess process (localizing_seq n) t ω ∂μ =
+      ∫ ω in A, stoppedProcess process (localizing_seq n) s ω ∂μ)
+
+namespace LocalMartingale
+
+variable {Ω : Type*} [MeasurableSpace Ω]
+variable {F : Filtration Ω ℝ} {μ : Measure Ω}
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
+variable [MeasurableSpace E] [BorelSpace E]
+
+/-- Every martingale is a local martingale (with constant stopping times τ_n = n) -/
+def ofMartingale (M : Martingale F μ E) : LocalMartingale F μ E where
+  process := M.process
+  adapted := M.toAdapted.adapted
+  localizing_seq := fun n => StoppingTime.const F n
+  localizing_increasing := fun n ω => by
+    simp only [StoppingTime.const]
+    exact Nat.cast_le.mpr (Nat.le_succ n)
+  localizing_to_infty := fun ω => by
+    simp only [StoppingTime.const]
+    exact tendsto_natCast_atTop_atTop
+  stopped_is_martingale := fun n => by
+    constructor
+    · intro t
+      -- The stopped process at time n is integrable
+      sorry
+    · intro s t hst A hA
+      -- The martingale property transfers to stopped process
+      sorry
+
+/-- A local martingale that is L¹-bounded is a true martingale -/
+theorem is_martingale_of_bounded (M : LocalMartingale F μ E)
+    (hbound : ∃ C : ℝ, ∀ t : ℝ, ∫ ω, ‖M.process t ω‖ ∂μ ≤ C) :
+    ∃ M' : Martingale F μ E, M'.process = M.process := by
+  sorry
+
+end LocalMartingale
 
 end SPDE

@@ -183,6 +183,34 @@ theorem koszulSign_eq_one_or_neg_one (m n : ℤ) : koszulSign m n = 1 ∨ koszul
   unfold koszulSign
   split_ifs <;> simp
 
+/-- Koszul sign with incremented first argument.
+    koszulSign (m+1) n = koszulSign m n * koszulSign 1 n -/
+theorem koszulSign_succ_left (m n : ℤ) :
+    koszulSign (m + 1) n = koszulSign m n * koszulSign 1 n := by
+  unfold koszulSign
+  -- m+1 is even iff m is odd
+  have h : (m + 1) % 2 = 0 ↔ m % 2 ≠ 0 := by omega
+  -- 1 is always odd
+  have h1 : (1 : ℤ) % 2 ≠ 0 := by decide
+  by_cases hn : n % 2 = 0
+  · simp only [hn, or_true, ↓reduceIte, mul_one]
+  · by_cases hm : m % 2 = 0
+    · have hm1 : (m + 1) % 2 ≠ 0 := by omega
+      simp only [hm, ↓reduceIte, hm1, hn, or_self, h1, or_false]; ring
+    · have hm1 : (m + 1) % 2 = 0 := by omega
+      simp only [hm1, ↓reduceIte, hm, hn, or_self, h1, or_false, neg_mul, one_mul]; ring
+
+/-- Koszul sign with incremented second argument.
+    koszulSign m (n+1) = koszulSign m n * koszulSign m 1 -/
+theorem koszulSign_succ_right (m n : ℤ) :
+    koszulSign m (n + 1) = koszulSign m n * koszulSign m 1 := by
+  rw [koszulSign_comm m (n + 1), koszulSign_succ_left, koszulSign_comm n m, koszulSign_comm 1 m]
+
+/-- Koszul sign multiplication is commutative -/
+theorem koszulSign_mul_comm (a b c d : ℤ) :
+    koszulSign a b * koszulSign c d = koszulSign c d * koszulSign a b := by
+  ring
+
 /-! ## Parity -/
 
 /-- The parity of an integer as an element of ℤ/2ℤ -/

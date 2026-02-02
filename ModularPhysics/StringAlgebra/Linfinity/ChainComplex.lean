@@ -262,29 +262,69 @@ def comp {V W U : DGModule R} (g : DGMorphism R W U) (f : DGMorphism R V W) :
 def isQuasiIso {V W : DGModule R} (f : DGMorphism R V W) : Prop :=
   ∀ n : ℤ, Function.Bijective (f.mapCohomology n)
 
+/-- The mapCocycles of id is the identity -/
+theorem id_mapCocycles_eq (V : DGModule R) (n : ℤ) (z : V.cocycles n) :
+    (id V).mapCocycles n z = z := by
+  apply Subtype.ext
+  -- Goal: (id V).componentMap n z.val = z.val
+  show (id V).componentMap n z.val = z.val
+  simp only [componentMap, id, HomologicalComplex.id_f, ModuleCat.id_apply]
+
+/-- The mapCohomology of id is the identity -/
+theorem id_mapCohomology_eq (V : DGModule R) (n : ℤ) (x : V.cohomology n) :
+    (id V).mapCohomology n x = x := by
+  -- Use the quotient induction principle
+  obtain ⟨z, hz⟩ := Submodule.Quotient.mk_surjective _ x
+  rw [← hz]
+  -- mapCohomology sends mk z to mk (mapCocycles z)
+  -- For id, mapCocycles z = z, so mapCohomology (mk z) = mk z
+  show (id V).mapCohomology n (Submodule.Quotient.mk z) = Submodule.Quotient.mk z
+  -- The key is that mapCohomology is defined via liftQ, so it maps mk z to mk (mapCocycles z)
+  have key : (id V).mapCohomology n (Submodule.Quotient.mk z) =
+      Submodule.Quotient.mk ((id V).mapCocycles n z) := by
+    rfl
+  rw [key, id_mapCocycles_eq]
+
 /-- Identity is a quasi-isomorphism -/
 theorem id_isQuasiIso (V : DGModule R) : (id V).isQuasiIso := by
   intro n
   constructor
-  · -- Injective: mapCohomology of id is the identity
+  · -- Injective
     intro x y hxy
-    simp only [mapCohomology, id, mapCocycles, componentMap] at hxy
-    -- The identity map induces the identity on cohomology
-    sorry
+    rw [id_mapCohomology_eq, id_mapCohomology_eq] at hxy
+    exact hxy
   · -- Surjective
     intro y
-    use y
-    sorry
+    exact ⟨y, id_mapCohomology_eq V n y⟩
+
+/-- mapCohomology respects composition -/
+theorem comp_mapCohomology {V W U : DGModule R} (g : DGMorphism R W U) (f : DGMorphism R V W)
+    (n : ℤ) (x : V.cohomology n) :
+    (g.comp f).mapCohomology n x = g.mapCohomology n (f.mapCohomology n x) := by
+  obtain ⟨z, hz⟩ := Submodule.Quotient.mk_surjective _ x
+  rw [← hz]
+  -- Both sides should reduce to Quotient.mk of composed mapCocycles
+  rfl
 
 /-- Composition of quasi-isomorphisms is a quasi-isomorphism -/
 theorem comp_isQuasiIso {V W U : DGModule R} (g : DGMorphism R W U) (f : DGMorphism R V W)
     (hg : g.isQuasiIso) (hf : f.isQuasiIso) : (g.comp f).isQuasiIso := by
   intro n
-  -- mapCohomology of composition equals composition of mapCohomology
   have hgn := hg n
   have hfn := hf n
   -- Composition of bijections is a bijection
-  sorry
+  constructor
+  · -- Injective
+    intro x y hxy
+    rw [comp_mapCohomology, comp_mapCohomology] at hxy
+    have h1 : f.mapCohomology n x = f.mapCohomology n y := hgn.1 hxy
+    exact hfn.1 h1
+  · -- Surjective
+    intro z
+    obtain ⟨w, hw⟩ := hgn.2 z
+    obtain ⟨v, hv⟩ := hfn.2 w
+    use v
+    rw [comp_mapCohomology, hv, hw]
 
 end DGMorphism
 

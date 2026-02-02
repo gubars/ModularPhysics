@@ -248,30 +248,116 @@ theorem stratonovich_chain_rule {F : Filtration Ω ℝ} {μ : Measure Ω} {T : �
         ∫ (s : ℝ) in Set.Icc 0 t, deriv f (I.integral s ω) * I.integrand.process s ω ∂volume := by
   sorry
 
+/-! ## Finite Variation Processes -/
+
+/-- A partition of [0, T] is an increasing list of times.
+    We represent this as a list with the property that consecutive elements are ordered. -/
+structure Partition (T : ℝ) where
+  /-- The partition points -/
+  points : List ℝ
+  /-- Non-empty with 0 at start -/
+  starts_zero : points.head? = some 0
+  /-- Ends at T -/
+  ends_T : points.getLast? = some T
+  /-- Strictly increasing -/
+  increasing : points.Chain' (· < ·)
+
+/-- The total variation of a function over a partition -/
+noncomputable def totalVariationOver (A : ℝ → ℝ) (π : Partition T) : ℝ :=
+  (π.points.zip π.points.tail).foldl
+    (fun acc (pair : ℝ × ℝ) => acc + |A pair.2 - A pair.1|) 0
+
+/-- A function A : ℝ → ℝ has finite variation on [0, T] if the total variation
+    over all partitions is bounded. -/
+def HasFiniteVariation (A : ℝ → ℝ) (T : ℝ) : Prop :=
+  ∃ V : ℝ, V ≥ 0 ∧ ∀ π : Partition T, totalVariationOver A π ≤ V
+
+/-- The total variation of A on [0, T] (as a sup over partitions) -/
+noncomputable def totalVariation (A : ℝ → ℝ) (T : ℝ) : ℝ :=
+  sSup {v : ℝ | ∃ π : Partition T, v = totalVariationOver A π}
+
 /-! ## Semimartingales -/
 
-/-- A semimartingale is M + A where M is local martingale, A is finite variation -/
+/-- A semimartingale is X = M + A where M is a local martingale and A has finite variation.
+
+    This is the fundamental decomposition for stochastic calculus.
+    Key examples:
+    - Brownian motion: M = W, A = 0
+    - Itô process: M = ∫σ dW, A = ∫μ dt -/
 structure Semimartingale (F : Filtration Ω ℝ) (μ : Measure Ω) where
-  /-- The local martingale part -/
+  /-- The local martingale part M -/
   martingale_part : LocalMartingale F μ ℝ
-  /-- The finite variation part -/
+  /-- The finite variation part A -/
   finite_variation_part : ℝ → Ω → ℝ
-  /-- Finite variation property -/
+  /-- A has finite variation on [0, T] for each ω and T ≥ 0.
+      CORRECT DEFINITION: The variation is computed as the supremum of
+      Σᵢ |A(tᵢ₊₁, ω) - A(tᵢ, ω)| over all partitions {t₀ < t₁ < ... < tₙ} of [0, T]. -/
   finite_variation : ∀ ω : Ω, ∀ T : ℝ, T ≥ 0 →
-    ∃ (V : ℝ), ∀ (partition : List ℝ),
-      List.sum (partition.map (fun t => |finite_variation_part t ω|)) ≤ V
+    HasFiniteVariation (fun t => finite_variation_part t ω) T
+  /-- A(0) = 0 (canonical starting point) -/
+  fv_initial : ∀ ω : Ω, finite_variation_part 0 ω = 0
+  /-- A is right-continuous (càdlàg) -/
+  fv_right_continuous : ∀ ω : Ω, ∀ t : ℝ,
+    Filter.Tendsto (fun s => finite_variation_part s ω) (nhdsWithin t (Set.Ioi t))
+      (nhds (finite_variation_part t ω))
   /-- The process X = M + A -/
   process : ℝ → Ω → ℝ
-  /-- Decomposition -/
+  /-- Decomposition X = M + A -/
   decomposition : ∀ t : ℝ, ∀ ω : Ω,
     process t ω = martingale_part.process t ω + finite_variation_part t ω
 
-/-- Stochastic integral w.r.t. semimartingale -/
+namespace Semimartingale
+
+variable {F : Filtration Ω ℝ} {μ : Measure Ω}
+
+/-- The variation process: V_t(ω) = total variation of A on [0, t] -/
+noncomputable def variation_process (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
+  fun t ω => if ht : t ≥ 0 then totalVariation (fun s => X.finite_variation_part s ω) t else 0
+
+/-- Decomposition of A into increasing parts: A = A⁺ - A⁻ (Jordan decomposition) -/
+noncomputable def positive_variation (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
+  fun t ω => (X.variation_process t ω + X.finite_variation_part t ω) / 2
+
+noncomputable def negative_variation (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
+  fun t ω => (X.variation_process t ω - X.finite_variation_part t ω) / 2
+
+end Semimartingale
+
+/-- Lebesgue-Stieltjes integral ∫₀ᵗ H dA for finite variation A.
+
+    This is defined via the associated measure: the increment A(b) - A(a)
+    determines a signed measure, and we integrate H against it.
+
+    For continuous H and A, this equals lim_{‖π‖→0} Σᵢ H(tᵢ)(A(tᵢ₊₁) - A(tᵢ)). -/
+structure LebesgueStieltjesIntegral {F : Filtration Ω ℝ}
+    (H : PredictableProcess F ℝ) (A : ℝ → Ω → ℝ) (T : ℝ) where
+  /-- The integral process -/
+  integral : Ω → ℝ
+  /-- A has finite variation -/
+  fv : ∀ ω : Ω, HasFiniteVariation (fun t => A t ω) T
+  /-- The integral is the limit of Riemann-Stieltjes sums:
+      lim Σᵢ H(tᵢ, ω)(A(tᵢ₊₁, ω) - A(tᵢ, ω)) as mesh → 0 -/
+  is_limit : ∀ ω : Ω, ∀ ε > 0, ∃ δ > 0,
+    ∀ π : Partition T,
+    (∀ i : Fin (π.points.length - 1),
+      π.points.get ⟨i.val + 1, by omega⟩ - π.points.get ⟨i.val, by omega⟩ < δ) →
+    |integral ω - (π.points.zip π.points.tail).foldl
+      (fun acc (pair : ℝ × ℝ) => acc + H.process pair.1 ω * (A pair.2 ω - A pair.1 ω)) 0| < ε
+
+/-- Stochastic integral w.r.t. semimartingale: ∫₀ᵗ H dX = ∫₀ᵗ H dM + ∫₀ᵗ H dA
+
+    The first term is the Itô integral (against local martingale).
+    The second term is the Lebesgue-Stieltjes integral (against finite variation). -/
 noncomputable def semimartingale_integral
     {F : Filtration Ω ℝ} {μ : Measure Ω}
     (H : PredictableProcess F ℝ)
-    (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
-  fun t ω => ∫ (s : ℝ) in Set.Icc 0 t, H.process s ω * X.finite_variation_part s ω ∂volume
+    (X : Semimartingale F μ)
+    (T : ℝ) : ℝ → Ω → ℝ :=
+  fun t ω =>
+    -- This is a placeholder - full definition requires:
+    -- 1. Itô integral ∫₀ᵗ H dM (for local martingale part)
+    -- 2. Lebesgue-Stieltjes integral ∫₀ᵗ H dA (for finite variation part)
+    0  -- TODO: implement properly
 
 /-! ## Girsanov's Theorem -/
 

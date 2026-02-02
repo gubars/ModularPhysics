@@ -117,6 +117,37 @@ theorem comp_id (f : SuperAlgHom A B) : f.comp id = f := by ext; simp
 end SuperAlgHom
 
 /-!
+## Restriction to Even Parts
+
+A graded homomorphism restricts to a ring homomorphism on the even parts.
+-/
+
+/-- The restriction of a SuperAlgHom to the even subrings.
+
+    Since f preserves even elements, this is a well-defined ring homomorphism
+    A.evenSubring →+* B.evenSubring.
+
+    This is essential for defining local super homomorphisms, since locality
+    is defined in terms of the even (commutative) parts. -/
+def SuperAlgHom.restrictEven {R : Type*} [CommRing R] {A B : SuperAlgebra R}
+    [SuperCommutative A] [SuperCommutative B]
+    [SuperAlgebraWithOne A] [SuperAlgebraWithOne B]
+    (f : SuperAlgHom A B) : A.evenSubring →+* B.evenSubring where
+  toFun x := ⟨f x, f.map_even x x.property⟩
+  map_one' := by
+    simp only [Subring.coe_one]
+    exact Subtype.ext f.map_one'
+  map_mul' x y := by
+    simp only [Subring.coe_mul]
+    exact Subtype.ext (f.map_mul' x y)
+  map_zero' := by
+    simp only [Subring.coe_zero]
+    exact Subtype.ext f.map_zero'
+  map_add' x y := by
+    simp only [Subring.coe_add]
+    exact Subtype.ext (f.map_add' x y)
+
+/-!
 ## The Category SuperRingCat
 
 We bundle supercommutative algebras into a category.
@@ -206,14 +237,26 @@ class IsSuperLocalRing {R : Type*} [CommRing R] (A : SuperAlgebra R)
   /-- All odd elements are nilpotent -/
   odd_nilpotent : ∀ a : A.carrier, a ∈ A.odd → IsNilpotent a
 
-/-- A local morphism of super local rings: maps maximal ideal to maximal ideal. -/
+/-- A local morphism of super local rings: maps maximal ideal to maximal ideal.
+
+    For a homomorphism f : A → B of super local rings to be local, we require
+    that the restriction to even parts maps the maximal ideal of A.even into
+    the maximal ideal of B.even.
+
+    Since IsSuperLocalRing guarantees a unique maximal ideal in each even part,
+    we state this as: for all maximal ideals mA, mB (which are uniquely determined),
+    elements of mA are mapped by f.restrictEven into mB.
+
+    Note: This is equivalent to requiring f.restrictEven⁻¹(mB) = mA. -/
 class IsSuperLocalHom {R : Type*} [CommRing R] {A B : SuperAlgebra R}
     [SuperCommutative A] [SuperCommutative B]
     [SuperAlgebraWithOne A] [SuperAlgebraWithOne B]
     [IsSuperLocalRing A] [IsSuperLocalRing B]
     (f : SuperAlgHom A B) : Prop where
-  /-- The preimage of the maximal ideal contains the maximal ideal -/
-  map_maxIdeal : True  -- Placeholder: proper formulation needs maximal ideal access
+  /-- The restriction to even parts maps the maximal ideal of A into the maximal ideal of B -/
+  map_maxIdeal : ∀ (mA : Ideal A.evenSubring) (mB : Ideal B.evenSubring),
+    mA.IsMaximal → mB.IsMaximal →
+    ∀ x : A.evenSubring, x ∈ mA → f.restrictEven x ∈ mB
 
 /-!
 ## Properties of Super Local Rings

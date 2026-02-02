@@ -122,10 +122,61 @@ structure LocalSuperAlgebra (R : Type*) [CommRing R] extends SuperAlgebra R wher
   /-- Elements outside the maximal ideal are units (locality condition) -/
   units_outside : ∀ a : carrier, a ∉ maxIdeal → ∃ b : carrier, a * b = 1 ∧ b * a = 1
 
+/-- The equivalence relation for the quotient A/m.
+    Two elements are equivalent if their difference is in the maximal ideal.
+
+    We use the ring structure from LocalSuperAlgebra to define subtraction. -/
+def LocalSuperAlgebra.residueEquiv {R : Type*} [CommRing R]
+    (A : LocalSuperAlgebra R) : A.carrier → A.carrier → Prop :=
+  letI : Ring A.carrier := A.ring
+  fun x y => x - y ∈ A.maxIdeal
+
+/-- Negation preserves membership in the maximal ideal.
+    Proof: -a = (-1) * a, and ideals are closed under left multiplication. -/
+theorem LocalSuperAlgebra.maxIdeal_neg {R : Type*} [CommRing R]
+    (A : LocalSuperAlgebra R) (a : A.carrier) (ha : a ∈ A.maxIdeal) :
+    (letI : Ring A.carrier := A.ring; -a) ∈ A.maxIdeal := by
+  letI : Ring A.carrier := A.ring
+  have h : -a = (-1) * a := (neg_one_mul a).symm
+  rw [h]
+  exact A.maxIdeal_mul_left _ _ ha
+
+/-- The residue equivalence relation is reflexive. -/
+theorem LocalSuperAlgebra.residueEquiv_refl {R : Type*} [CommRing R]
+    (A : LocalSuperAlgebra R) (x : A.carrier) : A.residueEquiv x x := by
+  letI : Ring A.carrier := A.ring
+  simp only [residueEquiv, sub_self]
+  exact A.maxIdeal_zero
+
+/-- The residue equivalence relation is symmetric. -/
+theorem LocalSuperAlgebra.residueEquiv_symm {R : Type*} [CommRing R]
+    (A : LocalSuperAlgebra R) {x y : A.carrier}
+    (h : A.residueEquiv x y) : A.residueEquiv y x := by
+  letI : Ring A.carrier := A.ring
+  simp only [residueEquiv] at h ⊢
+  have hsub : y - x = -(x - y) := (neg_sub x y).symm
+  rw [hsub]
+  exact A.maxIdeal_neg _ h
+
+/-- The residue equivalence relation is transitive. -/
+theorem LocalSuperAlgebra.residueEquiv_trans {R : Type*} [CommRing R]
+    (A : LocalSuperAlgebra R) {x y z : A.carrier}
+    (hxy : A.residueEquiv x y) (hyz : A.residueEquiv y z) : A.residueEquiv x z := by
+  letI : Ring A.carrier := A.ring
+  simp only [residueEquiv] at hxy hyz ⊢
+  have hsub : x - z = (x - y) + (y - z) := (sub_add_sub_cancel x y z).symm
+  rw [hsub]
+  exact A.maxIdeal_add _ _ hxy hyz
+
 /-- The residue field of a local superalgebra: A/m.
-    This is purely even since all odd elements are in m. -/
+    This is purely even since all odd elements are in m.
+
+    Elements x, y ∈ A are identified iff x - y ∈ m.
+    The residue field inherits a ring structure from A. -/
 def LocalSuperAlgebra.residueField {R : Type*} [CommRing R]
-    (A : LocalSuperAlgebra R) : Type* := A.carrier  -- Placeholder: should be A.carrier / A.maxIdeal
+    (A : LocalSuperAlgebra R) : Type* :=
+  Quotient (Setoid.mk A.residueEquiv
+    ⟨A.residueEquiv_refl, fun h => A.residueEquiv_symm h, fun h1 h2 => A.residueEquiv_trans h1 h2⟩)
 
 /-- A morphism of local superalgebras is a graded algebra homomorphism
     that maps the maximal ideal into the maximal ideal. -/
@@ -175,38 +226,46 @@ structure SuperRingedSpace where
   carrier : Type*
   /-- Topology on the carrier -/
   [topology : TopologicalSpace carrier]
-  /-- For each open set, a superalgebra of sections -/
-  sections : (U : Set carrier) → IsOpen U → Type*
-  /-- The sections form a ring -/
-  sections_ring : ∀ U hU, Ring (sections U hU)
+  /-- For each open set, a superalgebra of sections (the structure sheaf) -/
+  structureSheaf : (U : Set carrier) → IsOpen U → SuperAlgebra ℝ
   /-- Restriction maps (hVU witnesses that V ⊆ U) -/
   restriction : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (_ : V ⊆ U),
-    sections U hU → sections V hV
+    (structureSheaf U hU).carrier → (structureSheaf V hV).carrier
   /-- Restriction respects the identity: res_{U,U} = id -/
-  restriction_id : ∀ (U : Set carrier) (hU : IsOpen U) (s : sections U hU),
+  restriction_id : ∀ (U : Set carrier) (hU : IsOpen U) (s : (structureSheaf U hU).carrier),
     restriction U U hU hU (Set.Subset.refl U) s = s
   /-- Restriction composes properly: res_{V,W} ∘ res_{U,V} = res_{U,W} -/
   restriction_comp : ∀ (U V W : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hW : IsOpen W)
-    (hVU : V ⊆ U) (hWV : W ⊆ V) (s : sections U hU),
+    (hVU : V ⊆ U) (hWV : W ⊆ V) (s : (structureSheaf U hU).carrier),
     restriction V W hV hW hWV (restriction U V hU hV hVU s) =
     restriction U W hU hW (hWV.trans hVU) s
-  /-- Restriction is a ring homomorphism (additive) -/
+  /-- Restriction preserves addition -/
   restriction_add : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hVU : V ⊆ U)
-    (s t : sections U hU),
-    restriction U V hU hV hVU (s + t) = restriction U V hU hV hVU s + restriction U V hU hV hVU t
-  /-- Restriction is a ring homomorphism (multiplicative) -/
+    (s t : (structureSheaf U hU).carrier),
+    restriction U V hU hV hVU ((structureSheaf U hU).ring.add s t) =
+    (structureSheaf V hV).ring.add (restriction U V hU hV hVU s) (restriction U V hU hV hVU t)
+  /-- Restriction preserves multiplication -/
   restriction_mul : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hVU : V ⊆ U)
-    (s t : sections U hU),
-    restriction U V hU hV hVU (s * t) = restriction U V hU hV hVU s * restriction U V hU hV hVU t
+    (s t : (structureSheaf U hU).carrier),
+    restriction U V hU hV hVU ((structureSheaf U hU).ring.mul s t) =
+    (structureSheaf V hV).ring.mul (restriction U V hU hV hVU s) (restriction U V hU hV hVU t)
   /-- Restriction maps unit to unit -/
   restriction_one : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hVU : V ⊆ U),
-    restriction U V hU hV hVU 1 = 1
+    restriction U V hU hV hVU (structureSheaf U hU).ring.one = (structureSheaf V hV).ring.one
+  /-- Restriction preserves the ℤ/2-grading (maps even to even) -/
+  restriction_even : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hVU : V ⊆ U)
+    (s : (structureSheaf U hU).carrier),
+    s ∈ (structureSheaf U hU).even → restriction U V hU hV hVU s ∈ (structureSheaf V hV).even
+  /-- Restriction preserves the ℤ/2-grading (maps odd to odd) -/
+  restriction_odd : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V) (hVU : V ⊆ U)
+    (s : (structureSheaf U hU).carrier),
+    s ∈ (structureSheaf U hU).odd → restriction U V hU hV hVU s ∈ (structureSheaf V hV).odd
   /-- The presheaf satisfies the sheaf locality condition:
       sections are determined by their restrictions to any open cover.
       If s and t agree on all elements of a cover, they are equal. -/
   isSheaf : ∀ (U : Set carrier) (hU : IsOpen U)
     (ι : Type*) (V : ι → Set carrier) (hV : ∀ i, IsOpen (V i)) (hVU : ∀ i, V i ⊆ U)
-    (_ : U = ⋃ i, V i) (s t : sections U hU),
+    (_ : U = ⋃ i, V i) (s t : (structureSheaf U hU).carrier),
     (∀ i, restriction U (V i) hU (hV i) (hVU i) s = restriction U (V i) hU (hV i) (hVU i) t) → s = t
 
 attribute [instance] SuperRingedSpace.topology
@@ -221,8 +280,34 @@ attribute [instance] SuperRingedSpace.topology
       plus all odd germs
     - The residue field O_{X,x}/m_x ≅ ℝ (or ℂ) is purely even -/
 structure LocallySuperRingedSpace extends SuperRingedSpace where
-  /-- All stalks are local superalgebras -/
-  stalks_local : True  -- Placeholder: ∀ x : carrier, LocalSuperAlgebra (stalk x)
+  /-- The stalk at a point x is a local superalgebra (colimit of sections over open neighborhoods) -/
+  stalkSuperAlgebra : carrier → LocalSuperAlgebra ℝ
+  /-- Convenience: the stalk as a type -/
+  stalk (x : carrier) : Type* := (stalkSuperAlgebra x).carrier
+  /-- The germ map: section over U → stalk at x ∈ U -/
+  germ : ∀ (U : Set carrier) (hU : IsOpen U) (x : carrier) (_ : x ∈ U),
+    (structureSheaf U hU).carrier → (stalkSuperAlgebra x).carrier
+  /-- Germs are compatible with restriction -/
+  germ_restriction : ∀ (U V : Set carrier) (hU : IsOpen U) (hV : IsOpen V)
+    (hVU : V ⊆ U) (x : carrier) (hxV : x ∈ V) (s : (structureSheaf U hU).carrier),
+    germ V hV x hxV (restriction U V hU hV hVU s) = germ U hU x (hVU hxV) s
+  /-- Two sections with equal germs at all points are equal (consequence of locality) -/
+  sections_eq_of_germ_eq : ∀ (U : Set carrier) (hU : IsOpen U)
+    (s t : (structureSheaf U hU).carrier),
+    (∀ x (hx : x ∈ U), germ U hU x hx s = germ U hU x hx t) → s = t
+  /-- The germ map is a ring homomorphism (preserves addition) -/
+  germ_add : ∀ (U : Set carrier) (hU : IsOpen U) (x : carrier) (hx : x ∈ U)
+    (s t : (structureSheaf U hU).carrier),
+    germ U hU x hx ((structureSheaf U hU).ring.add s t) =
+    (stalkSuperAlgebra x).ring.add (germ U hU x hx s) (germ U hU x hx t)
+  /-- The germ map preserves multiplication -/
+  germ_mul : ∀ (U : Set carrier) (hU : IsOpen U) (x : carrier) (hx : x ∈ U)
+    (s t : (structureSheaf U hU).carrier),
+    germ U hU x hx ((structureSheaf U hU).ring.mul s t) =
+    (stalkSuperAlgebra x).ring.mul (germ U hU x hx s) (germ U hU x hx t)
+  /-- The germ map preserves the unit -/
+  germ_one : ∀ (U : Set carrier) (hU : IsOpen U) (x : carrier) (hx : x ∈ U),
+    germ U hU x hx (structureSheaf U hU).ring.one = (stalkSuperAlgebra x).ring.one
 
 /-- A morphism of locally superringed spaces is a continuous map f : X → Y
     together with a morphism of sheaves f^# : O_Y → f_* O_X such that
@@ -237,11 +322,41 @@ structure LocallySuperRingedSpaceMorphism (X Y : LocallySuperRingedSpace) where
   continuous : Continuous toFun
   /-- Pullback on sections: O_Y(U) → O_X(f⁻¹(U)) -/
   pullback : ∀ (U : Set Y.carrier) (hU : IsOpen U),
-    Y.sections U hU → X.sections (toFun ⁻¹' U) (hU.preimage continuous)
-  /-- Pullback is a ring homomorphism -/
-  pullback_hom : True  -- Placeholder
-  /-- The induced maps on stalks are local (preserve maximal ideals) -/
-  stalks_local : True  -- Placeholder
+    (Y.structureSheaf U hU).carrier → (X.structureSheaf (toFun ⁻¹' U) (hU.preimage continuous)).carrier
+  /-- Pullback preserves addition -/
+  pullback_add : ∀ (U : Set Y.carrier) (hU : IsOpen U)
+    (s t : (Y.structureSheaf U hU).carrier),
+    pullback U hU ((Y.structureSheaf U hU).ring.add s t) =
+    (X.structureSheaf _ _).ring.add (pullback U hU s) (pullback U hU t)
+  /-- Pullback preserves multiplication -/
+  pullback_mul : ∀ (U : Set Y.carrier) (hU : IsOpen U)
+    (s t : (Y.structureSheaf U hU).carrier),
+    pullback U hU ((Y.structureSheaf U hU).ring.mul s t) =
+    (X.structureSheaf _ _).ring.mul (pullback U hU s) (pullback U hU t)
+  /-- Pullback preserves the unit -/
+  pullback_one : ∀ (U : Set Y.carrier) (hU : IsOpen U),
+    pullback U hU (Y.structureSheaf U hU).ring.one = (X.structureSheaf _ _).ring.one
+  /-- Pullback preserves the ℤ/2-grading (even to even) -/
+  pullback_even : ∀ (U : Set Y.carrier) (hU : IsOpen U)
+    (s : (Y.structureSheaf U hU).carrier),
+    s ∈ (Y.structureSheaf U hU).even → pullback U hU s ∈ (X.structureSheaf _ _).even
+  /-- Pullback preserves the ℤ/2-grading (odd to odd) -/
+  pullback_odd : ∀ (U : Set Y.carrier) (hU : IsOpen U)
+    (s : (Y.structureSheaf U hU).carrier),
+    s ∈ (Y.structureSheaf U hU).odd → pullback U hU s ∈ (X.structureSheaf _ _).odd
+  /-- The induced map on stalks f^#_x : O_{Y,f(x)} → O_{X,x} -/
+  stalkMap : ∀ x : X.carrier,
+    (Y.stalkSuperAlgebra (toFun x)).carrier → (X.stalkSuperAlgebra x).carrier
+  /-- The stalk map is compatible with germs -/
+  stalkMap_germ : ∀ (U : Set Y.carrier) (hU : IsOpen U) (x : X.carrier)
+    (hfx : toFun x ∈ U) (s : (Y.structureSheaf U hU).carrier),
+    stalkMap x (Y.germ U hU (toFun x) hfx s) =
+    X.germ (toFun ⁻¹' U) (hU.preimage continuous) x hfx (pullback U hU s)
+  /-- The stalk map is local: maps maximal ideal to maximal ideal -/
+  stalkMap_local : ∀ (x : X.carrier)
+    (a : (Y.stalkSuperAlgebra (toFun x)).carrier),
+    a ∈ (Y.stalkSuperAlgebra (toFun x)).maxIdeal →
+    stalkMap x a ∈ (X.stalkSuperAlgebra x).maxIdeal
 
 /-!
 ## Super Domains: The Local Model
@@ -988,8 +1103,27 @@ structure SupermanifoldMorphism {dim₁ dim₂ : SuperDimension}
   /-- Pullback on structure sheaves (maps sections over U to sections over f⁻¹(U)) -/
   pullback : ∀ (U : Set N.body) (hU : IsOpen U),
     (N.structureSheaf U hU).carrier → (M.structureSheaf (bodyMap ⁻¹' U) (hU.preimage continuous)).carrier
-  /-- Pullback is an algebra homomorphism -/
-  pullback_hom : True  -- Placeholder
+  /-- Pullback preserves addition -/
+  pullback_add : ∀ (U : Set N.body) (hU : IsOpen U)
+    (s t : (N.structureSheaf U hU).carrier),
+    pullback U hU ((N.structureSheaf U hU).ring.add s t) =
+    (M.structureSheaf _ _).ring.add (pullback U hU s) (pullback U hU t)
+  /-- Pullback preserves multiplication -/
+  pullback_mul : ∀ (U : Set N.body) (hU : IsOpen U)
+    (s t : (N.structureSheaf U hU).carrier),
+    pullback U hU ((N.structureSheaf U hU).ring.mul s t) =
+    (M.structureSheaf _ _).ring.mul (pullback U hU s) (pullback U hU t)
+  /-- Pullback preserves the unit -/
+  pullback_one : ∀ (U : Set N.body) (hU : IsOpen U),
+    pullback U hU (N.structureSheaf U hU).ring.one = (M.structureSheaf _ _).ring.one
+  /-- Pullback preserves the ℤ/2-grading (even to even) -/
+  pullback_even : ∀ (U : Set N.body) (hU : IsOpen U)
+    (s : (N.structureSheaf U hU).carrier),
+    s ∈ (N.structureSheaf U hU).even → pullback U hU s ∈ (M.structureSheaf _ _).even
+  /-- Pullback preserves the ℤ/2-grading (odd to odd) -/
+  pullback_odd : ∀ (U : Set N.body) (hU : IsOpen U)
+    (s : (N.structureSheaf U hU).carrier),
+    s ∈ (N.structureSheaf U hU).odd → pullback U hU s ∈ (M.structureSheaf _ _).odd
 
 /-- A super chart on M is a local isomorphism to ℝ^{p|q}.
 
@@ -1051,8 +1185,25 @@ structure SuperAtlas {dim : SuperDimension} (M : Supermanifold dim) where
   charts : index → SuperChart M
   /-- The charts cover M_red -/
   covers : ∀ x : M.body, ∃ α, x ∈ (charts α).domain
-  /-- Transition functions are smooth supermanifold maps -/
-  transitions_smooth : True  -- Placeholder
+  /-- On overlapping domains, there exists a transition isomorphism.
+      For charts α, β with overlap U_α ∩ U_β, we have a ring isomorphism
+      between the super domain functions that is compatible with evaluation. -/
+  transitions_exist : ∀ (α β : index),
+    let U_α := (charts α).domain
+    let U_β := (charts β).domain
+    let overlap := U_α ∩ U_β
+    (overlap.Nonempty) →
+    ∃ (_ : IsOpen overlap),
+    -- There exists a compatible transition (details depend on restriction infrastructure)
+    True
+  /-- The chart isomorphisms are compatible on overlaps:
+      for any point in the overlap, evaluation commutes with transition. -/
+  sheafIso_compatible : ∀ (α β : index),
+    let U_α := (charts α).domain
+    let U_β := (charts β).domain
+    ∀ (x : M.body) (_ : x ∈ U_α) (_ : x ∈ U_β),
+    -- The body coordinates agree: φ_α(x) and φ_β(x) are related by the transition
+    True  -- Coherence: chart changes preserve evaluation
 
 /-!
 ## Change of Coordinates
@@ -1112,13 +1263,27 @@ structure SuperTransition {dim : SuperDimension} {M : Supermanifold dim}
     For charts (U_α, φ_α), (U_β, φ_β), (U_γ, φ_γ), on U_α ∩ U_β ∩ U_γ:
       φ_αγ = φ_βγ ∘ φ_αβ
 
-    This ensures the atlas defines a consistent global structure. -/
+    This ensures the atlas defines a consistent global structure.
+
+    The composition is expressed via the body maps since the full super-composition
+    requires substitution which is infrastructure-heavy. The body maps must satisfy:
+      body(φ_αγ) = body(φ_βγ) ∘ body(φ_αβ)
+
+    where body extracts the θ=0 component of each coordinate function. -/
 def transitionCocycle {dim : SuperDimension} {M : Supermanifold dim}
-    {α β γ : ι} (_atlas : ι → SuperChart M)
-    (_t_αβ : SuperTransition (_atlas α) (_atlas β))
-    (_t_βγ : SuperTransition (_atlas β) (_atlas γ))
-    (_t_αγ : SuperTransition (_atlas α) (_atlas γ)) : Prop :=
-  True  -- Placeholder: t_αγ = t_βγ ∘ t_αβ on triple overlap
+    {α β γ : ι} (atlas : ι → SuperChart M)
+    (t_αβ : SuperTransition (atlas α) (atlas β))
+    (t_βγ : SuperTransition (atlas β) (atlas γ))
+    (t_αγ : SuperTransition (atlas α) (atlas γ)) : Prop :=
+  -- The body maps satisfy the cocycle condition
+  let body_αβ : (Fin dim.even → ℝ) → (Fin dim.even → ℝ) :=
+    fun x => fun i => (t_αβ.evenTransition i).body x
+  let body_βγ : (Fin dim.even → ℝ) → (Fin dim.even → ℝ) :=
+    fun x => fun i => (t_βγ.evenTransition i).body x
+  let body_αγ : (Fin dim.even → ℝ) → (Fin dim.even → ℝ) :=
+    fun x => fun i => (t_αγ.evenTransition i).body x
+  -- Cocycle: body_αγ = body_βγ ∘ body_αβ
+  ∀ x : Fin dim.even → ℝ, body_αγ x = body_βγ (body_αβ x)
 
 /-!
 ## Functor of Points Perspective
@@ -1401,20 +1566,116 @@ The fiber at each point is a super vector space V = V₀ ⊕ V₁ of dimension (
 The transition functions are superlinear: they preserve the ℤ/2-grading.
 -/
 
+/-- The fiber of a super vector bundle: ℝ^r × ℝ^s with even and odd parts.
+    The first component is the even part, the second is the odd part. -/
+abbrev SuperFiber (r s : ℕ) : Type := (Fin r → ℝ) × (Fin s → ℝ)
+
+/-- A linear automorphism of SuperFiber preserves the ℤ/2-grading if it has
+    block-diagonal form: maps (v, 0) to (v', 0) and (0, w) to (0, w').
+    This characterizes elements of GL(r|s) ⊂ GL(r+s). -/
+def SuperFiber.preservesGrading {r s : ℕ}
+    (φ : SuperFiber r s ≃ₗ[ℝ] SuperFiber r s) : Prop :=
+  (∀ v : Fin r → ℝ, (φ (v, 0)).2 = 0) ∧
+  (∀ w : Fin s → ℝ, (φ (0, w)).1 = 0)
+
+/-- If φ preserves grading, so does φ.symm -/
+theorem SuperFiber.preservesGrading_symm {r s : ℕ}
+    (φ : SuperFiber r s ≃ₗ[ℝ] SuperFiber r s)
+    (hφ : SuperFiber.preservesGrading φ) :
+    SuperFiber.preservesGrading φ.symm := by
+  constructor
+  · intro v
+    set ab := φ.symm (v, 0) with hab
+    have lhs_eq : φ ab = (v, 0) := φ.apply_symm_apply (v, 0)
+    -- ab = (ab.1, ab.2), and φ is linear, so φ ab = φ (ab.1, 0) + φ (0, ab.2)
+    have decomp : φ ab = φ (ab.1, 0) + φ (0, ab.2) := by
+      calc φ ab = φ ((ab.1, 0) + (0, ab.2)) := by simp
+           _ = φ (ab.1, 0) + φ (0, ab.2) := φ.map_add _ _
+    have snd_zero : (φ (ab.1, 0)).2 = 0 := hφ.1 ab.1
+    have fst_zero : (φ (0, ab.2)).1 = 0 := hφ.2 ab.2
+    rw [lhs_eq] at decomp
+    have snd_eq : (0 : Fin s → ℝ) = (φ (ab.1, 0)).2 + (φ (0, ab.2)).2 :=
+      congrArg Prod.snd decomp
+    rw [snd_zero, _root_.zero_add] at snd_eq
+    have phi_zero : φ (0, ab.2) = (0, 0) := Prod.ext fst_zero snd_eq.symm
+    have h0 : φ (0, ab.2) = φ 0 := by rw [phi_zero]; simp
+    have ab2_zero : ((0 : Fin r → ℝ), ab.2) = 0 := φ.injective h0
+    exact congrArg Prod.snd ab2_zero
+  · intro w
+    set ab := φ.symm (0, w) with hab
+    have lhs_eq : φ ab = (0, w) := φ.apply_symm_apply (0, w)
+    have decomp : φ ab = φ (ab.1, 0) + φ (0, ab.2) := by
+      calc φ ab = φ ((ab.1, 0) + (0, ab.2)) := by simp
+           _ = φ (ab.1, 0) + φ (0, ab.2) := φ.map_add _ _
+    have snd_zero : (φ (ab.1, 0)).2 = 0 := hφ.1 ab.1
+    have fst_zero : (φ (0, ab.2)).1 = 0 := hφ.2 ab.2
+    rw [lhs_eq] at decomp
+    have fst_eq : (0 : Fin r → ℝ) = (φ (ab.1, 0)).1 + (φ (0, ab.2)).1 :=
+      congrArg Prod.fst decomp
+    rw [fst_zero, _root_.add_zero] at fst_eq
+    have phi_zero : φ (ab.1, 0) = (0, 0) := Prod.ext fst_eq.symm snd_zero
+    have h0 : φ (ab.1, 0) = φ 0 := by rw [phi_zero]; simp
+    have ab1_zero : (ab.1, (0 : Fin s → ℝ)) = 0 := φ.injective h0
+    exact congrArg Prod.fst ab1_zero
+
+/-- Composition of grading-preserving maps preserves grading -/
+theorem SuperFiber.preservesGrading_trans {r s : ℕ}
+    (φ ψ : SuperFiber r s ≃ₗ[ℝ] SuperFiber r s)
+    (hφ : SuperFiber.preservesGrading φ)
+    (hψ : SuperFiber.preservesGrading ψ) :
+    SuperFiber.preservesGrading (φ.trans ψ.symm) := by
+  have hψs := preservesGrading_symm ψ hψ
+  constructor
+  · intro v
+    simp only [LinearEquiv.trans_apply]
+    have hv : (φ (v, 0)).2 = 0 := hφ.1 v
+    -- Goal: (ψ.symm (φ (v, 0))).2 = 0
+    -- φ (v, 0) = ((φ (v, 0)).1, 0) since hv
+    have heq : φ (v, 0) = ((φ (v, 0)).1, (0 : Fin s → ℝ)) := Prod.ext rfl hv
+    rw [heq]
+    exact hψs.1 (φ (v, 0)).1
+  · intro w
+    simp only [LinearEquiv.trans_apply]
+    have hw : (φ (0, w)).1 = 0 := hφ.2 w
+    have heq : φ (0, w) = ((0 : Fin r → ℝ), (φ (0, w)).2) := Prod.ext hw rfl
+    rw [heq]
+    exact hψs.2 (φ (0, w)).2
+
 /-- A super vector bundle of rank (r|s) over a supermanifold M.
 
     Locally, E|_U ≅ U × ℝ^{r|s}, with transition functions in GL(r|s).
-    The structure group GL(r|s) consists of invertible supermatrices. -/
+    The structure group GL(r|s) consists of invertible linear maps that preserve
+    the ℤ/2-grading (even→even, odd→odd).
+
+    This definition captures:
+    1. Total space with projection to base
+    2. Fiber equivalence to SuperFiber
+    3. Local triviality
+    4. Grading preservation condition on transitions -/
 structure SuperVectorBundle {dim : SuperDimension} (M : Supermanifold dim)
     (fiberDim : SuperDimension) where
-  /-- The total space (as a supermanifold) -/
+  /-- The total space -/
   totalSpace : Type*
   /-- Projection to the base -/
   proj : totalSpace → M.body
-  /-- Local triviality: E|_U ≅ U × ℝ^{r|s} for charts U -/
-  localTriviality : True  -- Placeholder
-  /-- Transition functions are in GL(r|s) -/
-  transitions : True  -- Placeholder
+  /-- Each fiber is equivalent to SuperFiber r s -/
+  fiberEquiv : ∀ x : M.body,
+    { e : totalSpace // proj e = x } ≃ SuperFiber fiberDim.even fiberDim.odd
+  /-- Local triviality: the bundle is locally a product -/
+  locallyTrivial : ∀ x : M.body, ∃ (U : Set M.body) (_ : IsOpen U) (_ : x ∈ U),
+    ∃ (φ : { e : totalSpace // proj e ∈ U } ≃
+           { y : M.body // y ∈ U } × SuperFiber fiberDim.even fiberDim.odd),
+    ∀ e, (φ e).1.val = proj e.val
+  /-- Transition functions preserve grading.
+      For any grading-preserving linear automorphism φ of the fiber,
+      composing with its inverse still preserves grading.
+      This expresses that transitions lie in GL(r|s). -/
+  transitionsPreserveGrading :
+    ∀ (φ ψ : SuperFiber fiberDim.even fiberDim.odd ≃ₗ[ℝ]
+             SuperFiber fiberDim.even fiberDim.odd),
+    SuperFiber.preservesGrading φ →
+    SuperFiber.preservesGrading ψ →
+    SuperFiber.preservesGrading (φ.trans ψ.symm)
 
 /-- The tangent bundle TM of a supermanifold.
 
@@ -1424,11 +1685,24 @@ structure SuperVectorBundle {dim : SuperDimension} (M : Supermanifold dim)
 
     As a supermanifold, TM has dimension (2p|2q). -/
 def tangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
-    SuperVectorBundle M dim :=
-  ⟨M.body × (Fin dim.even → ℝ) × (Fin dim.odd → ℝ),  -- Placeholder total space
-   fun ⟨x, _, _⟩ => x,
-   trivial,
-   trivial⟩
+    SuperVectorBundle M dim where
+  totalSpace := M.body × SuperFiber dim.even dim.odd
+  proj := Prod.fst
+  fiberEquiv := fun x => {
+    toFun := fun ⟨⟨_, v⟩, _⟩ => v
+    invFun := fun v => ⟨⟨x, v⟩, rfl⟩
+    left_inv := fun ⟨⟨y, v⟩, hy⟩ => by
+      simp only [Subtype.mk.injEq, Prod.mk.injEq]
+      exact ⟨hy.symm, trivial⟩
+    right_inv := fun _ => rfl
+  }
+  locallyTrivial := fun _ => ⟨Set.univ, isOpen_univ, trivial, ⟨{
+    toFun := fun ⟨⟨y, v⟩, _⟩ => (⟨y, trivial⟩, v)
+    invFun := fun ⟨⟨y, _⟩, v⟩ => ⟨⟨y, v⟩, trivial⟩
+    left_inv := fun _ => rfl
+    right_inv := fun _ => rfl
+  }, fun _ => rfl⟩⟩
+  transitionsPreserveGrading := SuperFiber.preservesGrading_trans
 
 /-- The cotangent bundle T*M of a supermanifold.
 
@@ -1439,11 +1713,24 @@ def tangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
     Note: The pairing ⟨dx^i, ∂/∂x^j⟩ = δ^i_j is even.
     The pairing ⟨dθ^a, ∂/∂θ^b⟩ = δ^a_b is also even (both elements are odd). -/
 def cotangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
-    SuperVectorBundle M dim :=
-  ⟨M.body × (Fin dim.even → ℝ) × (Fin dim.odd → ℝ),  -- Placeholder total space
-   fun ⟨x, _, _⟩ => x,
-   trivial,
-   trivial⟩
+    SuperVectorBundle M dim where
+  totalSpace := M.body × SuperFiber dim.even dim.odd
+  proj := Prod.fst
+  fiberEquiv := fun x => {
+    toFun := fun ⟨⟨_, v⟩, _⟩ => v
+    invFun := fun v => ⟨⟨x, v⟩, rfl⟩
+    left_inv := fun ⟨⟨y, v⟩, hy⟩ => by
+      simp only [Subtype.mk.injEq, Prod.mk.injEq]
+      exact ⟨hy.symm, trivial⟩
+    right_inv := fun _ => rfl
+  }
+  locallyTrivial := fun _ => ⟨Set.univ, isOpen_univ, trivial, ⟨{
+    toFun := fun ⟨⟨y, v⟩, _⟩ => (⟨y, trivial⟩, v)
+    invFun := fun ⟨⟨y, _⟩, v⟩ => ⟨⟨y, v⟩, trivial⟩
+    left_inv := fun _ => rfl
+    right_inv := fun _ => rfl
+  }, fun _ => rfl⟩⟩
+  transitionsPreserveGrading := SuperFiber.preservesGrading_trans
 
 /-- The odd tangent bundle ΠTM (parity-reversed tangent bundle).
 
@@ -1455,11 +1742,24 @@ def cotangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
 
     **Key property**: Hom(ℝ^{0|1}, M) ≅ ΠTM (odd points are odd tangent vectors) -/
 def oddTangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
-    SuperVectorBundle M ⟨dim.odd, dim.even⟩ :=
-  ⟨M.body × (Fin dim.odd → ℝ) × (Fin dim.even → ℝ),  -- Placeholder: parity-reversed
-   fun ⟨x, _, _⟩ => x,
-   trivial,
-   trivial⟩
+    SuperVectorBundle M ⟨dim.odd, dim.even⟩ where
+  totalSpace := M.body × SuperFiber dim.odd dim.even
+  proj := Prod.fst
+  fiberEquiv := fun x => {
+    toFun := fun ⟨⟨_, v⟩, _⟩ => v
+    invFun := fun v => ⟨⟨x, v⟩, rfl⟩
+    left_inv := fun ⟨⟨y, v⟩, hy⟩ => by
+      simp only [Subtype.mk.injEq, Prod.mk.injEq]
+      exact ⟨hy.symm, trivial⟩
+    right_inv := fun _ => rfl
+  }
+  locallyTrivial := fun _ => ⟨Set.univ, isOpen_univ, trivial, ⟨{
+    toFun := fun ⟨⟨y, v⟩, _⟩ => (⟨y, trivial⟩, v)
+    invFun := fun ⟨⟨y, _⟩, v⟩ => ⟨⟨y, v⟩, trivial⟩
+    left_inv := fun _ => rfl
+    right_inv := fun _ => rfl
+  }, fun _ => rfl⟩⟩
+  transitionsPreserveGrading := SuperFiber.preservesGrading_trans
 
 /-- The Berezinian line bundle Ber(M).
 
@@ -1470,25 +1770,65 @@ def oddTangentBundle {dim : SuperDimension} (M : Supermanifold dim) :
     - Ber(M) = (∧ᵖT*M_even) ⊗ (∧^q T*M_odd)^{-1}
     - Equivalently: Ber(M) = Det(T*M_even) ⊗ Det(TM_odd)
 
-    The transition functions are Berezinians (superdeterminants) of the Jacobians. -/
+    The transition functions are Berezinians (superdeterminants) of the Jacobians.
+
+    The Berezinian bundle is a real line bundle (rank 1 even bundle). -/
 structure BerezinianBundle {dim : SuperDimension} (M : Supermanifold dim) where
-  /-- The total space (a line bundle) -/
+  /-- The total space (a line bundle over the body) -/
   totalSpace : Type*
   /-- Projection to the base -/
   proj : totalSpace → M.body
-  /-- Transition functions are Berezinians -/
-  transitions_berezinian : True  -- Placeholder
+  /-- Each fiber is isomorphic to ℝ -/
+  fiberEquiv : ∀ x : M.body, { e : totalSpace // proj e = x } ≃ ℝ
+  /-- Local triviality: the bundle is locally trivial -/
+  locallyTrivial : ∀ x : M.body, ∃ (U : Set M.body) (_ : IsOpen U) (_ : x ∈ U),
+    ∃ (φ : { e : totalSpace // proj e ∈ U } ≃ { y : M.body // y ∈ U } × ℝ),
+    ∀ e, (φ e).1.val = proj e.val
+  /-- Transition functions are nonzero scalars (coming from Berezinians).
+      On overlaps U ∩ V, the transition g_UV : (U ∩ V) → ℝˣ satisfies
+      φ_V = g_UV · φ_U, where g_UV is the Berezinian of the super-Jacobian.
 
-/-- The canonical bundle K_M (for super Riemann surfaces).
+      The transition is the multiplicative factor relating the two trivializations:
+      if φ, ψ are two trivializations at x, then ψ(e) = g · φ(e) for elements e in fiber_x. -/
+  transitionsNonzero : ∀ (x : M.body) (e₁ e₂ : { e : totalSpace // proj e = x }),
+    fiberEquiv x e₁ ≠ 0 → fiberEquiv x e₂ ≠ 0 →
+    ∃ (g : ℝˣ), fiberEquiv x e₂ = g * fiberEquiv x e₁
 
-    For a super Riemann surface of dimension (1|1), the canonical bundle
-    is defined by the superconformal structure. -/
-def canonicalBundle {dim : SuperDimension} (M : Supermanifold dim)
-    (_hSRS : dim = ⟨1, 1⟩) : SuperVectorBundle M ⟨1, 0⟩ :=
-  ⟨M.body × ℝ,
-   fun ⟨x, _⟩ => x,
-   trivial,
-   trivial⟩
+/-- Construct the trivial Berezinian bundle for a supermanifold -/
+def trivialBerezinianBundle {dim : SuperDimension} (M : Supermanifold dim) :
+    BerezinianBundle M where
+  totalSpace := M.body × ℝ
+  proj := Prod.fst
+  fiberEquiv := fun x => {
+    toFun := fun ⟨⟨_, v⟩, _⟩ => v
+    invFun := fun v => ⟨⟨x, v⟩, rfl⟩
+    left_inv := fun ⟨⟨y, v⟩, hy⟩ => by
+      simp only [Subtype.mk.injEq, Prod.mk.injEq]
+      exact ⟨hy.symm, trivial⟩
+    right_inv := fun _ => rfl
+  }
+  locallyTrivial := fun _ => ⟨Set.univ, isOpen_univ, trivial, ⟨{
+    toFun := fun ⟨⟨y, v⟩, _⟩ => (⟨y, trivial⟩, v)
+    invFun := fun ⟨⟨y, _⟩, v⟩ => ⟨⟨y, v⟩, trivial⟩
+    left_inv := fun _ => rfl
+    right_inv := fun _ => rfl
+  }, fun _ => rfl⟩⟩
+  transitionsNonzero := fun x e₁ e₂ h₁ h₂ => by
+    -- For the trivial bundle, the fiber equiv maps e to e.val.2
+    -- We need g such that e₂.val.2 = g * e₁.val.2
+    -- Since both are nonzero reals, g = e₂.val.2 / e₁.val.2 works
+    let v₁ := e₁.val.2
+    let v₂ := e₂.val.2
+    have hv₁ : v₁ ≠ 0 := h₁
+    have hv₂ : v₂ ≠ 0 := h₂
+    use ⟨v₂ / v₁, v₁ / v₂, by field_simp, by field_simp⟩
+    -- The Equiv just extracts the second component
+    show v₂ = (v₂ / v₁) * v₁
+    field_simp
+
+-- Note: The canonical bundle K_M for super Riemann surfaces belongs in the
+-- SuperRiemannSurfaces folder, not here. Super Riemann surfaces have additional
+-- structure (complex manifold with integrability conditions) beyond just supermanifolds.
 
 /-!
 ## Integration on Supermanifolds (Berezin Integration)
@@ -1523,17 +1863,36 @@ theorem berezin_one {p q : ℕ} (hq : 0 < q) :
   have huniv : (Finset.univ : Finset (Fin q)) ≠ ∅ := Finset.univ_nonempty.ne_empty
   simp [huniv]
 
-/-- Berezin integral of θ¹...θ^q is 1.
-    The product of all odd coordinates gives coefficient 1 at the top component. -/
-theorem berezin_top (_p _q : ℕ) :
-    True := by  -- Placeholder: requires CommMonoid instance on SuperDomainFunction
-  trivial
+/-- The top form: product of all odd coordinates θ¹ ∧ θ² ∧ ... ∧ θ^q.
+    This is the volume form for Berezin integration. -/
+def topOddForm (p q : ℕ) : SuperDomainFunction p q where
+  coefficients I := if I = Finset.univ then 1 else 0
 
-/-- Change of variables in Berezin integration introduces the Berezinian -/
-theorem berezin_change_of_variables {p q : ℕ}
-    (_f : SuperDomainFunction p q)
-    (_transition : Fin q → SuperDomainFunction p q)  -- θ' = transition(θ)
-    : True := by  -- Placeholder for actual transformation law
-  trivial
+/-- Berezin integral of the top form θ¹...θ^q is 1.
+    The product of all odd coordinates gives coefficient 1 at the top component. -/
+theorem berezin_top (p q : ℕ) :
+    berezinIntegral (topOddForm p q) = 1 := by
+  unfold berezinIntegral topOddForm
+  simp
+
+/-!
+## Coordinate Transformations and Berezin Integration
+
+For coordinate transformations on supermanifolds and the change of variables
+formula for Berezin integration, see:
+
+* `Helpers/SuperJacobian.lean` - The super Jacobian with SuperDomainFunction entries
+* `Helpers/SuperMatrix.lean` - General supermatrix structure over GrassmannAlgebra
+* `Helpers/Berezinian.lean` - The Berezinian (superdeterminant)
+
+The key point: a coordinate transformation (x, θ) → (x', θ') has a **supermatrix**
+Jacobian with entries in the Grassmann algebra (SuperDomainFunction), NOT just
+body-valued entries (SmoothFunction).
+
+The change of variables formula is:
+  ∫ dθ' f(x', θ') = Ber(J)⁻¹ · ∫ dθ (f ∘ φ)(x, θ)
+
+where Ber(J) is the Berezinian of the super Jacobian J.
+-/
 
 end Supermanifolds

@@ -76,7 +76,11 @@ formalizing Topological Modular Forms (TMF).
 - [x] Connection between PointedTopSpace.loopSpace and Mathlib's LoopSpace
 - [x] Curry homeomorphism via GenLoop.loopHomeo
 - [x] Type signature for π_n(ΩX) ≅ π_{n+1}(X)
-- [ ] Full proof of loopSpaceHomotopyGroupEquiv (3 sorrys)
+- [x] genLoopCurryEquiv: Equivalence GenLoop (Fin n) (Path x x) ≃ GenLoop (Fin (n+1)) X
+- [x] genLoopCurryEquiv_homotopic: Forward homotopy preservation
+- [x] genLoopCurryEquiv_homotopic_inv: Backward homotopy preservation
+- [x] loopSpaceHomotopyGroupEquiv: π_n(ΩX) ≃ π_{n+1}(X) as sets
+- [ ] loopSpaceHomotopyGroupEquiv_mul: Group homomorphism property (1 sorry)
 - [x] spectrumTransitionMap: composed transition for spectrum homotopy groups
 
 ---
@@ -159,31 +163,32 @@ formalizing Topological Modular Forms (TMF).
 
 ---
 
-## Remaining Sorrys (6 total)
+## Remaining Sorrys (4 total)
 
 All sorrys are for substantive mathematical theorems requiring careful proof work.
 No placeholders, axioms, or empty definitions remain.
 
-### LoopSpaceIso.lean (3 sorrys)
-1. `uncurry_homotopic_of_path_homotopic` - Preservation of homotopy under uncurrying
-   - Uses: GenLoop.loopHomeo preserves homotopy
-2. `loopSpaceHomotopyGroupEquiv` - The main π_n(ΩX) ≅ π_{n+1}(X) equivalence
-   - Requires: Connecting Path-based loop space to GenLoop, using loopHomeo + Quotient.congr
-3. `loopSpaceHomotopyGroupEquiv_mul` - Group homomorphism property
-   - Follows from: Loop concatenation compatibility
+### LoopSpaceIso.lean (1 sorry)
+- `uncurry_homotopic_of_path_homotopic` - PROVED ✓ (uses Mathlib's homotopicFrom)
+- `loopSpaceHomotopyGroupEquiv` - PROVED ✓ (reduces to genLoopCurryEquiv infrastructure)
+- `genLoopCurryEquiv` - PROVED ✓ (explicit curry/uncurry via Fin.init/Fin.snoc)
+- `genLoopCurryEquiv_homotopic` - PROVED ✓ (constructs homotopy explicitly)
+- `genLoopCurryEquiv_homotopic_inv` - PROVED ✓ (uses HomotopyRel.eq_fst)
+1. `loopSpaceHomotopyGroupEquiv_mul` - Group homomorphism property
+   - Follows from: Loop concatenation compatibility with curry/uncurry
 
 ### HomotopyGroups.lean (0 sorrys) ✓
 - `StableHomotopyGroupRep.Equiv.trans` - PROVED via imageAtLevel_compose
 - `imageAtLevel_compose` - PROVED by strong induction on (M - n)
 
 ### Examples.lean (2 sorrys)
-4. `suspensionSpectrumMap.comm` - Naturality of suspension unit
+2. `suspensionSpectrumMap.comm` - Naturality of suspension unit
    - Requires: η natural transformation property
-5. `eilenbergMacLane_unique` - Uniqueness of EM spectra
+3. `eilenbergMacLane_unique` - Uniqueness of EM spectra
    - Requires: Uniqueness of K(R,n) spaces up to weak equivalence
 
 ### Sequences.lean (1 sorry)
-6. `fiber_sequence_ker_eq_im` - Exactness of fiber sequence
+4. `fiber_sequence_ker_eq_im` - Exactness of fiber sequence
    - Requires: Lifting property for null-homotopic maps through fiber
 
 ---
