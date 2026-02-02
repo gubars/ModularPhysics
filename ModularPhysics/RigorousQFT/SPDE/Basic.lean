@@ -307,17 +307,53 @@ def ofMartingale (M : Martingale F μ E) : LocalMartingale F μ E where
   stopped_is_martingale := fun n => by
     constructor
     · intro t
-      -- The stopped process at time n is integrable
-      sorry
+      -- stoppedProcess M.process (const F n) t ω = M.process (min t n) ω
+      -- Since M is a martingale, M.process u is integrable for all u
+      have heq : stoppedProcess M.process (StoppingTime.const F n) t = M.process (min t n) := by
+        ext ω; simp only [stoppedProcess, StoppingTime.const]
+      rw [heq]
+      exact M.integrable (min t n)
     · intro s t hst A hA
-      -- The martingale property transfers to stopped process
-      sorry
+      -- Need: ∫_A M.process (min t n) = ∫_A M.process (min s n)
+      have heqt : stoppedProcess M.process (StoppingTime.const F n) t = M.process (min t n) := by
+        ext ω; simp only [stoppedProcess, StoppingTime.const]
+      have heqs : stoppedProcess M.process (StoppingTime.const F n) s = M.process (min s n) := by
+        ext ω; simp only [stoppedProcess, StoppingTime.const]
+      simp only [heqt, heqs]
+      -- Case split: either n ≤ s (both mins are n) or s ≤ n (use martingale property)
+      by_cases hn : (n : ℝ) ≤ s
+      · -- Case: n ≤ s ≤ t, so min s n = n and min t n = n
+        have hmin_s : min s (n : ℝ) = n := min_eq_right hn
+        have hmin_t : min t (n : ℝ) = n := min_eq_right (le_trans hn hst)
+        simp only [hmin_s, hmin_t]
+      · -- Case: s < n, so min s n = s. A ∈ F_s = F_{min s n}
+        push_neg at hn
+        have hmin_s : min s (n : ℝ) = s := min_eq_left (le_of_lt hn)
+        rw [hmin_s]
+        -- Now use martingale property of M
+        have hmin_le : s ≤ min t (n : ℝ) := by
+          rw [le_min_iff]; constructor
+          · exact hst
+          · exact le_of_lt hn
+        exact M.martingale_property s (min t n) hmin_le A hA
 
-/-- A local martingale that is L¹-bounded is a true martingale -/
+/-- A local martingale that is L¹-bounded is a true martingale.
+
+    **Status**: Requires uniform integrability infrastructure.
+
+    The proof strategy:
+    1. For localizing sequence τₙ → ∞, the stopped martingales M^{τₙ} converge to M
+    2. L¹-boundedness implies uniform integrability of the family {M^{τₙ}}
+    3. Uniform integrability allows passing the martingale property to the limit
+
+    This requires:
+    - Uniform integrability definitions and characterizations
+    - Vitali convergence theorem (L¹ convergence from uniform integrability + a.e. convergence)
+    - These are partially in Mathlib but the full argument needs development -/
 theorem is_martingale_of_bounded (M : LocalMartingale F μ E)
     (hbound : ∃ C : ℝ, ∀ t : ℝ, ∫ ω, ‖M.process t ω‖ ∂μ ≤ C) :
     ∃ M' : Martingale F μ E, M'.process = M.process := by
-  sorry
+  sorry -- Requires uniform integrability infrastructure
 
 end LocalMartingale
 

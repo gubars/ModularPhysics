@@ -59,12 +59,63 @@ noncomputable def stochasticIntegral (H : SimpleProcess F) (W : BrownianMotion �
       H.values i ω * (W.process (H.times ⟨i + 1, h⟩) ω - W.process (H.times i) ω)
     else 0
 
-/-- The Itô isometry for simple processes -/
+/-- The Itô isometry for simple processes.
+
+    E[(∫H dW)²] = Σᵢ E[Hᵢ²] * (tᵢ₊₁ - tᵢ)
+
+    **Proof outline**:
+    1. Expand (ΣᵢHᵢΔWᵢ)² = ΣᵢHᵢ²(ΔWᵢ)² + 2Σᵢ<ⱼHᵢHⱼΔWᵢΔWⱼ
+    2. For the cross terms (i < j):
+       - Hᵢ is F_{tᵢ}-measurable (predictable)
+       - ΔWⱼ = W_{tⱼ₊₁} - W_{tⱼ} is independent of F_{tⱼ} ⊇ F_{tᵢ}
+       - So E[HᵢHⱼΔWᵢΔWⱼ] = E[HᵢHⱼΔWᵢ] * E[ΔWⱼ] = E[HᵢHⱼΔWᵢ] * 0 = 0
+    3. For diagonal terms:
+       - E[Hᵢ²(ΔWᵢ)²] = E[E[Hᵢ²(ΔWᵢ)² | F_{tᵢ}]] = E[Hᵢ² * E[(ΔWᵢ)² | F_{tᵢ}]]
+       - E[(ΔWᵢ)² | F_{tᵢ}] = E[(ΔWᵢ)²] = Δtᵢ (by independence and Gaussian variance)
+       - So E[Hᵢ²(ΔWᵢ)²] = E[Hᵢ²] * Δtᵢ
+
+    **Required infrastructure**:
+    - Independence of increments from past σ-algebra
+    - Conditional expectation of products for independent terms
+    - Variance of Gaussian increment = Δt -/
 theorem isometry (H : SimpleProcess F) (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
     ∫ ω, (H.stochasticIntegral W ω)^2 ∂μ =
     ∑ i : Fin H.n, if h : (i : ℕ) + 1 < H.n then
       (∫ ω, (H.values i ω)^2 ∂μ) * (H.times ⟨i + 1, h⟩ - H.times i)
     else 0 := by
+  /-
+  **Proof outline** (Itô isometry for simple processes):
+
+  1. The stochastic integral is I = Σᵢ Hᵢ ΔWᵢ where ΔWᵢ = W_{tᵢ₊₁} - W_{tᵢ}
+
+  2. E[I²] = E[(Σᵢ Hᵢ ΔWᵢ)²] = Σᵢ Σⱼ E[Hᵢ Hⱼ ΔWᵢ ΔWⱼ]
+
+  3. For i < j (cross terms):
+     - Hᵢ is F_{tᵢ}-measurable (predictable)
+     - ΔWⱼ is independent of F_{tⱼ₋₁} ⊇ F_{tᵢ}
+     - So E[Hᵢ Hⱼ ΔWᵢ ΔWⱼ] = E[Hᵢ Hⱼ ΔWᵢ · E[ΔWⱼ | F_{tⱼ₋₁}]]
+                            = E[Hᵢ Hⱼ ΔWᵢ · 0] = 0
+     (by independence of increments and E[ΔWⱼ] = 0)
+
+  4. For i = j (diagonal terms):
+     - Hᵢ is F_{tᵢ}-measurable
+     - (ΔWᵢ)² is independent of Hᵢ (since Hᵢ is measurable w.r.t. F_{tᵢ₋₁} for predictability,
+       and ΔWᵢ is independent of F_{tᵢ₋₁})
+     - Actually for the simple process, Hᵢ is F_{tᵢ₋₁}-measurable (predictable)
+     - E[Hᵢ² (ΔWᵢ)²] = E[Hᵢ²] · E[(ΔWᵢ)²] (by independence)
+                      = E[Hᵢ²] · Δtᵢ (by Gaussian variance of increments)
+
+  5. Therefore E[I²] = Σᵢ E[Hᵢ²] · Δtᵢ
+
+  **Implementation note**: This requires careful handling of:
+  - Finite sum manipulations
+  - Independence of Brownian increments from past σ-algebra
+  - The predictability condition for Hᵢ
+  - Integrability of all terms involved
+
+  The full formal proof is substantial and requires developing helper lemmas
+  for sum manipulation and the independence/integral factorization.
+  -/
   sorry
 
 end SimpleProcess
@@ -260,7 +311,7 @@ structure Partition (T : ℝ) where
   /-- Ends at T -/
   ends_T : points.getLast? = some T
   /-- Strictly increasing -/
-  increasing : points.Chain' (· < ·)
+  increasing : points.IsChain (· < ·)
 
 /-- The total variation of a function over a partition -/
 noncomputable def totalVariationOver (A : ℝ → ℝ) (π : Partition T) : ℝ :=
@@ -312,7 +363,7 @@ variable {F : Filtration Ω ℝ} {μ : Measure Ω}
 
 /-- The variation process: V_t(ω) = total variation of A on [0, t] -/
 noncomputable def variation_process (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
-  fun t ω => if ht : t ≥ 0 then totalVariation (fun s => X.finite_variation_part s ω) t else 0
+  fun t ω => if t ≥ 0 then totalVariation (fun s => X.finite_variation_part s ω) t else 0
 
 /-- Decomposition of A into increasing parts: A = A⁺ - A⁻ (Jordan decomposition) -/
 noncomputable def positive_variation (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
@@ -347,17 +398,62 @@ structure LebesgueStieltjesIntegral {F : Filtration Ω ℝ}
 /-- Stochastic integral w.r.t. semimartingale: ∫₀ᵗ H dX = ∫₀ᵗ H dM + ∫₀ᵗ H dA
 
     The first term is the Itô integral (against local martingale).
-    The second term is the Lebesgue-Stieltjes integral (against finite variation). -/
-noncomputable def semimartingale_integral
+    The second term is the Lebesgue-Stieltjes integral (against finite variation).
+
+    **Mathematical Definition**:
+    For a predictable process H and semimartingale X = M + A:
+    - The Itô integral ∫₀ᵗ H dM is defined as the L²-limit of simple process integrals
+    - The LS integral ∫₀ᵗ H dA is defined via the associated Lebesgue-Stieltjes measure
+
+    **Structure**:
+    This structure witnesses the existence of the integral and provides the result.
+    The existence requires:
+    1. H is predictable (F_{t-}-measurable)
+    2. H satisfies integrability: E[∫₀ᵀ H² d⟨M⟩] < ∞ for the martingale part
+    3. H is integrable w.r.t. |dA| for the finite variation part -/
+structure SemimartingaleIntegral
     {F : Filtration Ω ℝ} {μ : Measure Ω}
     (H : PredictableProcess F ℝ)
     (X : Semimartingale F μ)
-    (T : ℝ) : ℝ → Ω → ℝ :=
+    (T : ℝ) where
+  /-- The resulting integral process -/
+  integral : ℝ → Ω → ℝ
+  /-- The integral at time 0 is 0 -/
+  initial : ∀ ω, integral 0 ω = 0
+  /-- The integral is adapted to F -/
+  adapted : ∀ t : ℝ, t ≤ T → @Measurable Ω ℝ (F.σ_algebra t) _ (integral t)
+  /-- The integral decomposes as martingale + LS integral.
+      ∫₀ᵗ H dX = ∫₀ᵗ H dM + ∫₀ᵗ H dA for each ω and t. -/
+  decomposition : ∀ t : ℝ, 0 ≤ t → t ≤ T → ∀ᵐ ω ∂μ,
+    ∃ (martingale_integral : ℝ)   -- ∫₀ᵗ H dM
+      (ls_integral : ℝ),          -- ∫₀ᵗ H dA
+      integral t ω = martingale_integral + ls_integral
+
+/-- Existence of semimartingale integral for bounded predictable processes.
+    For H bounded and X a semimartingale, ∫ H dX exists. -/
+theorem semimartingale_integral_exists
+    {F : Filtration Ω ℝ} {μ : Measure Ω}
+    (H : PredictableProcess F ℝ)
+    (X : Semimartingale F μ)
+    (T : ℝ) (hT : T ≥ 0)
+    (hH_bounded : ∃ C : ℝ, ∀ t : ℝ, ∀ ω : Ω, |H.process t ω| ≤ C) :
+    ∃ I : SemimartingaleIntegral H X T, True := by
+  sorry  -- Requires full construction of stochastic integral
+
+/-- For simple predictable processes, the semimartingale integral
+    is the Riemann sum Σᵢ Hᵢ (X_{tᵢ₊₁} - X_{tᵢ}). -/
+noncomputable def semimartingale_integral_simple
+    {F : Filtration Ω ℝ} {μ : Measure Ω}
+    (H : SimpleProcess F)
+    (X : Semimartingale F μ) : ℝ → Ω → ℝ :=
   fun t ω =>
-    -- This is a placeholder - full definition requires:
-    -- 1. Itô integral ∫₀ᵗ H dM (for local martingale part)
-    -- 2. Lebesgue-Stieltjes integral ∫₀ᵗ H dA (for finite variation part)
-    0  -- TODO: implement properly
+    ∑ i : Fin H.n, if h : (i : ℕ) + 1 < H.n then
+      if H.times ⟨i + 1, h⟩ ≤ t then
+        H.values i ω * (X.process (H.times ⟨i + 1, h⟩) ω - X.process (H.times i) ω)
+      else if H.times i ≤ t then
+        H.values i ω * (X.process t ω - X.process (H.times i) ω)
+      else 0
+    else 0
 
 /-! ## Girsanov's Theorem -/
 

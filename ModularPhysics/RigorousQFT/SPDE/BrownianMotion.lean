@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.RigorousQFT.SPDE.Basic
+import ModularPhysics.RigorousQFT.SPDE.Probability.Basic
 import Mathlib.Probability.Independence.Basic
 
 /-!
@@ -34,29 +35,13 @@ A standard Brownian motion W_t is characterized by:
 
 namespace SPDE
 
-open MeasureTheory ProbabilityTheory
+open MeasureTheory ProbabilityTheory SPDE.Probability
 
 variable {Ω : Type*} [MeasurableSpace Ω]
 
-/-! ## Gaussian Distribution Characterization -/
-
-/-- A random variable X : Ω → ℝ has Gaussian distribution N(μ, σ²).
-    Characterized by the characteristic function: E[e^{itX}] = e^{itμ - σ²t²/2}. -/
-structure IsGaussian (μ : Measure Ω) (X : Ω → ℝ) (mean : ℝ) (variance : ℝ) : Prop where
-  /-- Variance is non-negative -/
-  variance_nonneg : variance ≥ 0
-  /-- The random variable is integrable -/
-  integrable : Integrable X μ
-  /-- Mean equals the expected value -/
-  mean_eq : ∫ ω, X ω ∂μ = mean
-  /-- Second moment gives the variance -/
-  variance_eq : ∫ ω, (X ω - mean)^2 ∂μ = variance
-  /-- Characteristic function characterization (implies Gaussianity) -/
-  char_function : ∀ t : ℝ,
-    ∫ ω, Complex.exp (Complex.I * t * X ω) ∂μ =
-      Complex.exp (Complex.I * t * mean - variance * t^2 / 2)
-
 /-! ## Brownian Motion -/
+
+-- Use SPDE.Probability.IsGaussian for Gaussian distribution characterization
 
 /-- Standard Brownian motion (Wiener process).
 
@@ -89,7 +74,7 @@ structure BrownianMotion (Ω : Type*) [MeasurableSpace Ω] (μ : Measure Ω) whe
   /-- Gaussian increments: W_t - W_s ~ N(0, t-s) for 0 ≤ s ≤ t.
       This implies both zero mean and variance = t - s. -/
   gaussian_increments : ∀ s t : ℝ, 0 ≤ s → s ≤ t →
-    IsGaussian μ (fun ω => toAdapted.process t ω - toAdapted.process s ω) 0 (t - s)
+    Probability.IsGaussian (fun ω => toAdapted.process t ω - toAdapted.process s ω) μ 0 (t - s)
 
 /-- Alternative characterization using the product measure formulation of independence:
     For disjoint intervals, the increments are independent. -/
@@ -135,10 +120,100 @@ variable {μ : Measure Ω}
 /-- The process underlying Brownian motion -/
 def process (W : BrownianMotion Ω μ) : ℝ → Ω → ℝ := W.toAdapted.process
 
-/-- Brownian motion is a martingale -/
+/-- Brownian motion is a martingale.
+
+    The martingale property E[W_t | F_s] = W_s follows from:
+    1. W_t = W_s + (W_t - W_s)
+    2. W_s is F_s-measurable
+    3. W_t - W_s is independent of F_s (by independent_increments)
+    4. E[W_t - W_s] = 0 (by gaussian_increments with mean 0)
+    Therefore E[W_t | F_s] = W_s + E[W_t - W_s | F_s] = W_s + E[W_t - W_s] = W_s + 0 = W_s
+
+    **Note**: The current BrownianMotion structure is indexed by ℝ but only defines
+    properties (gaussian_increments, independent_increments) for 0 ≤ s ≤ t.
+    A cleaner approach would be to index by ℝ≥0, but this would require refactoring
+    the Filtration and related structures. For now, we handle the t < 0 case with sorry.
+
+    **Required infrastructure**:
+    - Independence implies integral factorization: for A ∈ F_s and X independent of F_s,
+      ∫_A X dμ = μ(A) * ∫ X dμ. This is in Mathlib as `IndepFun.integral_mul_eq_mul_integral`
+      but we need to connect `Indep` (σ-algebra independence) to this. -/
 theorem is_martingale (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
     ∃ M : Martingale W.F μ ℝ, M.process = W.process := by
-  sorry
+  use {
+    toAdapted := W.toAdapted
+    integrable := fun t => by
+      by_cases ht : t ≥ 0
+      · have hgauss := W.gaussian_increments 0 t (le_refl 0) ht
+        have hincr : Integrable (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) μ :=
+          hgauss.integrable
+        have heq : (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) =ᶠ[ae μ]
+                   W.toAdapted.process t := by
+          filter_upwards [W.initial] with ω h0; simp [h0]
+        exact hincr.congr heq
+      · -- BrownianMotion properties only defined for t ≥ 0
+        -- TODO: Either extend definition or restrict time index to ℝ≥0
+        sorry
+    martingale_property := fun s t hst A hA => by
+      by_cases hs : s ≥ 0
+      · -- Key: ∫_A W_t dμ = ∫_A W_s dμ, equivalently ∫_A (W_t - W_s) dμ = 0
+        have hgauss := W.gaussian_increments s t hs hst
+        have hmean : ∫ ω, (W.toAdapted.process t ω - W.toAdapted.process s ω) ∂μ = 0 :=
+          hgauss.mean_eq
+        have hindep := W.independent_increments s t hs hst
+        -- hindep : Indep (F.σ_algebra s) (comap increment) μ
+        -- We need the symmetric: Indep (comap increment) (F.σ_algebra s) μ
+        have hindep_symm := hindep.symm
+        -- Define the increment function
+        let incr := fun ω => W.toAdapted.process t ω - W.toAdapted.process s ω
+        -- Show the increment integral over A is zero
+        have hm₂ : W.F.σ_algebra s ≤ ‹MeasurableSpace Ω› := W.F.le_ambient s
+        -- SigmaFinite instance: finite measure trim is sigma-finite
+        haveI : SigmaFinite (μ.trim hm₂) := inferInstance
+        -- The increment is strongly measurable w.r.t. its comap σ-algebra
+        have hincr_sm : StronglyMeasurable[MeasurableSpace.comap incr inferInstance] incr :=
+          _root_.SPDE.Probability.stronglyMeasurable_comap_self incr
+        -- The comap σ-algebra is ≤ ambient
+        have hm₁ : MeasurableSpace.comap incr inferInstance ≤ ‹MeasurableSpace Ω› := by
+          apply MeasurableSpace.comap_le_iff_le_map.mpr
+          intro s' hs'
+          -- incr = W_t - W_s is measurable since W_t and W_s are measurable
+          have hWt : Measurable (W.toAdapted.process t) :=
+            (W.toAdapted.adapted t).mono (W.F.le_ambient t) le_rfl
+          have hWs : Measurable (W.toAdapted.process s) :=
+            (W.toAdapted.adapted s).mono (W.F.le_ambient s) le_rfl
+          exact (hWt.sub hWs) hs'
+        have hincr_int := hgauss.integrable
+        -- Apply the key lemma: ∫_A incr dμ = 0
+        have hzero : ∫ ω in A, incr ω ∂μ = 0 :=
+          Probability.setIntegral_eq_zero_of_indep_zero_mean hm₁ hm₂ hincr_sm hincr_int hindep_symm hmean A hA
+        -- Now show ∫_A W_t = ∫_A W_s
+        have hWt_int : Integrable (W.toAdapted.process t) μ := by
+          have h0 := W.gaussian_increments 0 t (le_refl 0) (le_trans hs hst)
+          have hincr0 : Integrable (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) μ := h0.integrable
+          have heq : (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) =ᶠ[ae μ] W.toAdapted.process t := by
+            filter_upwards [W.initial] with ω h0'; simp [h0']
+          exact hincr0.congr heq
+        have hWs_int : Integrable (W.toAdapted.process s) μ := by
+          have h0 := W.gaussian_increments 0 s (le_refl 0) hs
+          have hincr0 : Integrable (fun ω => W.toAdapted.process s ω - W.toAdapted.process 0 ω) μ := h0.integrable
+          have heq : (fun ω => W.toAdapted.process s ω - W.toAdapted.process 0 ω) =ᶠ[ae μ] W.toAdapted.process s := by
+            filter_upwards [W.initial] with ω h0'; simp [h0']
+          exact hincr0.congr heq
+        -- ∫_A W_t = ∫_A (W_s + incr) = ∫_A W_s + ∫_A incr = ∫_A W_s + 0
+        have heq' : ∀ ω, W.toAdapted.process t ω = W.toAdapted.process s ω + incr ω := by
+          intro ω; simp only [incr]; ring
+        -- Use that W_t = W_s + incr implies ∫_A W_t = ∫_A W_s + ∫_A incr
+        have hsum : ∫ ω in A, W.toAdapted.process t ω ∂μ =
+                    ∫ ω in A, W.toAdapted.process s ω ∂μ + ∫ ω in A, incr ω ∂μ := by
+          have hfun_eq : (fun ω => W.toAdapted.process t ω) =
+                         (fun ω => W.toAdapted.process s ω + incr ω) := funext heq'
+          rw [hfun_eq]
+          exact integral_add hWs_int.integrableOn hincr_int.integrableOn
+        rw [hsum, hzero, add_zero]
+      · sorry -- s < 0 case: BrownianMotion properties only defined for s ≥ 0
+  }
+  rfl
 
 /-- The quadratic variation of Brownian motion is t -/
 theorem quadratic_variation (W : BrownianMotion Ω μ) :
@@ -381,7 +456,7 @@ structure OrnsteinUhlenbeck (Ω : Type*) [MeasurableSpace Ω]
       (σ^2 / (2 * θ)) * (1 - Real.exp (-2 * θ * t))
   /-- X_t is Gaussian given X_0 -/
   gaussian_conditional : ∀ t : ℝ, 0 ≤ t →
-    IsGaussian μ (fun ω => process t ω - process 0 ω * Real.exp (-θ * t))
+    Probability.IsGaussian (fun ω => process t ω - process 0 ω * Real.exp (-θ * t)) μ
       0 ((σ^2 / (2 * θ)) * (1 - Real.exp (-2 * θ * t)))
 
 /-- In the stationary regime (t → ∞), Var(X_t) → σ²/(2θ) -/
@@ -408,7 +483,7 @@ theorem ou_stationary_variance {Ω : Type*} [MeasurableSpace Ω]
 theorem ou_is_gaussian {Ω : Type*} [MeasurableSpace Ω]
     {μ : Measure Ω} {θ σ : ℝ} {hθ : 0 < θ} {hσ : 0 < σ}
     (X : OrnsteinUhlenbeck Ω μ θ σ hθ hσ) (t : ℝ) (ht : 0 ≤ t) :
-    IsGaussian μ (fun ω => X.process t ω - X.process 0 ω * Real.exp (-θ * t))
+    Probability.IsGaussian (fun ω => X.process t ω - X.process 0 ω * Real.exp (-θ * t)) μ
       0 ((σ^2 / (2 * θ)) * (1 - Real.exp (-2 * θ * t))) :=
   X.gaussian_conditional t ht
 
