@@ -6,6 +6,52 @@ formalizing Topological Modular Forms (TMF).
 
 ---
 
+## NEW: Sheaves and Čech Cohomology
+
+### Čech Cohomology (`Sheaves/CechCohomology.lean`) ✓
+
+General Čech cohomology infrastructure for presheaves on topological spaces:
+
+- [x] `OpenCover`: Indexed open covers with covering property
+- [x] `AbPresheaf`: Presheaves of abelian groups with functorial restriction
+- [x] `CechCochain`: n-cochains as products over (n+1)-fold intersections
+- [x] `deleteFace`: Face maps for simplicial structure
+- [x] `cechDiff`: Čech differential with alternating signs
+- [x] `cechDiff_add`, `cechDiff_zero`, `cechDiff_neg`, `cechDiff_sub`: Differential is a group homomorphism
+- [x] `deleteFace_deleteFace`: Simplicial identity for face compositions
+- [x] `pair_cancel`: Paired terms in double sum cancel ✓ PROVED
+- [x] `cechDiff_comp_zero`: d² = 0 ✓ FULLY PROVED
+- [x] `CechCocycles`, `CechCoboundariesSucc`: Cocycles and coboundaries
+- [x] `coboundary_is_cocycle`: B^n ⊆ Z^n
+- [x] `CechH0`, `CechHSucc`, `CechH`: Cohomology groups as quotients
+
+### Long Exact Sequence (`Sheaves/LongExactSequence.lean`) ✓ NEW
+
+Long exact sequence for short exact sequences of presheaves 0 → F' → F → F'' → 0:
+
+- [x] `PresheafMorphism`: Morphisms of presheaves with naturality
+- [x] `PresheafMorphism.map_add`, `map_neg`, `map_sub`, `map_sum`, `map_zsmul`: Linearity
+- [x] `ShortExactSequence`: Structure for 0 → F' →^ι F →^π F'' → 0
+- [x] `inducedCochainMap`: φ : F → G induces maps on cochains
+- [x] `inducedCochainMap_comm_cechDiff`: Induced maps commute with differential
+- [x] `inducedCocycleMap`: φ restricts to cocycles
+- [x] `inducedH`, `inducedH0`: Induced maps on cohomology
+- [x] `liftCochain`: Lift cochains from F'' to F (via surjectivity of π)
+- [x] `connectingCochainAux`: Preimage of d(lift σ'') under ι
+- [x] `connectingCochainAux_cocycle`: The connecting cochain is a cocycle ✓ PROVED
+- [x] `connectingCocycle`, `connectingH0`, `connectingH`: Connecting homomorphisms δⁿ
+- [x] Well-definedness of connecting homomorphism ✓ FULLY PROVED (no sorrys!)
+
+**Remaining work**:
+- [ ] Refinement maps and independence of cover
+- [ ] Comparison with derived functor cohomology (for sheaves)
+- [ ] Exactness proofs at each term of the long sequence
+- [ ] Naturality of connecting homomorphism
+
+**Used by**: `StringGeometry/RiemannSurfaces/Algebraic/Cohomology/`
+
+---
+
 ## Near-Term Development Focus
 
 ### Priority 1: Long Exact Sequence for Spectrum Maps

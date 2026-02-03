@@ -517,4 +517,246 @@ theorem ell_lower_bound (CRS : CompactRiemannSurface) (D : Divisor CRS.toRiemann
     (ell D : ℤ) ≥ D.degree - CRS.genus + 1 := by
   sorry  -- Requires Riemann-Roch theorem
 
+/-!
+## Divisor Support and Decomposition
+
+Infrastructure for proving properties by induction on divisor support.
+-/
+
+namespace Divisor
+
+variable {RS : RiemannSurface}
+
+/-- The support of a divisor as a set -/
+def support (D : Divisor RS) : Set RS.carrier :=
+  { p | D.coeff p ≠ 0 }
+
+/-- The support is finite -/
+theorem support_finite (D : Divisor RS) : Set.Finite D.support :=
+  D.finiteSupport
+
+/-- Support of zero divisor is empty -/
+theorem support_zero : (0 : Divisor RS).support = ∅ := by
+  ext p
+  simp only [support, Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false, not_not]
+  rfl
+
+/-- Zero divisor has empty support (finset version) -/
+theorem support_zero_toFinset :
+    (0 : Divisor RS).finiteSupport.toFinset = ∅ := by
+  rw [Finset.eq_empty_iff_forall_notMem]
+  intro p hp
+  simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hp
+  exact hp rfl
+
+/-- A divisor is zero iff its support is empty -/
+theorem eq_zero_iff_support_empty (D : Divisor RS) :
+    D = 0 ↔ D.support = ∅ := by
+  constructor
+  · intro h
+    rw [h]
+    exact support_zero
+  · intro h
+    ext p
+    have hp : p ∉ D.support := by
+      simp only [h, Set.mem_empty_iff_false, not_false_eq_true]
+    simp only [support, Set.mem_setOf_eq, not_not] at hp
+    exact hp
+
+/-- Coefficient of point divisor at the point itself -/
+theorem point_coeff_self (p : RS.carrier) :
+    (point p).coeff p = 1 := by
+  simp only [point, ite_true]
+
+/-- Coefficient of point divisor at a different point -/
+theorem point_coeff_ne (p q : RS.carrier) (hpq : p ≠ q) :
+    (point p).coeff q = 0 := by
+  simp only [point]
+  have : ¬(q = p) := fun h => hpq h.symm
+  simp only [this, ↓reduceIte]
+
+/-- Coefficient of scalar multiple -/
+theorem smul_coeff (n : ℤ) (D : Divisor RS) (p : RS.carrier) :
+    (n • D).coeff p = n * D.coeff p := rfl
+
+/-- Coefficient of addition -/
+theorem add_coeff (D₁ D₂ : Divisor RS) (p : RS.carrier) :
+    (D₁ + D₂).coeff p = D₁.coeff p + D₂.coeff p := rfl
+
+/-- Coefficient of subtraction -/
+theorem sub_coeff (D₁ D₂ : Divisor RS) (p : RS.carrier) :
+    (D₁ - D₂).coeff p = D₁.coeff p - D₂.coeff p := by
+  show (add D₁ (neg D₂)).coeff p = D₁.coeff p - D₂.coeff p
+  simp only [add, neg]
+  ring
+
+/-- Subtracting D.coeff(p) copies of point p zeroes out the coefficient at p -/
+theorem sub_coeff_point_self (D : Divisor RS) (p : RS.carrier) :
+    (D - D.coeff p • point p).coeff p = 0 := by
+  rw [sub_coeff, smul_coeff, point_coeff_self, mul_one, sub_self]
+
+/-- If D.coeff p ≠ 0, then p is not in the support of D - D.coeff(p) • point p -/
+theorem not_mem_support_sub_coeff_point (D : Divisor RS) (p : RS.carrier) :
+    p ∉ (D - D.coeff p • point p).support := by
+  simp only [support, Set.mem_setOf_eq, not_not]
+  exact sub_coeff_point_self D p
+
+/-- The support of D - D.coeff(p) • point p is contained in support(D) \ {p} -/
+theorem support_sub_coeff_point (D : Divisor RS) (p : RS.carrier) :
+    (D - D.coeff p • point p).support ⊆ D.support \ {p} := by
+  intro q hq
+  simp only [support, Set.mem_setOf_eq, Set.mem_diff, Set.mem_singleton_iff] at hq ⊢
+  constructor
+  · -- q ∈ support(D)
+    by_contra hqD
+    -- hqD : D.coeff q = 0 (after by_contra on ≠)
+    -- (D - D.coeff p • point p).coeff q = D.coeff q - D.coeff p * (point p).coeff q
+    have hcoeff : (D - D.coeff p • point p).coeff q = D.coeff q - D.coeff p * (point p).coeff q := by
+      rw [sub_coeff, smul_coeff]
+    rw [hcoeff, hqD, zero_sub] at hq
+    -- If q = p: (point p).coeff q = 1, so - D.coeff p ≠ 0 → D.coeff p ≠ 0
+    -- But then D.coeff q = D.coeff p ≠ 0 (since q = p), contradiction with hqD
+    -- If q ≠ p: (point p).coeff q = 0, so - D.coeff p * 0 = 0, contradiction with hq
+    by_cases hqp : q = p
+    · subst hqp
+      rw [point_coeff_self, mul_one, neg_ne_zero] at hq
+      -- hq : D.coeff q ≠ 0, but hqD : D.coeff q = 0
+      exact hq hqD
+    · have hne : p ≠ q := fun h => hqp h.symm
+      rw [point_coeff_ne p q hne, mul_zero, neg_zero] at hq
+      exact hq rfl
+  · -- q ≠ p
+    intro hqp
+    subst hqp
+    have := sub_coeff_point_self D q
+    exact hq this
+
+/-- If D.coeff(p) ≠ 0, the support of D - D.coeff(p) • point p is strictly smaller -/
+theorem support_sub_coeff_point_ssubset (D : Divisor RS) (p : RS.carrier)
+    (hp : D.coeff p ≠ 0) :
+    (D - D.coeff p • point p).support ⊂ D.support := by
+  constructor
+  · -- ⊆: follows from support_sub_coeff_point plus {p} ⊆ support D
+    intro q hq
+    have h := support_sub_coeff_point D p hq
+    exact h.1
+  · -- ≠: p ∈ support(D) but p ∉ support(D - D.coeff(p) • point p)
+    intro h_eq
+    have hp_in : p ∈ D.support := by
+      simp only [support, Set.mem_setOf_eq]
+      exact hp
+    have hp_out : p ∉ (D - D.coeff p • point p).support :=
+      not_mem_support_sub_coeff_point D p
+    exact hp_out (h_eq hp_in)
+
+/-- For a nonzero divisor, there exists a point in its support -/
+theorem exists_mem_support_of_ne_zero (D : Divisor RS) (hD : D ≠ 0) :
+    ∃ p, p ∈ D.support := by
+  by_contra h
+  push_neg at h
+  have hempty : D.support = ∅ := by
+    ext p
+    simp only [Set.mem_empty_iff_false, iff_false]
+    exact h p
+  have hD0 : D = 0 := (eq_zero_iff_support_empty D).mpr hempty
+  exact hD hD0
+
+/-- Degree of scalar multiple -/
+theorem degree_smul (n : ℤ) (D : Divisor RS) :
+    (n • D).degree = n * D.degree := by
+  classical
+  unfold degree
+  -- Need to show the sums are related
+  -- If n = 0, both sides are 0
+  by_cases hn : n = 0
+  · simp only [hn, zero_mul]
+    -- n = 0 means 0 • D has empty support
+    have h0 : ((0 : ℤ) • D).finiteSupport.toFinset = ∅ := by
+      rw [Finset.eq_empty_iff_forall_notMem]
+      intro p hp
+      simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hp
+      -- hp : ((0 : ℤ) • D).coeff p ≠ 0
+      -- But ((0 : ℤ) • D).coeff p = 0 * D.coeff p = 0
+      have heq : ((0 : ℤ) • D).coeff p = 0 * D.coeff p := smul_coeff 0 D p
+      simp only [heq, zero_mul, ne_eq, not_true_eq_false] at hp
+    rw [h0, Finset.sum_empty]
+  · -- n ≠ 0: support(n • D) = support(D)
+    have hsupp : (n • D).finiteSupport.toFinset = D.finiteSupport.toFinset := by
+      ext p
+      simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq, smul_coeff]
+      constructor
+      · intro h
+        contrapose! h
+        simp only [h, mul_zero]
+      · intro h
+        exact mul_ne_zero hn h
+    rw [hsupp]
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro p _
+    rfl
+
+/-- Support has finite cardinality -/
+noncomputable def supportCard (D : Divisor RS) : ℕ :=
+  D.finiteSupport.toFinset.card
+
+/-- Support cardinality of zero divisor is 0 -/
+theorem supportCard_zero : (0 : Divisor RS).supportCard = 0 := by
+  unfold supportCard
+  rw [support_zero_toFinset]
+  simp
+
+/-- A divisor is zero iff its support cardinality is 0 -/
+theorem eq_zero_iff_supportCard_eq_zero (D : Divisor RS) :
+    D = 0 ↔ D.supportCard = 0 := by
+  rw [eq_zero_iff_support_empty]
+  unfold supportCard
+  simp only [Finset.card_eq_zero]
+  constructor
+  · intro h
+    rw [Finset.eq_empty_iff_forall_notMem]
+    intro p hp
+    simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hp
+    have : p ∈ D.support := hp
+    rw [h] at this
+    exact this
+  · intro h
+    ext p
+    simp only [Set.mem_empty_iff_false, iff_false]
+    intro hp
+    have : p ∈ D.finiteSupport.toFinset := by
+      simp only [Set.Finite.mem_toFinset]
+      exact hp
+    rw [h] at this
+    simp at this
+
+/-- If D.coeff(p) ≠ 0, then supportCard(D - D.coeff(p) • point p) < supportCard(D) -/
+theorem supportCard_sub_coeff_point_lt (D : Divisor RS) (p : RS.carrier)
+    (hp : D.coeff p ≠ 0) :
+    (D - D.coeff p • point p).supportCard < D.supportCard := by
+  unfold supportCard
+  -- Use support_sub_coeff_point_ssubset
+  have hsub := support_sub_coeff_point_ssubset D p hp
+  -- The finsets correspond to the supports
+  -- We have (D - ...).support ⊂ D.support
+  -- Need to show card of finset is smaller
+  apply Finset.card_lt_card
+  constructor
+  · -- ⊆ for finsets
+    intro q hq
+    simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hq ⊢
+    have := support_sub_coeff_point D p
+    exact hsub.1 hq
+  · -- ≠ for finsets
+    intro h_eq
+    have hp_in : p ∈ D.finiteSupport.toFinset := by
+      simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq]
+      exact hp
+    have hp_out : p ∉ (D - D.coeff p • point p).finiteSupport.toFinset := by
+      simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq, not_not]
+      exact sub_coeff_point_self D p
+    exact hp_out (h_eq hp_in)
+
+end Divisor
+
 end RiemannSurfaces.Algebraic

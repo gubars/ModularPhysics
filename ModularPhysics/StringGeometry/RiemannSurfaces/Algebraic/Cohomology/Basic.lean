@@ -214,6 +214,21 @@ structure CompactCohomologyTheory (CRS : CompactRiemannSurface)
   /-- **H^1 of structure sheaf**: h^1(O) = g (genus) -/
   h1_structure : h_i (cohomology (lineBundleSheaves.sheafOf 0) 1) = CRS.genus
 
+  /-- **Point exact sequence recursion**: χ(D) - χ(D - p) = 1 for any point p.
+
+      This follows from the long exact sequence induced by:
+        0 → O(D-p) → O(D) → ℂ_p → 0
+
+      Combined with χ(ℂ_p) = 1 (skyscraper sheaves are acyclic with h⁰ = 1).
+
+      This is a fundamental property of any sheaf cohomology theory on curves. -/
+  point_recursion : ∀ (D : Divisor CRS.toRiemannSurface) (p : CRS.toRiemannSurface.carrier),
+    let H0D := cohomology (lineBundleSheaves.sheafOf D) 0
+    let H1D := cohomology (lineBundleSheaves.sheafOf D) 1
+    let H0Dp := cohomology (lineBundleSheaves.sheafOf (D - Divisor.point p)) 0
+    let H1Dp := cohomology (lineBundleSheaves.sheafOf (D - Divisor.point p)) 1
+    eulerCharacteristic H0D H1D - eulerCharacteristic H0Dp H1Dp = 1
+
 namespace CompactCohomologyTheory
 
 variable {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}

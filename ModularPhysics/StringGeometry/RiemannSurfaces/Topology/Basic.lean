@@ -3,7 +3,7 @@ import Mathlib.Analysis.Normed.Field.Basic
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Data.Complex.Basic
 import Mathlib.Analysis.Convex.PathConnected
-import Mathlib.Topology.Compactification.OnePoint.Basic
+import Mathlib.Topology.Compactification.OnePoint.Sphere
 
 /-!
 # Basic Topology for Riemann Surfaces
@@ -78,10 +78,20 @@ instance OnePoint.Complex.normalSpace : NormalSpace (OnePoint ℂ) :=
 
 /-- OnePoint ℂ is second countable.
 
-    OnePoint ℂ ≅ S² via stereographic projection, and S² ⊆ ℝ³
-    is a submanifold of a second countable space, hence second countable. -/
-instance OnePoint.Complex.secondCountableTopology : SecondCountableTopology (OnePoint ℂ) := by
-  sorry  -- Standard topological fact
+    The proof uses that OnePoint ℂ is homeomorphic to the 2-sphere S² ⊂ ℝ³
+    via stereographic projection, and the 2-sphere is second countable
+    as a subspace of ℝ³.
+
+    This is the homeomorphism given by `onePointEquivSphereOfFinrankEq`
+    using that ℂ has real dimension 2, so OnePoint ℂ ≃ₜ S² ⊂ ℝ³. -/
+noncomputable instance OnePoint.Complex.secondCountableTopology :
+    SecondCountableTopology (OnePoint ℂ) := by
+  -- OnePoint ℂ is homeomorphic to the 2-sphere in ℝ³
+  -- via onePointEquivSphereOfFinrankEq, using finrank ℝ ℂ = 2
+  let e : OnePoint ℂ ≃ₜ Metric.sphere (0 : EuclideanSpace ℝ (Fin 3)) 1 :=
+    onePointEquivSphereOfFinrankEq (by rw [Complex.finrank_real_complex]; rfl)
+  -- The 2-sphere is second countable (as a subspace of the second countable space ℝ³)
+  exact e.secondCountableTopology
 
 /-!
 ## Surface Topology
