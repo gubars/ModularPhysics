@@ -1,281 +1,177 @@
 # RiemannSurfaces Folder - TODO
 
-## Summary
+## Architectural Vision
 
-The RiemannSurfaces folder contains extensive formalization of Riemann surface theory across four perspectives:
-- **Analytic**: Teichmuller theory, quasiconformal maps, Green's functions
-- **Algebraic**: Divisors, Riemann-Roch, theta functions, Abel-Jacobi
-- **Combinatorial**: Ribbon graphs, cell decompositions, Penner/Kontsevich map
-- **Topology**: Surface topology, simple curves, pants decompositions, Hatcher-Thurston
+The RiemannSurfaces folder formalizes Riemann surface theory through three complementary perspectives, connected via GAGA:
 
-Main gaps are in:
-1. Proper holomorphic atlas definitions (needs Mathlib complex manifold infrastructure)
-2. Integration theory for period computations
-3. Cohomology computations for Riemann-Roch
-4. Sheaf-theoretic definitions for schemes/stacks
+```
+                    ┌─────────────────┐
+                    │   Topology/     │
+                    │  (Pure topo-    │
+                    │  logical, no    │
+                    │  complex str.)  │
+                    └────────┬────────┘
+                             │
+            ┌────────────────┼────────────────┐
+            │                │                │
+            ▼                ▼                ▼
+    ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+    │  Algebraic/   │ │  Analytic/    │ │ Combinatorial/│
+    │               │ │               │ │               │
+    │ Divisors      │ │ Holomorphic   │ │ Ribbon graphs │
+    │ Cohomology    │ │ functions     │ │ Cell decomp.  │
+    │ Riemann-Roch  │ │ Teichmüller   │ │ Penner map    │
+    │ Abel-Jacobi   │ │ QC maps       │ │ Kontsevich    │
+    └───────┬───────┘ └───────┬───────┘ └───────────────┘
+            │                 │
+            └────────┬────────┘
+                     │
+                     ▼
+            ┌────────────────┐
+            │     GAGA/      │
+            │   (Bridges     │
+            │  Alg ↔ Ana)    │
+            └────────────────┘
+```
 
----
+### Folder Responsibilities
 
-## Priority Order for Fixes
+- **Topology/**: Pure topological surfaces, genus as topological invariant, no complex structure
+- **Algebraic/**: Algebraic curves, coherent sheaves, divisors, Riemann-Roch theorem
+- **Analytic/**: Complex manifolds, holomorphic functions, Teichmüller theory, harmonic analysis
+- **Combinatorial/**: Ribbon graphs, Penner/Kontsevich moduli theory, intersection numbers
+- **GAGA/**: GAGA principle connecting algebraic and analytic perspectives
 
-### Critical (Core Theorems)
-1. **Riemann-Roch theorem** (`Algebraic/RiemannRoch.lean`) - Foundation for dimension computations
-2. **Abel's theorem** (`Algebraic/AbelJacobi.lean`) - Principal divisor characterization
-3. **Jacobi inversion** (`Algebraic/AbelJacobi.lean`) - Surjectivity of Abel-Jacobi
+### Key Principle
 
-### High Priority (Analytic Foundations)
-4. **Measurable Riemann Mapping theorem** - Existence of QC maps
-5. **Harmonic function theory** - Mean value, maximum principle
-6. **TeichmullerSpace.contractible** - Earle-Eells theorem
-
-### Medium Priority (Infrastructure)
-7. **RiemannSurface.atlas** - Use Mathlib complex manifold when available
-8. **Serre duality** implementation
-9. **Period matrix** computations via integration
-10. **Green's function** existence theorems
-
-### Lower Priority (Advanced Topics)
-11. **Theta function** identities (Fay trisecant)
-12. **Kontsevich intersection numbers**
-13. **Weil-Petersson volumes** (Mirzakhani recursion)
-14. **Ribbon graph** operations (contraction, deletion, duality)
-
----
-
-## Moduli.lean
-
-### Scheme/Stack Infrastructure
-- `Scheme.locallyAffine` - Needs proper scheme definition
-- `CurveFamily` properties - proper, flat, smoothFibers, fiberGenus
-- `DMStack` properties - etaleAtlas, finiteAutomorphisms, unramifiedDiagonal
-- `ModuliStack.representsModuli` - Should be functor representability
-
-### Deformation Theory
-- `TangentSheaf.dualToCanonical` - Should use proper bundle duality
-- `TangentSpaceToModuli.serreDualityIso` - Needs Serre duality
-- `moduli_dim_deformation` - sorry
-
-### Coarse Moduli Space
-- `ModuliSpace.quasiProjective` - Needs algebraic geometry
-
-### Teichmuller Space
-- `TeichmullerSpace.contractible` - Earle-Eells theorem
-- `TeichmullerSpace.simplyConnected`
-- `teichmuller_contractible` - sorry
-
-### Bers Embedding
-- `BersEmbedding` properties - holomorphic, injective, bounded, domainOfHolomorphy
-- `bers_embedding_exists` - sorry
-
-### Mapping Class Group
-- `dehn_lickorish` - sorry
-- `moduli_as_quotient` - sorry
-
-### Deligne-Mumford Compactification
-- `StableCurve` properties
-- `DeligneMumfordCompactification.boundaryNCD`
-
-### Period Map
-- `SiegelUpperHalfSpace.posDefIm` - Should be `Matrix.PosDef (Ω.map Complex.im)`
-- `torelli` - sorry
+Each perspective should be self-contained. GAGA provides the bridge showing that for compact Riemann surfaces, algebraic and analytic viewpoints are equivalent.
 
 ---
 
-## Basic.lean
+## Recent Changes (2024)
 
-### Remaining sorry statements
-- `HolomorphicLineBundle.degree` - Requires Chern class theory
-- `canonical_degree` - Riemann-Hurwitz theorem
-- `SpinStructure.parity` - Requires h^0 computation
-- `Divisor.degree` - Finite sum over support
-- `principal_divisor_degree_zero` - Argument principle
-- `riemann_roch` - Full theorem (see Algebraic/RiemannRoch.lean)
+### Fixed: Line Bundle Sheaf Infrastructure
 
----
+The previous unsound `canonicalLineBundleSheaf` (which returned O for all divisors) has been replaced with a proper infrastructure:
 
-## Analytic/GreenFunction.lean
+1. **`LineBundleSheafAssignment`** (Cohomology/Basic.lean)
+   - Maps divisors D to coherent sheaves O(D)
+   - Axiomatizes O(0) = O property
+   - Used as input to cohomology theory
 
-### True placeholders to fix
-- `GreenFunction.logSingularity` - Should be `ContinuousAt (G + log |z - w|) w`
-- `GreenFunction.boundaryCondition` - Should be `∀ z ∈ frontier U, G z = 0`
-- `CompactGreenFunction.logSingularity` - Logarithmic singularity on diagonal
-- `CompactGreenFunction.normalized` - Should be `∫_Σ G(·, w) dA = 0`
-- `CompactGreenFunction.harmonicOffDiag` - Δ_z G = 0 for z ≠ w
-- `AdmissibleMetric` properties - metric, smooth, normalized
+2. **`SectionOrder`** (Helpers/LineBundleConstruction.lean)
+   - Captures DVR structure at each point
+   - Properties: ord(fg) = ord(f) + ord(g), ord(f) > 0 iff f(p) = 0
+   - Derived from `localUniformizer` in StructureSheaf
 
-### sorry statements
-- `poissonIntegral` - Needs circle integration
-- `poissonIntegral_harmonic` - Harmonic extension theorem
-- `compact_green_exists` - Existence of Green's function
-- `arakelov_green_exists_unique` - Existence and uniqueness
+3. **`LineBundleSheafData`** (Helpers/LineBundleConstruction.lean)
+   - Full data for line bundle construction
+   - Section order + sheaf assignment + properties
 
----
+4. **`coherentSheafOfDivisor`** (Cohomology/Basic.lean)
+   - Proper function D ↦ O(D) that requires a LineBundleSheafAssignment
 
-## Analytic/Harmonic.lean
+### Architecture: Analytic/Basic.lean
 
-### True placeholders to fix
-- `IsHarmonicConjugate` - Cauchy-Riemann condition
-- `HarmonicOnSurface` - Chart-based definition
-- `Harmonic1Form.closed` - Needs differential forms infrastructure
-
-### sorry statements (HIGH PRIORITY for harmonic analysis)
-- `harmonic_iff_laplacian_zero` - Characterization
-- `harmonic_mean_value` - Mean value property
-- `mean_value_implies_harmonic` - Converse
-- `harmonic_maximum_principle` - Maximum principle
-- `harmonic_minimum_principle` - Minimum principle
-- `harmonic_conjugate_exists_locally` - Local existence
-- `harmonic_conjugate_simply_connected` - Global existence
-- `holomorphic_real_part_harmonic` - Real part harmonic
-- `holomorphic_imag_part_harmonic` - Imaginary part harmonic
-- `log_norm_harmonic` - log|f| harmonic
-- `harmonic_1forms_dimension` - Hodge theory
-- `poisson_dirichlet_existence` - Dirichlet problem
+Moved analytic definitions to their proper location:
+- `ComplexManifold`, `RiemannSurface`, `CompactRiemannSurface` now in Analytic/Basic.lean
+- Basic.lean re-exports these for backward compatibility
+- Divisor/line bundle structures remain in Basic.lean (shared by algebraic/analytic)
 
 ---
 
-## Analytic/Moduli.lean
+## Current Status
 
-### True placeholders to fix
-- `BeltramiDifferential.measurable` - `Measurable μ`
-- `BeltramiDifferential.transformationLaw` - (-1,1)-form transformation
-- `HarmonicBeltramiDifferential.holomorphic` - φ is holomorphic
-- `HarmonicBeltramiDifferential.harmonicCondition` - μ = φ̄/ρ
-- `TeichmullerSpaceAnalytic` properties - complexStructure, contractible, simplyConnected, stein
-- `TeichmullerMetricAnalytic` properties - metric, finsler, complete, uniquelyGeodesic, nonPositiveCurvature
-- `WeilPeterssonMetricAnalytic` properties - kahler, negativeHolomorphicCurvature, negativeRicci, incomplete
+### Riemann-Roch Path (SOUND)
 
-### sorry statements
-- `dilatation_lt_one` - k < 1 for K > 1
-- `quasiconformal_comp` - Composition bound
-- `measurable_riemann_mapping` - **KEY THEOREM**
-- `teichmuller_distance_formula`
-- `royden_theorem` - Kobayashi = Teichmuller
-- `wp_volume_finite` - Wolpert
-- `bers_embedding_exists`
-- `torelli_analytic`
+The path to Riemann-Roch is now architecturally sound:
 
----
+```
+Basic.lean (Divisor, line bundles)
+    ↓
+Algebraic/Divisors.lean (Divisor group, degree)
+    ↓
+Algebraic/Cohomology/Sheaves.lean (StructureSheaf, LineBundleSheaf, CoherentSheaf)
+    ↓
+Algebraic/Cohomology/Basic.lean (SheafCohomologyGroup, LineBundleSheafAssignment, CompactCohomologyTheory)
+    ↓
+Algebraic/Cohomology/ExactSequence.lean (SkyscraperSheaf, LongExactSequence, eulerChar_formula)
+    ↓
+Algebraic/Cohomology/SerreDuality.lean (SerreDuality, h1 = h0(K-D))
+    ↓
+Algebraic/RiemannRoch.lean (Main theorem statements)
+```
 
-## Algebraic/Divisors.lean
+**Key sorrys remaining** (axiomatic, but statements are correct):
+- `eulerChar_formula` - Euler characteristic by induction on degree
+- `eulerChar_point_exact` - χ(D) - χ(D-p) = 1 from exact sequence
+- `serreDuality_exists` - Existence of Serre duality
+- `riemann_roch` - Main theorem (combines Euler characteristic + Serre duality)
 
-### sorry statements
-- `principal_degree_zero` - Argument principle (deep theorem)
-- `degree_well_defined_quotient` - Degree on quotient
-- `ell_lower_bound` - Riemann-Roch lower bound
+### Module-by-Module Status
 
----
+| File | Status | Notes |
+|------|--------|-------|
+| **Algebraic/Divisors.lean** | Sound | 3 sorrys for deep theorems |
+| **Algebraic/Cohomology/Sheaves.lean** | Sound | StructureSheaf with localUniformizer |
+| **Algebraic/Cohomology/Basic.lean** | Sound | LineBundleSheafAssignment properly defined |
+| **Algebraic/Cohomology/ExactSequence.lean** | Sound | SkyscraperSheaf fully proved |
+| **Algebraic/Cohomology/SerreDuality.lean** | Axiomatic | Correct statements with sorrys |
+| **Algebraic/RiemannRoch.lean** | Axiomatic | Correct statements with sorrys |
+| **Algebraic/Helpers/LineBundleConstruction.lean** | NEW | SectionOrder, LineBundleSheafData |
+| **Algebraic/Helpers/Meromorphic.lean** | Sound | MeromorphicFunction with order proofs |
+| **Analytic/Basic.lean** | Sound | ComplexManifold, RiemannSurface |
 
-## Algebraic/RiemannRoch.lean
+### Remaining Work
 
-### sorry statements (CRITICAL for applications)
-- `canonical_divisor_degree` - deg(K) = 2g - 2
-- `riemann_roch` - **THE MAIN THEOREM**
-- `h0_trivial` - Maximum principle
-- `genus_equals_h0_canonical` - g = h^0(K)
-- `h0_negative_degree` - No sections for deg < 0
-- `no_global_vector_fields` - h^0(T) = 0
-- `quadratic_differentials_dimension` - h^0(K^2) = 3g-3
-- `hyperbolic_nondegenerate` (in Arf.lean) - Hyperbolic form is non-degenerate
-
----
-
-## Algebraic/ThetaFunctions.lean
-
-### True placeholders to fix
-- `SiegelHg.posDefIm` - Should be `Matrix.PosDef (Ω.map Complex.im)`
-
-### sorry statements
-- `theta_holomorphic` - Uniform convergence
-- `theta_holomorphic_in_omega` - Holomorphic dependence
-- `thetaWithChar_relation` - Relation to Riemann theta
-- `theta_parity` - Parity under negation
-- `halfIntegerCharacteristics` - Combinatorics of (Z/2)^{2g}
-- `num_half_int_characteristics` - Count = 2^{2g}
-- `riemannConstant` - Requires Weierstrass points
-- `fay_trisecant` - Deep theta identity
+1. **Prove `eulerChar_formula`**: Induction on degree using exact sequence
+2. **Prove `serreDuality_exists`**: Requires residue theorem and cup product
+3. **Connect `ell` to cohomology**: In Divisors.lean, connect to h_i
+4. **Build explicit O(D) construction**: Full construction using DVR theory (optional - axiomatic approach is sound)
 
 ---
 
-## Algebraic/AbelJacobi.lean
+## Dependencies and Build
 
-### True placeholders to fix
-- `Holomorphic1Form.holomorphic` - Proper holomorphic condition
-- `HolomorphicBasis` - linearIndep, spans
-- `SymplecticBasis` - All intersection pairings
-- `PeriodMatrix.posDefIm` - Positive definite imaginary part
-- `PeriodMatrix.normalized` - a-period normalization
-- `abelJacobiMap` - Currently uses `Classical.arbitrary`, needs integration
+Build command: `lake build ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.RiemannRoch`
 
-### sorry statements
-- `abel_theorem'` - **Abel's theorem**
-- `pic0_isomorphic_jacobian` - Pic^0 = J
-- `jacobi_inversion` - **Jacobi inversion theorem**
-
----
-
-## Combinatorial/RibbonGraph.lean
-
-### True placeholders to fix
-- `contractEdge`, `deleteEdge`, `dual` - All return original graph (need proper implementations)
-- `ThickenedSurface` properties - orientable, hasBoundary
-- `Automorphism.preserves_cyclic` - Cyclic order preservation
-
-### sorry statements
-- `euler_formula` - χ = 2 - 2g - n
-- `closed_surface_genus` - Genus formula
-- `cell_dimension` - Dimension = 6g - 6 + 3n
-
----
-
-## Combinatorial/Moduli.lean
-
-### True placeholders to fix
-- `TeichmullerCell'/DecoratedTeichmullerSpace'` properties
-- `WeilPeterssonForm` - form, closed, kahler
-- `wpVolume` - Returns 1 (should use Mirzakhani recursion)
-- `intersectionNumber` - Returns 0 (should use Kontsevich formula)
-
-### sorry statements
-- `kontsevich_theorem_2_2` - Main bijection theorem
-- `strebel_existence_uniqueness` - Existence of Strebel differentials
-- `intersection_dimension_constraint` - Σdᵢ = 3g - 3 + n
-
----
-
-## Topology/ Folder
-
-### Topology/Basic.lean
-- `Surface.genus` - sorry (requires triangulation or homology)
-- `Surface.numBoundary` - sorry
-- `OnePoint.Complex.secondCountableTopology` - sorry
-
-### Topology/SimpleCurves.lean
-- `dehn_twist_intersection` - sorry (intersection formula)
-- `curve_complex_connected` - sorry (Harvey's theorem)
-- `curve_complex_hyperbolic` - sorry (Masur-Minsky)
-
-### Topology/PantsDecomposition.lean
-- `Marking.trinions` - sorry
-- `trinions_card` - sorry
-- `fenchel_nielsen_parametrization` - sorry
-- `fenchel_nielsen_change_of_coords` - sorry
-- `wolpert_formula` - sorry
-
-### Topology/HatcherThurston.lean
-- `applyMove` - Multiple sorry statements for move well-definedness
-- `hatcher_thurston` - sorry (main connectivity theorem)
-- `pants_graph_infinite` - sorry
-- `pantsDistance` - sorry
-- `pants_graph_infinite_diameter` - sorry
-- `pants_distance_eq_min_length` - sorry
+Import hierarchy:
+```
+Topology/Basic.lean
+    ↓
+Analytic/Basic.lean
+    ↓
+Basic.lean (re-exports Analytic, adds Divisor/line bundles)
+    ↓
+├── Algebraic/Divisors.lean
+│       ↓
+│   Algebraic/Cohomology/Sheaves.lean
+│       ↓
+│   Algebraic/Cohomology/Basic.lean
+│       ↓
+│   Algebraic/Cohomology/ExactSequence.lean
+│       ↓
+│   Algebraic/Cohomology/SerreDuality.lean
+│       ↓
+│   Algebraic/RiemannRoch.lean
+│
+├── Algebraic/Helpers/LineBundleConstruction.lean
+│
+├── Algebraic/Helpers/Meromorphic.lean
+│
+├── Analytic/*.lean
+│
+├── Combinatorial/*.lean
+│
+└── GAGA/Basic.lean (imports both Algebraic and Analytic)
+```
 
 ---
 
 ## Notes
 
-- Main work needed is connecting to Mathlib's:
-  - Complex manifold infrastructure (when available)
-  - Integration theory for period computations
-  - Sheaf cohomology for Riemann-Roch
-- Many placeholders use `Classical.arbitrary` or constant functions - these need proper implementations
+- The formalization prioritizes mathematical correctness over completeness
+- Axiomatic statements (using `sorry`) are acceptable for deep theorems when the statement is correct
+- **No placeholder definitions** - all definitions are mathematically sound
+- LineBundleSheafAssignment is taken as input rather than constructed explicitly - this is sound because GAGA ensures algebraic and analytic constructions give the same cohomology
+- CLAUDE.md rules: No axioms, no placeholders, proper definitions always

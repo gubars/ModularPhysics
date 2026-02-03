@@ -50,7 +50,10 @@ ModularPhysics/
 │   │   │   ├── Anderson/
 │   │   │   ├── Foundation/
 │   │   │   └── LoebMeasure/
-│   │   └── Probability/
+│   │   ├── Probability/
+│   │   └── RegularityStructures/
+│   │       ├── Models/
+│   │       └── Trees/
 │   ├── vNA/
 │   │   ├── MeasureTheory/
 │   │   ├── Spectral/
@@ -94,4 +97,4 @@ At a beginning stage with many placeholder definitions. Covers L-infinity algebr
 
 ### RigorousQFT
 
-At an early stage with many placeholders. Covers the Wightman axioms, von Neumann algebras, and stochastic PDE methods for constructive QFT. Current focus is developing functional analysis infrastructure. An approach to stochastic differential equations based on hyperreals is also being developed.
+At an early stage with many placeholders. Covers the Wightman axioms, von Neumann algebras, and stochastic PDE methods for constructive QFT. Current focus is developing functional analysis infrastructure and stochastic differential equations.

@@ -119,6 +119,13 @@ instance (U : OpenSet RS) : Neg (SkyscraperSection p U) where
 /-- Zero instance -/
 instance (U : OpenSet RS) : Zero (SkyscraperSection p U) := ⟨zero U⟩
 
+@[simp]
+theorem zero_val' (U : OpenSet RS) : (0 : SkyscraperSection p U).val = 0 := rfl
+
+@[simp]
+theorem add_val (U : OpenSet RS) (s t : SkyscraperSection p U) :
+    (s + t).val = s.val + t.val := rfl
+
 /-- Subtraction of skyscraper sections -/
 instance (U : OpenSet RS) : Sub (SkyscraperSection p U) where
   sub s t := ⟨s.val - t.val, fun hne => by rw [s.prop hne, t.prop hne, sub_zero]⟩
@@ -189,17 +196,6 @@ theorem restrict_comp {U V W : OpenSet RS} (hUV : U ≤ V) (hVW : V ≤ W)
     simp only [hpU, hpV, ↓reduceDIte]
   · simp only [hpU, ↓reduceDIte]
 
-/-- Evaluation of a section at a point p (abstract).
-
-    For f ∈ O(U) where p ∈ U, ev_p(f) ∈ ℂ is the value of f at p.
-    This is a ring homomorphism O(U) → ℂ.
-
-    **Note**: In a full implementation, this would be constructed from the
-    concrete definition of O as holomorphic functions. Here we axiomatize it. -/
-noncomputable def evalAt {O : StructureSheaf RS} (p : RS.carrier) (U : OpenSet RS)
-    (hp : p ∈ U.carrier) : O.sections U →+* ℂ := by
-  sorry  -- Evaluation at p is a ring homomorphism
-
 /-- Module instance for SkyscraperSection over O(U).
 
     The skyscraper sheaf is naturally an O-module: for f ∈ O(U) and s ∈ ℂ_p(U),
@@ -210,30 +206,87 @@ noncomputable instance instModule {O : StructureSheaf RS} (U : OpenSet RS) :
     Module (O.sections U) (SkyscraperSection p U) where
   smul f s :=
     if h : p ∈ U.carrier then
-      ⟨evalAt p U h f * s.val, fun hne => absurd h hne⟩
+      ⟨O.evalAt U p h f * s.val, fun hne => absurd h hne⟩
     else
       ⟨0, fun _ => rfl⟩
-  -- Module axioms: proofs follow from evalAt being a ring homomorphism
-  -- and the definition of smul (if p ∈ U then multiply, else 0)
   one_smul s := by
-    -- 1 • s = s: when p ∈ U, evalAt(1) * s.val = 1 * s.val = s.val
-    -- when p ∉ U, s.val = 0 by s.prop, so 0 = s.val
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) = s
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      simp only [map_one, one_mul]
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      exact (s.prop hp).symm
   mul_smul f g s := by
-    -- (f * g) • s = f • (g • s): follows from evalAt being multiplicative
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) =
+         (if h : p ∈ U.carrier then _ else _)
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      show O.evalAt U p hp (f * g) * s.val = O.evalAt U p hp f * (O.evalAt U p hp g * s.val)
+      simp only [map_mul, mul_assoc]
+    · simp only [hp, ↓reduceDIte]
   smul_zero f := by
-    -- f • 0 = 0: evalAt(f) * 0 = 0
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) = 0
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      show O.evalAt U p hp f * (0 : SkyscraperSection p U).val = (0 : SkyscraperSection p U).val
+      simp only [zero_val', mul_zero]
+    · simp only [hp, ↓reduceDIte]
+      rfl
   smul_add f s t := by
-    -- f • (s + t) = f • s + f • t: evalAt(f) * (s.val + t.val) = evalAt(f) * s.val + evalAt(f) * t.val
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) =
+         (if h : p ∈ U.carrier then _ else _) + (if h : p ∈ U.carrier then _ else _)
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      show O.evalAt U p hp f * (s.val + t.val) =
+           (O.evalAt U p hp f * s.val) + (O.evalAt U p hp f * t.val)
+      ring
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      simp only [add_val, add_zero]
   add_smul f g s := by
-    -- (f + g) • s = f • s + g • s: (evalAt(f) + evalAt(g)) * s.val = evalAt(f) * s.val + evalAt(g) * s.val
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) =
+         (if h : p ∈ U.carrier then _ else _) + (if h : p ∈ U.carrier then _ else _)
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      simp only [add_val, map_add, add_mul]
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      simp only [add_val, add_zero]
   zero_smul s := by
-    -- 0 • s = 0: evalAt(0) * s.val = 0 * s.val = 0
-    sorry
+    show (if h : p ∈ U.carrier then _ else _) = 0
+    by_cases hp : p ∈ U.carrier
+    · simp only [hp, ↓reduceDIte]
+      apply ext
+      simp only [map_zero, zero_mul, zero_val']
+    · simp only [hp, ↓reduceDIte]
+      rfl
+
+/-- smul value when p ∈ U -/
+theorem smul_val_of_mem {O : StructureSheaf RS} {U : OpenSet RS}
+    (f : O.sections U) (s : SkyscraperSection p U) (hp : p ∈ U.carrier) :
+    (f • s).val = O.evalAt U p hp f * s.val := by
+  -- Unfold the smul from the Module instance
+  have hsmul : f • s = (if h : p ∈ U.carrier then
+      ⟨O.evalAt U p h f * s.val, fun hne => absurd h hne⟩
+    else ⟨0, fun _ => rfl⟩) := rfl
+  rw [hsmul]
+  simp only [hp, ↓reduceDIte]
+
+/-- smul value when p ∉ U -/
+theorem smul_val_of_not_mem {O : StructureSheaf RS} {U : OpenSet RS}
+    (f : O.sections U) (s : SkyscraperSection p U) (hp : p ∉ U.carrier) :
+    (f • s).val = 0 := by
+  have hsmul : f • s = (if h : p ∈ U.carrier then
+      ⟨O.evalAt U p h f * s.val, fun hne => absurd h hne⟩
+    else ⟨0, fun _ => rfl⟩) := rfl
+  rw [hsmul]
+  simp only [hp, ↓reduceDIte]
 
 end SkyscraperSection
 
@@ -254,10 +307,34 @@ noncomputable def skyscraperSheaf {RS : RiemannSurface} (O : StructureSheaf RS)
   addCommGroup := fun U => SkyscraperSection.instAddCommGroup U
   module := fun U => SkyscraperSection.instModule U
   restrict := fun h => SkyscraperSection.restrict h
-  restrict_smul := fun h f s => by
-    -- restrict(f • s) = O.restrict(f) • restrict(s)
-    -- Requires showing evalAt compatibility with restriction
-    sorry
+  restrict_smul := fun {U V} h f s => by
+    -- Need: restrict h (f • s) = O.restrict h f • restrict h s
+    by_cases hpU : p ∈ U.carrier
+    · have hpV : p ∈ V.carrier := h hpU
+      -- Both sides are defined when p ∈ U
+      apply SkyscraperSection.ext
+      -- LHS: restrict h (f • s)
+      have h_lhs : (SkyscraperSection.restrict h (f • s)).val = (f • s).val := by
+        simp only [SkyscraperSection.restrict, hpU, ↓reduceDIte]
+      -- f • s when p ∈ V
+      have h_fs : (f • s).val = O.evalAt V p hpV f * s.val :=
+        SkyscraperSection.smul_val_of_mem f s hpV
+      -- RHS: O.restrict h f • restrict h s
+      have h_rs : (SkyscraperSection.restrict h s).val = s.val := by
+        simp only [SkyscraperSection.restrict, hpU, ↓reduceDIte]
+      have h_rhs : (O.restrict h f • SkyscraperSection.restrict h s).val =
+          O.evalAt U p hpU (O.restrict h f) * (SkyscraperSection.restrict h s).val :=
+        SkyscraperSection.smul_val_of_mem (O.restrict h f) (SkyscraperSection.restrict h s) hpU
+      rw [h_lhs, h_fs, h_rhs, h_rs, O.evalAt_restrict h p hpU f]
+    · -- p ∉ U: both sides are 0
+      apply SkyscraperSection.ext
+      -- LHS: restrict h (f • s) must be 0 since p ∉ U
+      have h_lhs : (SkyscraperSection.restrict h (f • s)).val = 0 := by
+        simp only [SkyscraperSection.restrict, hpU, ↓reduceDIte]
+      -- RHS: O.restrict h f • restrict h s must be 0 since p ∉ U
+      have h_rhs : (O.restrict h f • SkyscraperSection.restrict h s).val = 0 :=
+        SkyscraperSection.smul_val_of_not_mem (O.restrict h f) (SkyscraperSection.restrict h s) hpU
+      rw [h_lhs, h_rhs]
   restrict_add := fun h s t => by
     simp only [SkyscraperSection.restrict]
     split_ifs with hp
@@ -267,17 +344,169 @@ noncomputable def skyscraperSheaf {RS : RiemannSurface} (O : StructureSheaf RS)
       ring
   restrict_id := fun U s => SkyscraperSection.restrict_id U s
   restrict_comp := fun hUV hVW s => SkyscraperSection.restrict_comp hUV hVW s
-  locality := fun s t h => by
-    apply SkyscraperSection.ext
-    sorry  -- Sections over smaller opens determine the section
-  gluing := fun cover hcov hle family hcompat => by
-    sorry  -- Gluing for skyscraper sheaves
+  locality := fun {U} s t hyp => by
+    -- For skyscraper sheaves, locality follows from restrict_id
+    -- h says ∀ V ≤ U, restrict V s = restrict V t
+    -- Taking V = U with le_refl U:
+    have h_refl := hyp U (le_refl U)
+    -- restrict_id says restrict (le_refl U) s = s
+    rw [SkyscraperSection.restrict_id, SkyscraperSection.restrict_id] at h_refl
+    exact h_refl
+  gluing := fun {ι U} cover hcov hle family hcompat => by
+    -- For skyscraper sheaves, gluing is straightforward
+    by_cases hp : p ∈ U.carrier
+    · -- p ∈ U: find which cover element contains p and use its value
+      have : p ∈ (OpenSet.union cover).carrier := hcov hp
+      simp only [OpenSet.union, Set.mem_iUnion] at this
+      obtain ⟨i, hi⟩ := this
+      -- The global section has value (family i).val
+      refine ⟨⟨(family i).val, fun hne => absurd hp hne⟩, ?_⟩
+      intro j hj
+      simp only [SkyscraperSection.restrict]
+      by_cases hpj : p ∈ (cover j).carrier
+      · simp only [hpj, ↓reduceDIte]
+        apply SkyscraperSection.ext
+        -- Need: (family i).val = (family j).val via compatibility
+        have hinter_i : (cover i).inter (cover j) ≤ cover i := fun x hx => hx.1
+        have hinter_j : (cover i).inter (cover j) ≤ cover j := fun x hx => hx.2
+        have hcompat' := hcompat i j hinter_i hinter_j
+        have hp_inter : p ∈ ((cover i).inter (cover j)).carrier := ⟨hi, hpj⟩
+        simp only [SkyscraperSection.restrict, hp_inter, ↓reduceDIte] at hcompat'
+        -- hcompat' : { val := (family i).val, ... } = { val := (family j).val, ... }
+        -- Extract the value equality
+        have hval : (family i).val = (family j).val := congrArg SkyscraperSection.val hcompat'
+        exact hval
+      · simp only [hpj, ↓reduceDIte]
+        apply SkyscraperSection.ext
+        exact ((family j).prop hpj).symm
+    · -- p ∉ U: the zero section works
+      refine ⟨⟨0, fun _ => rfl⟩, ?_⟩
+      intro i hi
+      simp only [SkyscraperSection.restrict]
+      by_cases hpi : p ∈ (cover i).carrier
+      · exact absurd (hi hpi) hp
+      · simp only [hpi, ↓reduceDIte]
+        apply SkyscraperSection.ext
+        exact ((family i).prop hpi).symm
   finiteType := fun q => by
-    -- Skyscraper sheaf is finitely generated
-    sorry
+    -- Case distinction: q = p or q ≠ p
+    by_cases hqp : q = p
+    · -- Case q = p: use localUniformizer to get a neighborhood U of p
+      -- Get the local uniformizer data
+      obtain ⟨U, hpU, z, hz_zero, hz_gen⟩ := O.localUniformizer p
+      -- Use U with 1 generator e = ⟨1, ...⟩
+      refine ⟨U, 1, hqp ▸ hpU, ?_⟩
+      -- The generator is the section with val = 1
+      let e : SkyscraperSection p U := ⟨1, fun hne => absurd hpU hne⟩
+      refine ⟨fun _ => e, ?_⟩
+      -- Every section s is f • e where f(p) = s.val
+      intro s
+      -- By evalAt_surj, there exists f with f(p) = s.val
+      obtain ⟨f, hf⟩ := O.evalAt_surj U p hpU s.val
+      use fun _ => f
+      apply SkyscraperSection.ext
+      simp only [Finset.univ_unique, Fin.default_eq_zero, Finset.sum_singleton]
+      -- Need: s.val = (f • e).val = f(p) * e.val = f(p) * 1 = f(p) = s.val
+      rw [SkyscraperSection.smul_val_of_mem f e hpU]
+      -- e.val = 1, so we need s.val = f(p) * 1 = s.val
+      show s.val = O.evalAt U p hpU f * e.val
+      simp only [hf]
+      show s.val = s.val * 1
+      ring
+    · -- Case q ≠ p: use Hausdorff to find U containing q but not p
+      -- T2 gives disjoint opens separating p and q
+      have t2 := RS.t2
+      have := @T2Space.t2 RS.carrier RS.topology t2 p q (Ne.symm hqp)
+      obtain ⟨Vp, Vq, Vp_open, Vq_open, hp_Vp, hq_Vq, hVpVq⟩ := this
+      -- Use Vq as our neighborhood of q (which doesn't contain p since Vp ∩ Vq = ∅)
+      let U : OpenSet RS := ⟨Vq, Vq_open⟩
+      have hpU : p ∉ U.carrier := by
+        intro hp_in_Vq
+        have hmem : p ∈ Vp ∩ Vq := ⟨hp_Vp, hp_in_Vq⟩
+        rw [Set.disjoint_iff_inter_eq_empty.mp hVpVq] at hmem
+        exact hmem
+      -- Sections over U not containing p are all zero
+      -- Use 0 generators
+      refine ⟨U, 0, hq_Vq, ?_⟩
+      -- generators : Fin 0 → SkyscraperSection p U (empty function)
+      let generators : Fin 0 → SkyscraperSection p U := Fin.elim0
+      refine ⟨generators, ?_⟩
+      -- Every section s must have s.val = 0 since p ∉ U
+      intro s
+      have hsval : s.val = 0 := s.prop hpU
+      -- coeffs : Fin 0 → O.sections U (empty function)
+      let coeffs : Fin 0 → O.sections U := Fin.elim0
+      use coeffs
+      -- s = ∑ i : Fin 0, coeffs i • generators i
+      -- Since s.val = 0 and sections over U not containing p are all 0
+      have hzero : s = 0 := SkyscraperSection.ext hsval
+      -- The sum ∑ i : Fin 0, ... is over empty set, hence 0
+      have hsum_zero : (∑ i : Fin 0, coeffs i • generators i) = 0 := by
+        rw [Finset.sum_eq_zero]
+        intro i _
+        exact Fin.elim0 i
+      rw [hzero, hsum_zero]
   finitePresentation := fun q => by
-    -- Skyscraper sheaf is finitely presented
-    sorry
+    by_cases hqp : q = p
+    · -- Case q = p: 1 generator, 1 relation (the local uniformizer)
+      obtain ⟨U, hpU, z, hz_zero, hz_gen⟩ := O.localUniformizer p
+      -- n = 1, m = 1
+      refine ⟨U, 1, 1, hqp ▸ hpU, ?_⟩
+      -- The generator e with e.val = 1
+      let e : SkyscraperSection p U := ⟨1, fun hne => absurd hpU hne⟩
+      -- The relation: z is the local uniformizer with z(p) = 0
+      refine ⟨fun _ => e, fun _ => fun _ => z, ?_⟩
+      constructor
+      · -- Show the relation gives zero: z • e = 0
+        intro j
+        simp only [Finset.univ_unique, Fin.default_eq_zero, Finset.sum_singleton]
+        apply SkyscraperSection.ext
+        rw [SkyscraperSection.smul_val_of_mem z e hpU]
+        rw [hz_zero, zero_mul]
+        rfl
+      · -- Show relations generate the kernel
+        intro c hc
+        simp only [Finset.univ_unique, Fin.default_eq_zero, Finset.sum_singleton] at hc
+        -- hc : c 0 • e = 0, which means (c 0)(p) * 1 = 0, so (c 0)(p) = 0
+        have hc0_eval : O.evalAt U p hpU (c 0) = 0 := by
+          have hval : (c 0 • e).val = 0 := congrArg SkyscraperSection.val hc
+          rw [SkyscraperSection.smul_val_of_mem (c 0) e hpU] at hval
+          -- hval : O.evalAt ... (c 0) * e.val = 0, and e.val = 1
+          -- e.val = 1 by definition
+          have he : e.val = 1 := rfl
+          rw [he, mul_one] at hval
+          exact hval
+        -- By localUniformizer: c 0 = z * g for some g
+        obtain ⟨g, hg⟩ := hz_gen (c 0) hc0_eval
+        -- The syzygy c i = Σ_j a j * relations j i
+        -- With j ranging over Fin 1, i ranging over Fin 1:
+        -- c 0 = a 0 * relations 0 0 = g * z
+        refine ⟨fun _ => g, ?_⟩
+        intro i
+        -- i : Fin 1, so i = 0
+        have hi : i = 0 := Fin.eq_zero i
+        simp only [Finset.univ_unique, Fin.default_eq_zero, Finset.sum_singleton]
+        -- Goal: c i = g * z
+        -- We have hg : c 0 = z * g
+        rw [hi, hg, mul_comm]
+    · -- Case q ≠ p: 0 generators, 0 relations
+      have t2 := RS.t2
+      have := @T2Space.t2 RS.carrier RS.topology t2 p q (Ne.symm hqp)
+      obtain ⟨Vp, Vq, Vp_open, Vq_open, hp_Vp, hq_Vq, hVpVq⟩ := this
+      let U : OpenSet RS := ⟨Vq, Vq_open⟩
+      have hpU : p ∉ U.carrier := by
+        intro hp_in_Vq
+        have hmem : p ∈ Vp ∩ Vq := ⟨hp_Vp, hp_in_Vq⟩
+        rw [Set.disjoint_iff_inter_eq_empty.mp hVpVq] at hmem
+        exact hmem
+      -- n = 0, m = 0
+      refine ⟨U, 0, 0, hq_Vq, ?_⟩
+      refine ⟨finZeroElim, finZeroElim, ?_⟩
+      constructor
+      · intro j; exact j.elim0
+      · intro c hc
+        -- c is empty (Fin 0 → O.sections U), so trivially satisfied
+        exact ⟨finZeroElim, fun i => i.elim0⟩
 
 /-- H⁰(ℂ_p) = ℂ (dimension 1) -/
 theorem h0_skyscraper {RS : RiemannSurface} {O : StructureSheaf RS} (p : RS.carrier)
@@ -302,32 +531,40 @@ theorem hi_skyscraper_vanish {RS : RiemannSurface} {O : StructureSheaf RS} (p : 
     **Construction**:
     - The map O(D-p) → O(D) is the natural inclusion (f ↦ f)
     - The map O(D) → ℂ_p is evaluation of the principal part at p
-    - Exactness: a section of O(D) is in O(D-p) iff it vanishes at p with appropriate multiplicity -/
+    - Exactness: a section of O(D) is in O(D-p) iff it vanishes at p with appropriate multiplicity
+
+    **Parameters**:
+    - L: A line bundle sheaf assignment providing O(D) for each divisor D
+    - ι: The inclusion map O(D-p) → O(D) at each open set -/
 noncomputable def pointExactSeq {RS : RiemannSurface} (O : StructureSheaf RS)
-    (D : Divisor RS) (p : RS.carrier) :
+    (L : LineBundleSheafAssignment RS O)
+    (D : Divisor RS) (p : RS.carrier)
+    -- The inclusion O(D-p) ↪ O(D) as a family of maps on sections
+    (ι : ∀ U : OpenSet RS,
+      (coherentSheafOfDivisor RS O L (D - Divisor.point p)).sections U →
+      (coherentSheafOfDivisor RS O L D).sections U)
+    -- The inclusion is injective
+    (ι_inj : ∀ U, Function.Injective (ι U)) :
     ShortExactSeq RS O
-      (coherentSheafOfDivisor RS O (D - Divisor.point p))
-      (coherentSheafOfDivisor RS O D)
+      (coherentSheafOfDivisor RS O L (D - Divisor.point p))
+      (coherentSheafOfDivisor RS O L D)
       (skyscraperSheaf O p) where
   -- Inclusion: O(D-p) ↪ O(D)
-  -- Both have sections = O.sections from canonicalLineBundleSheaf
-  ι_sections := fun _ x => x
+  ι_sections := ι
   -- Evaluation at p: O(D) → ℂ_p
-  -- O(D) sections are O.sections U, ℂ_p sections are SkyscraperSection p U
-  π_sections := fun U c =>
+  -- O(D) sections are mapped to SkyscraperSection p U
+  π_sections := fun U _ =>
     if hp : p ∈ U.carrier then
       SkyscraperSection.ofComplex hp 0  -- Abstract evaluation at p
     else
       ⟨0, fun _ => rfl⟩
-  ι_injective := fun _ => Function.injective_id
+  ι_injective := ι_inj
   π_surjective := fun U => by
     intro s
     by_cases hp : p ∈ U.carrier
-    · sorry  -- Need to find preimage
-    · use (1 : O.sections U)  -- Use ring identity
-      simp only [hp, ↓reduceDIte]
-      apply SkyscraperSection.ext
-      exact (s.prop hp).symm
+    · sorry  -- Need to find preimage using sections of O(D)
+    · -- When p ∉ U, the skyscraper section is 0
+      sorry  -- Need a section of L.sheafOf D over U
   exact := trivial
 
 /-!

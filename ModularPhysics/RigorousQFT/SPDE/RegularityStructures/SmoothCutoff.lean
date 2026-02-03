@@ -4,9 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
+import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.Calculus.ContDiff.Basic
 import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
 import Mathlib.Topology.MetricSpace.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Basic
 
 /-!
 # Smooth Cutoff Functions and Dyadic Decomposition
@@ -159,12 +161,22 @@ theorem zero_near_zero (ψ : AnnularCutoff) (r : ℝ) (hr : |2 * r| ≤ ψ.bump.
     linarith
   rw [h1, h2, sub_self]
 
-/-- The annular cutoff is nonnegative (when bump is decreasing in |r|) -/
--- Note: This requires monotonicity of the bump function which isn't directly available
--- from ContDiffBump. For now we state this as a property.
+/-- The annular cutoff is nonnegative (when bump is decreasing in |r|).
+
+    MATHEMATICAL NOTE: This requires the bump function to be radially decreasing,
+    i.e., bump(r) ≥ bump(2r) for all r. The standard bump functions used in analysis
+    (constructed via exp(-1/(1-x²))) ARE radially decreasing.
+
+    However, Mathlib's ContDiffBump doesn't expose a monotonicity lemma since it's
+    an abstract interface for smooth bump functions. A full proof would require either:
+    1. Using the specific construction of ContDiffBump.one to verify monotonicity
+    2. Adding a radial_decreasing field to SmoothRadialCutoff
+
+    This theorem is NOT used in the main results (dyadic_sum_eq_bump, partition_of_unity). -/
 theorem nonneg (ψ : AnnularCutoff) (r : ℝ) : 0 ≤ ψ.toFun r := by
-  -- Requires bump to be radially decreasing
-  -- bump(r) ≥ bump(2r) when bump is radially decreasing
+  -- Requires bump to be radially decreasing: bump(r) ≥ bump(2r)
+  -- The standard ContDiffBump.one IS radially decreasing, but Mathlib
+  -- doesn't expose this as a lemma on the abstract ContDiffBump interface.
   sorry
 
 /-- The annular cutoff is bounded in absolute value by 1.
@@ -226,13 +238,118 @@ theorem cutoff_zero_outside (D : DyadicDecomposition) (n : ℕ) (r : ℝ)
           exact le_of_lt h2pos
       _ = |r| * |(2 : ℝ)^n| := by rw [abs_of_pos h2pos]
 
-/-- Partition of unity property: Σ_n ψ_n(r) = 1 for r > 0.
-    This is the key property of dyadic decomposition. -/
-theorem partition_of_unity (D : DyadicDecomposition) (r : ℝ) (hr : r > 0) :
+/-- Dyadic decomposition telescopes to the bump at base scale.
+    The sum Σ_n ψ_n(r) = bump(r) - lim_{N→∞} bump(2^N r) = bump(r).
+
+    Note: For a full partition of unity (= 1 for all r > 0), one needs either:
+    - Extend to n ∈ ℤ (to capture large-scale contributions), or
+    - Restrict to r ≤ rIn where bump(r) = 1 -/
+-- Helper: cutoff n r = bump(r * 2^n) - bump(r * 2^{n+1})
+private theorem cutoff_eq_diff (D : DyadicDecomposition) (n : ℕ) (r : ℝ) :
+    D.cutoff n r = D.annular.bump (r * 2^n) - D.annular.bump (r * 2^(n+1)) := by
+  unfold cutoff AnnularCutoff.toFun
+  have h2 : 2 * (r * 2^n) = r * 2^(n+1) := by rw [pow_succ]; ring
+  simp only [h2]
+
+-- Helper: for large n, bump(r * 2^n) = 0 (bump has compact support)
+private theorem bump_eventually_zero (D : DyadicDecomposition) (r : ℝ) (hr : r > 0) :
+    ∃ N : ℕ, ∀ n ≥ N, D.annular.bump (r * 2^n) = 0 := by
+  have hrOut_pos : D.annular.bump.rOut > 0 :=
+    lt_trans D.annular.bump.rIn_pos D.annular.bump.rIn_lt_rOut
+  have hdiv_pos : D.annular.bump.rOut / r > 0 := div_pos hrOut_pos hr
+  -- Find N such that 2^N > rOut/r, equivalently log(rOut/r) < N * log 2
+  obtain ⟨N, hN⟩ := exists_nat_gt (Real.log (D.annular.bump.rOut / r) / Real.log 2)
+  use N
+  intro n hn
+  apply D.annular.bump.zero_outside
+  rw [abs_of_pos (by positivity)]
+  -- Show rOut ≤ r * 2^n
+  have hlog2_pos : Real.log 2 > 0 := Real.log_pos (by norm_num : (1 : ℝ) < 2)
+  have h1 : Real.log (D.annular.bump.rOut / r) / Real.log 2 < n := by
+    calc Real.log (D.annular.bump.rOut / r) / Real.log 2
+        < N := hN
+      _ ≤ n := Nat.cast_le.mpr hn
+  have h2 : Real.log (D.annular.bump.rOut / r) < n * Real.log 2 := by
+    -- h1 : log(rOut/r) / log2 < n, and log2 > 0
+    -- So log(rOut/r) < n * log2
+    have h := mul_lt_mul_of_pos_right h1 hlog2_pos
+    rw [div_mul_cancel₀] at h
+    · exact h
+    · exact ne_of_gt hlog2_pos
+  have h3 : D.annular.bump.rOut / r < Real.exp (n * Real.log 2) := by
+    rw [← Real.log_lt_log_iff hdiv_pos (Real.exp_pos _), Real.log_exp]
+    exact h2
+  have h4 : Real.exp ((n : ℕ) * Real.log 2) = 2^n := by
+    have := Real.exp_nat_mul (Real.log 2) n
+    rw [Real.exp_log (by norm_num : (2 : ℝ) > 0)] at this
+    exact this
+  have h5 : D.annular.bump.rOut / r < 2^n := by
+    convert h3 using 1
+    exact h4.symm
+  have h6 : D.annular.bump.rOut < r * 2^n := by
+    -- rOut/r < 2^n and r > 0 implies rOut < r * 2^n
+    have := mul_lt_mul_of_pos_right h5 hr
+    rw [div_mul_cancel₀] at this
+    · rw [mul_comm] at this; exact this
+    · exact ne_of_gt hr
+  linarith
+
+-- Helper: for large n, cutoff n r = 0 (bump has compact support)
+private theorem cutoff_eventually_zero (D : DyadicDecomposition) (r : ℝ) (hr : r > 0) :
+    ∃ N : ℕ, ∀ n ≥ N, D.cutoff n r = 0 := by
+  obtain ⟨N, hN⟩ := bump_eventually_zero D r hr
+  use N
+  intro n hn
+  rw [cutoff_eq_diff]
+  have h1 := hN n hn
+  have h2 := hN (n+1) (Nat.le_add_right_of_le hn)
+  rw [h1, h2, sub_zero]
+
+-- Helper: the series is summable (only finitely many nonzero terms)
+private theorem cutoff_summable (D : DyadicDecomposition) (r : ℝ) (hr : r > 0) :
+    Summable (fun n => D.cutoff n r) := by
+  obtain ⟨N, hN⟩ := cutoff_eventually_zero D r hr
+  apply summable_of_ne_finset_zero (s := Finset.range N)
+  intro n hn
+  simp only [Finset.mem_range, not_lt] at hn
+  exact hN n hn
+
+-- Helper: telescoping sum identity for finite sums
+private theorem finset_sum_telescope (D : DyadicDecomposition) (r : ℝ) (N : ℕ) :
+    ∑ n ∈ Finset.range N, D.cutoff n r =
+      D.annular.bump r - D.annular.bump (r * 2^N) := by
+  induction N with
+  | zero =>
+    simp only [Finset.range_zero, Finset.sum_empty, pow_zero, mul_one, sub_self]
+  | succ N ih =>
+    rw [Finset.sum_range_succ, ih, cutoff_eq_diff]
+    ring
+
+theorem dyadic_sum_eq_bump (D : DyadicDecomposition) (r : ℝ) (hr : r > 0) :
+    ∑' n, D.cutoff n r = D.annular.bump r := by
+  -- Find N such that bump(r*2^n) = 0 for all n ≥ N
+  obtain ⟨N, hN_bump⟩ := bump_eventually_zero D r hr
+
+  -- The tsum equals the finite sum up to N
+  have heq : ∑' n, D.cutoff n r = ∑ n ∈ Finset.range N, D.cutoff n r := by
+    apply tsum_eq_sum
+    intro n hn
+    simp only [Finset.mem_range, not_lt] at hn
+    rw [cutoff_eq_diff]
+    rw [hN_bump n hn, hN_bump (n+1) (Nat.le_add_right_of_le hn), sub_zero]
+
+  rw [heq, finset_sum_telescope]
+  -- bump(r * 2^N) = 0
+  rw [hN_bump N (le_refl N), sub_zero]
+
+/-- Partition of unity property: Σ_n ψ_n(r) = 1 for small r where bump(r) = 1.
+    This holds when r ∈ (0, rIn] since bump is 1 on [0, rIn]. -/
+theorem partition_of_unity (D : DyadicDecomposition) (r : ℝ)
+    (hr_pos : r > 0) (hr_small : |r| ≤ D.annular.bump.rIn) :
     ∑' n, D.cutoff n r = 1 := by
-  -- This requires careful analysis of the telescoping sum
-  -- bump(2^n r) - bump(2^{n+1} r) summed over n gives 1 - lim bump(2^N r) = 1 - 0 = 1
-  sorry
+  rw [dyadic_sum_eq_bump D r hr_pos]
+  -- bump(r) = 1 when |r| ≤ rIn
+  exact D.annular.bump.one_inside r hr_small
 
 /-- The dyadic cutoff is bounded in absolute value by 1 -/
 theorem cutoff_abs_le_one (D : DyadicDecomposition) (n : ℕ) (r : ℝ) :
@@ -278,12 +395,23 @@ theorem dyadicDistanceCutoff_zero_outside (d : ℕ) (D : DyadicDecomposition) (n
   rw [abs_of_nonneg h]
   exact hdist
 
-/-- Partition of unity for dyadic distance cutoffs -/
-theorem dyadicDistanceCutoff_partition (d : ℕ) (D : DyadicDecomposition) (x y : Fin d → ℝ)
+/-- Dyadic distance cutoffs sum to the bump at base scale -/
+theorem dyadicDistanceCutoff_sum_eq_bump (d : ℕ) (D : DyadicDecomposition) (x y : Fin d → ℝ)
     (hxy : euclideanDist d x y > 0) :
+    ∑' n, dyadicDistanceCutoff d D n x y = D.annular.bump (euclideanDist d x y) := by
+  unfold dyadicDistanceCutoff
+  exact D.dyadic_sum_eq_bump (euclideanDist d x y) hxy
+
+/-- Partition of unity for dyadic distance cutoffs when points are close.
+    This holds when |x - y| ≤ rIn (the inner radius of the bump). -/
+theorem dyadicDistanceCutoff_partition (d : ℕ) (D : DyadicDecomposition) (x y : Fin d → ℝ)
+    (hxy : euclideanDist d x y > 0)
+    (hclose : euclideanDist d x y ≤ D.annular.bump.rIn) :
     ∑' n, dyadicDistanceCutoff d D n x y = 1 := by
   unfold dyadicDistanceCutoff
-  exact D.partition_of_unity (euclideanDist d x y) hxy
+  apply D.partition_of_unity (euclideanDist d x y) hxy
+  rw [abs_of_pos hxy]
+  exact hclose
 
 /-! ## Helper Lemmas for Bounds -/
 

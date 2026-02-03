@@ -94,7 +94,7 @@ theorem riemann_roch (CRS : CompactRiemannSurface)
     (K : CanonicalDivisorData CRS)
     (T : CompactCohomologyTheory CRS O)
     (D : Divisor CRS.toRiemannSurface)
-    (_ : SerreDuality CRS O K D) :
+    (_ : SerreDuality CRS O T.lineBundleSheaves K D) :
     (h_i (T.lineBundleCohomology D).H0 : ℤ) -
     h_i (T.lineBundleCohomology (K.divisor - D)).H0 =
     D.degree - CRS.genus + 1 := by
@@ -114,7 +114,7 @@ theorem riemann_inequality (CRS : CompactRiemannSurface)
     (K : CanonicalDivisorData CRS)
     (T : CompactCohomologyTheory CRS O)
     (D : Divisor CRS.toRiemannSurface)
-    (SD : SerreDuality CRS O K D) :
+    (SD : SerreDuality CRS O T.lineBundleSheaves K D) :
     (h_i (T.lineBundleCohomology D).H0 : ℤ) ≥ D.degree - CRS.genus + 1 := by
   have h := riemann_roch CRS O K T D SD
   have h_nonneg : (h_i (T.lineBundleCohomology (K.divisor - D)).H0 : ℤ) ≥ 0 :=
@@ -138,25 +138,27 @@ theorem genus_eq_h0_canonical (CRS : CompactRiemannSurface)
     Line bundles of negative degree have no global sections. -/
 theorem h0_vanish_negative_degree (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (D : Divisor CRS.toRiemannSurface)
     (_ : D.degree < 0)
     (_ : SheafCohomologyGroup CRS.toRiemannSurface
-      (coherentSheafOfDivisor CRS.toRiemannSurface O D) 0) :
+      (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 0) :
     True :=  -- Placeholder: h_i H = 0
-  h0_negative_degree_vanish CRS O D ‹_› ‹_›
+  h0_negative_degree_vanish CRS O L D ‹_› ‹_›
 
 /-- **h¹(D) = 0 for deg(D) > 2g - 2**.
 
     This follows from Serre duality and the vanishing for negative degree. -/
 theorem h1_vanish_large_degree (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS)
     (D : Divisor CRS.toRiemannSurface)
     (_ : D.degree > 2 * (CRS.genus : ℤ) - 2)
     (_ : SheafCohomologyGroup CRS.toRiemannSurface
-      (coherentSheafOfDivisor CRS.toRiemannSurface O D) 1) :
+      (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 1) :
     True :=  -- Placeholder: h_i H = 0
-  h1_large_degree_vanish CRS O K D ‹_› ‹_›
+  h1_large_degree_vanish CRS O L K D ‹_› ‹_›
 
 /-- **Simplified Riemann-Roch for large degree**.
 

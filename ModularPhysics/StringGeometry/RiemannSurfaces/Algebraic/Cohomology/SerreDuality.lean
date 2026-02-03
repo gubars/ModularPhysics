@@ -76,10 +76,11 @@ The residue theorem gives an isomorphism H¹(K) ≅ ℂ.
     This is the fundamental ingredient for Serre duality. -/
 structure ResidueIsomorphism (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS) where
   /-- H¹(K) as a vector space -/
   H1K : SheafCohomologyGroup CRS.toRiemannSurface
-    (coherentSheafOfDivisor CRS.toRiemannSurface O K.divisor) 1
+    (coherentSheafOfDivisor CRS.toRiemannSurface O L K.divisor) 1
   /-- The residue map (abstract) -/
   residue : H1K.carrier → ℂ
   /-- The residue map is an isomorphism -/
@@ -88,8 +89,9 @@ structure ResidueIsomorphism (CRS : CompactRiemannSurface)
 /-- H¹(K) has dimension 1 -/
 theorem h1_canonical (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS)
-    (_ : ResidueIsomorphism CRS O K) :
+    (_ : ResidueIsomorphism CRS O L K) :
     True := by  -- Placeholder: h_i res.H1K = 1
   trivial
 
@@ -110,14 +112,15 @@ The cup product and residue give a perfect pairing.
     **Perfection**: This pairing is perfect (non-degenerate on both sides). -/
 structure SerrePairing (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS)
     (D : Divisor CRS.toRiemannSurface) where
   /-- H⁰(K - D) -/
   H0KD : SheafCohomologyGroup CRS.toRiemannSurface
-    (coherentSheafOfDivisor CRS.toRiemannSurface O (K.divisor - D)) 0
+    (coherentSheafOfDivisor CRS.toRiemannSurface O L (K.divisor - D)) 0
   /-- H¹(D) -/
   H1D : SheafCohomologyGroup CRS.toRiemannSurface
-    (coherentSheafOfDivisor CRS.toRiemannSurface O D) 1
+    (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 1
   /-- The pairing H⁰(K-D) × H¹(D) → ℂ -/
   pairing : H0KD.carrier → H1D.carrier → ℂ
   /-- Non-degeneracy (perfection) -/
@@ -141,20 +144,22 @@ structure SerrePairing (CRS : CompactRiemannSurface)
     3. Taking dimensions: h¹(D) = h⁰(K-D) -/
 structure SerreDuality (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS)
     (D : Divisor CRS.toRiemannSurface) where
   /-- The Serre pairing data -/
-  pairing : SerrePairing CRS O K D
+  pairing : SerrePairing CRS O L K D
   /-- The induced isomorphism (abstract) -/
   duality : pairing.H1D.carrier ≃ (pairing.H0KD.carrier → ℂ)
 
 namespace SerreDuality
 
 variable {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}
+variable {L : LineBundleSheafAssignment CRS.toRiemannSurface O}
 variable {K : CanonicalDivisorData CRS} {D : Divisor CRS.toRiemannSurface}
 
 /-- **Dimension equality**: h¹(D) = h⁰(K - D) -/
-theorem dimension_eq (_ : SerreDuality CRS O K D) :
+theorem dimension_eq (_ : SerreDuality CRS O L K D) :
     True := by  -- Placeholder: h_i SD.pairing.H1D = h_i SD.pairing.H0KD
   trivial
 
@@ -169,9 +174,10 @@ Serre duality exists for all divisors on compact Riemann surfaces.
 /-- Serre duality exists for every divisor. -/
 theorem serreDuality_exists (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (K : CanonicalDivisorData CRS)
     (D : Divisor CRS.toRiemannSurface) :
-    Nonempty (SerreDuality CRS O K D) := by
+    Nonempty (SerreDuality CRS O L K D) := by
   sorry  -- Serre duality theorem
 
 /-!
@@ -203,10 +209,11 @@ theorem h0_canonical_eq_genus (CRS : CompactRiemannSurface)
     So deg(D) ≥ 0, contradiction. -/
 theorem h0_negative_degree_vanish (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (D : Divisor CRS.toRiemannSurface)
     (_ : D.degree < 0)
     (_ : SheafCohomologyGroup CRS.toRiemannSurface
-      (coherentSheafOfDivisor CRS.toRiemannSurface O D) 0) :
+      (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 0) :
     True := by  -- Placeholder: h_i H = 0
   trivial
 
@@ -218,11 +225,12 @@ theorem h0_negative_degree_vanish (CRS : CompactRiemannSurface)
     By Serre duality: h¹(D) = h⁰(K - D) = 0 -/
 theorem h1_large_degree_vanish (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
     (_ : CanonicalDivisorData CRS)
     (D : Divisor CRS.toRiemannSurface)
     (_ : D.degree > 2 * (CRS.genus : ℤ) - 2)
     (_ : SheafCohomologyGroup CRS.toRiemannSurface
-      (coherentSheafOfDivisor CRS.toRiemannSurface O D) 1) :
+      (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 1) :
     True := by  -- Placeholder: h_i H = 0
   trivial
 
@@ -248,7 +256,7 @@ theorem riemann_roch_classical (CRS : CompactRiemannSurface)
     (K : CanonicalDivisorData CRS)
     (T : CompactCohomologyTheory CRS O)
     (D : Divisor CRS.toRiemannSurface)
-    (_ : SerreDuality CRS O K D) :
+    (_ : SerreDuality CRS O T.lineBundleSheaves K D) :
     (h_i (T.lineBundleCohomology D).H0 : ℤ) -
     h_i (T.lineBundleCohomology D).H1 =
     D.degree - CRS.genus + 1 := by
