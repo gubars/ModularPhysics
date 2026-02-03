@@ -541,6 +541,113 @@ theorem cofiber_sequence_composition_induced (f : A ⟶ X) (n : ℕ) :
     exact congrFun heq.symm α
   rw [h1, hcomp]
 
+/-! ### Infrastructure for fiber sequence exactness -/
+
+/-- The constant GenLoop at the basepoint of Y. -/
+abbrev constGenLoopY (Y : PointedTopSpace) (n : ℕ) : GenLoop (Fin n) Y.carrier Y.basepoint :=
+  GenLoop.const
+
+/-- Given a homotopy H : I × I^n → Y from (f ∘ γ) to const y₀,
+    for each t ∈ I^n we get a path from f(γ(t)) to y₀ by currying. -/
+def homotopyToPathsToBase {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n)))
+    (t : (Fin n → I)) : PathsToBaseType Y where
+  val := ⟨fun s => H (s, t), H.continuous.comp (continuous_id.prodMk continuous_const)⟩
+  property := by
+    -- H(1, t) = const(t) = Y.basepoint
+    show H (1, t) = Y.basepoint
+    exact H.apply_one t
+
+/-- The curried homotopy function is continuous in t. -/
+theorem continuous_homotopyToPathsToBase {n : ℕ} {f : X ⟶ Y}
+    {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n))) :
+    Continuous (homotopyToPathsToBase H) := by
+  -- Need to show t ↦ (s ↦ H(s, t)) is continuous
+  apply Continuous.subtype_mk
+  -- The topology on C(I, Y) is compact-open
+  -- We need: the uncurried map (t, s) ↦ H(s, t) is continuous
+  -- This factors as: (t, s) ↦ (s, t) ↦ H(s, t)
+  let g : (Fin n → I) → C(I, Y.carrier) := fun t =>
+    ⟨fun s => H (s, t), H.continuous.comp (continuous_id.prodMk continuous_const)⟩
+  refine ContinuousMap.continuous_of_continuous_uncurry g ?_
+  show Continuous fun p : (Fin n → I) × I => H (p.2, p.1)
+  exact H.continuous.comp (continuous_snd.prodMk continuous_fst)
+
+/-- The lift to the homotopy fiber: given γ in the kernel of f_*,
+    construct an element of Ff. -/
+def fiberLift {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n)))
+    (t : Fin n → I) : HomotopyFiberType f where
+  val := (γ t, homotopyToPathsToBase H t)
+  property := by
+    -- Need: (homotopyToPathsToBase H t).val 0 = f.toFun (γ t)
+    show H (0, t) = f.toFun (γ t)
+    -- H(0, t) = (inducedGenLoop f γ)(t) = f(γ(t))
+    have : H (0, t) = (inducedGenLoop (Fin n) f γ).val t := H.apply_zero t
+    rw [this]
+    rfl
+
+/-- The fiber lift is continuous. -/
+theorem continuous_fiberLift {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n))) :
+    Continuous (fiberLift H) := by
+  apply Continuous.subtype_mk
+  exact γ.val.continuous.prodMk (continuous_homotopyToPathsToBase H)
+
+/-- The fiber lift sends boundary points to the basepoint of Ff. -/
+theorem fiberLift_boundary {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n)))
+    (t : Fin n → I) (ht : t ∈ Cube.boundary (Fin n)) :
+    fiberLift H t = homotopyFiberBasepoint f := by
+  apply Subtype.ext
+  simp only [fiberLift, homotopyFiberBasepoint, Prod.mk.injEq]
+  constructor
+  · -- First component: γ(t) = X.basepoint (since γ is a GenLoop)
+    exact γ.property t ht
+  · -- Second component: path is constant at Y.basepoint
+    apply Subtype.ext
+    apply ContinuousMap.ext
+    intro s
+    -- H(s, t) = (f ∘ γ)(t) for t on boundary (by HomotopyRel property)
+    -- And (f ∘ γ)(t) = f(γ(t)) = f(x₀) = y₀ since γ(t) = x₀
+    simp only [homotopyToPathsToBase, constPathToBase, ContinuousMap.coe_mk]
+    -- H.prop says (H.curry s) t = (inducedGenLoop f γ)(t) for t in boundary
+    -- Note: (H.curry s) t = H (s, t) by definition
+    have hprop := H.prop s t ht
+    -- hprop : (H.curry s) t = (inducedGenLoop f γ).val t
+    -- Goal: H (s, t) = Y.basepoint
+    -- First, H (s, t) = (H.curry s) t = (inducedGenLoop f γ).val t
+    have heq : H (s, t) = (inducedGenLoop (Fin n) f γ).val t := hprop
+    rw [heq]
+    -- (inducedGenLoop f γ)(t) = f(γ(t)) = f(x₀) = y₀
+    simp only [inducedGenLoop, toContinuousMap, ContinuousMap.comp_apply]
+    rw [γ.property t ht]
+    exact f.map_basepoint
+
+/-- The fiber lift as a GenLoop in Ff. -/
+def fiberLiftGenLoop {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n))) :
+    GenLoop (Fin n) (Ff f).carrier (Ff f).basepoint where
+  val := ⟨fiberLift H, continuous_fiberLift H⟩
+  property := fiberLift_boundary H
+
+/-- The projection of the fiber lift equals the original loop. -/
+theorem fiberLiftGenLoop_proj {n : ℕ} {f : X ⟶ Y} {γ : GenLoop (Fin n) X.carrier X.basepoint}
+    (H : ContinuousMap.HomotopyRel (inducedGenLoop (Fin n) f γ).val
+          (constGenLoopY Y n).val (Cube.boundary (Fin n))) :
+    inducedGenLoop (Fin n) (fiberProjection f) (fiberLiftGenLoop H) = γ := by
+  apply GenLoop.ext
+  intro t
+  -- (fiberProjection ∘ fiberLift)(t) = first component of fiberLift(t) = γ(t)
+  rfl
+
 /-- Exactness of the fiber sequence: ker(f_*) = im(inclusion_*).
     An element of π_n(X) that maps to the basepoint class in π_n(Y) can be
     lifted to an element of π_n(Ff). -/
@@ -552,7 +659,26 @@ theorem fiber_sequence_ker_eq_im (f : X ⟶ Y) (n : ℕ) :
   -- This is the exactness property of the fiber sequence
   -- If f_*(α) is trivial, then α can be lifted through the fiber
   intro α hα
-  sorry
+  -- Reduce to a representative
+  induction α using Quotient.ind with
+  | _ γ =>
+    -- γ : GenLoop (Fin n) X.carrier X.basepoint
+    -- hα : inducedπ n f ⟦γ⟧ = ⟦GenLoop.const⟧
+    -- i.e., ⟦inducedGenLoop (Fin n) f γ⟧ = ⟦GenLoop.const⟧
+    -- This means inducedGenLoop f γ is homotopic to GenLoop.const
+    have hHomotopic : GenLoop.Homotopic (inducedGenLoop (Fin n) f γ) GenLoop.const := by
+      simp only [inducedπ, Quotient.map'_mk''] at hα
+      exact Quotient.exact hα
+    -- Extract the homotopy
+    obtain ⟨H⟩ := hHomotopic
+    -- H : HomotopyRel (inducedGenLoop f γ).val GenLoop.const.val (Cube.boundary (Fin n))
+    -- Construct the lift using fiberLiftGenLoop
+    use ⟦fiberLiftGenLoop H⟧
+    -- Show that the projection gives back ⟦γ⟧
+    simp only [fiberProjectionInduced, inducedπ, Quotient.map'_mk'']
+    apply Quotient.sound
+    -- Need: inducedGenLoop (fiberProjection f) (fiberLiftGenLoop H) is homotopic to γ
+    rw [fiberLiftGenLoop_proj]
 
 end LongExactSequence
 

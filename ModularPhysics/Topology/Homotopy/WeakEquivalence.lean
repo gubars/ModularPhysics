@@ -100,6 +100,26 @@ theorem inducedGenLoop_comp_homotopic (N : Type*) (f : X ⟶ Y) (g : Y ⟶ Z)
   -- (g ∘ f) ∘ γ = g ∘ (f ∘ γ)
   apply GenLoop.Homotopic.refl
 
+/-! ### Compatibility with Group Operations -/
+
+open GenLoop in
+/-- The induced map on GenLoops commutes with transAt (the multiplication operation).
+    This is because transAt is defined pointwise and inducedGenLoop is just composition:
+    f ∘ (transAt i g₁ g₂) = transAt i (f ∘ g₁) (f ∘ g₂) -/
+theorem inducedGenLoop_transAt [Nonempty N] [DecidableEq N] (f : X ⟶ Y) (i : N)
+    (g₁ g₂ : GenLoop N X.carrier X.basepoint) :
+    inducedGenLoop N f (transAt i g₁ g₂) = transAt i (inducedGenLoop N f g₁) (inducedGenLoop N f g₂) := by
+  apply Subtype.ext
+  apply ContinuousMap.ext
+  intro t
+  -- Unfold both sides manually
+  simp only [inducedGenLoop, toContinuousMap, ContinuousMap.comp_apply, ContinuousMap.coe_mk]
+  -- Unfold transAt and copy to get to the underlying function
+  unfold transAt copy
+  simp only [ContinuousMap.coe_mk]
+  -- Now both sides are if-then-else expressions
+  split_ifs <;> rfl
+
 end InducedOnGenLoop
 
 /-! ## Induced Map on Homotopy Groups -/
@@ -133,6 +153,38 @@ theorem inducedπ_id (n : ℕ) :
   simp only [inducedπ, Quotient.map'_mk'', id_eq]
   apply Quotient.sound
   exact inducedGenLoop_id_homotopic (Fin n) _
+
+/-! ### Group Homomorphism Property -/
+
+/-- The induced map on homotopy groups preserves multiplication.
+    This makes f_* : π_n(X) → π_n(Y) a group homomorphism for n ≥ 1. -/
+theorem inducedπ_mul (n : ℕ) (f : X ⟶ Y)
+    (a b : HomotopyGroup.Pi (n + 1) X.carrier X.basepoint) :
+    inducedπ (n + 1) f (a * b) = inducedπ (n + 1) f a * inducedπ (n + 1) f b := by
+  -- Use quotient induction first
+  induction a using Quotient.ind with
+  | _ α =>
+    induction b using Quotient.ind with
+    | _ β =>
+      -- The index for transAt
+      let i : Fin (n + 1) := ⟨0, Nat.zero_lt_succ n⟩
+      -- Cast the quotients to HomotopyGroup.Pi explicitly
+      let aX : HomotopyGroup.Pi (n + 1) X.carrier X.basepoint := ⟦α⟧
+      let bX : HomotopyGroup.Pi (n + 1) X.carrier X.basepoint := ⟦β⟧
+      let aY : HomotopyGroup.Pi (n + 1) Y.carrier Y.basepoint := ⟦inducedGenLoop (Fin (n + 1)) f α⟧
+      let bY : HomotopyGroup.Pi (n + 1) Y.carrier Y.basepoint := ⟦inducedGenLoop (Fin (n + 1)) f β⟧
+      -- Show the goal uses these
+      show inducedπ (n + 1) f (aX * bX) = aY * bY
+      -- Use mul_spec for both multiplications
+      have hLHS : aX * bX = ⟦GenLoop.transAt i β α⟧ := HomotopyGroup.mul_spec (i := i)
+      have hRHS : aY * bY = ⟦GenLoop.transAt i (inducedGenLoop (Fin (n + 1)) f β)
+                                                (inducedGenLoop (Fin (n + 1)) f α)⟧ :=
+        HomotopyGroup.mul_spec (i := i)
+      rw [hLHS, hRHS]
+      -- Now goal: inducedπ (n+1) f ⟦transAt i β α⟧ = ⟦transAt i (inducedGenLoop f β) (inducedGenLoop f α)⟧
+      simp only [inducedπ, Quotient.map'_mk'']
+      apply Quotient.sound
+      rw [inducedGenLoop_transAt f i β α]
 
 end InducedOnπ
 

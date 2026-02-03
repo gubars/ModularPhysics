@@ -86,6 +86,32 @@ theorem transitionMap_eq (k n : ℕ) (x : E.levelHomotopyGroup n k) :
     (loopSpaceHomotopyGroupEquiv (E.spaceAt (k + 1)) n) (E.structureMapInduced k n x) := by
   rfl
 
+/-! ### Group Homomorphism Properties of Transition Maps -/
+
+/-- The structure map induced map preserves multiplication.
+    This follows from the general fact that induced maps on homotopy groups
+    preserve the group structure. -/
+theorem structureMapInduced_mul (k n : ℕ)
+    (a b : E.levelHomotopyGroup (n + 1) k) :
+    E.structureMapInduced k (n + 1) (a * b) =
+    E.structureMapInduced k (n + 1) a * E.structureMapInduced k (n + 1) b := by
+  unfold structureMapInduced
+  exact inducedπ_mul n (E.ε k) a b
+
+/-- The full transition map preserves multiplication.
+    This combines the structure map induced map (which preserves multiplication)
+    with the loop space isomorphism (which also preserves multiplication). -/
+theorem transitionMap_mul (k n : ℕ)
+    (a b : E.levelHomotopyGroup (n + 1) k) :
+    E.transitionMap k (n + 1) (a * b) =
+    E.transitionMap k (n + 1) a * E.transitionMap k (n + 1) b := by
+  unfold transitionMap spectrumTransitionMap
+  simp only [Function.comp_apply]
+  rw [inducedπ_mul]
+  -- loopSpaceHomotopyGroupEquiv_mul n works with π_{n+1}(ΩX)
+  exact loopSpaceHomotopyGroupEquiv_mul (E.spaceAt (k + 1)) n
+    (inducedπ (n + 1) (E.ε k) a) (inducedπ (n + 1) (E.ε k) b)
+
 end MathlibHomotopyGroups
 
 /-! ## Stable Homotopy Groups
@@ -170,15 +196,18 @@ theorem levelIndex_succ (k : ℤ) (n : ℕ) (h : startIndex k ≤ n) :
     This goes: E.colimitTerm k n → E.colimitTerm k (n+1)
 
     Uses the transitionMap which combines the structure map induced map with
-    the loop-space isomorphism. -/
+    the loop-space isomorphism.
+
+    The cast from levelIndex_succ is made explicit for easier reasoning. -/
 noncomputable def colimitTransition (k : ℤ) (n : ℕ) (h : startIndex k ≤ n) :
-    E.colimitTerm k n h → E.colimitTerm k (n + 1) (startIndex_succ k n h) := by
-  -- Need to show: π_{levelIndex k n h}(E_n) → π_{levelIndex k (n+1) h'}(E_{n+1})
-  -- By levelIndex_succ, the target index is levelIndex k n h + 1
-  intro x
-  unfold colimitTerm
-  rw [levelIndex_succ]
-  exact E.transitionMap n (levelIndex k n h) x
+    E.colimitTerm k n h → E.colimitTerm k (n + 1) (startIndex_succ k n h) :=
+  -- By levelIndex_succ: levelIndex k (n+1) h' = levelIndex k n h + 1
+  -- transitionMap produces E.levelHomotopyGroup (levelIndex k n h + 1) (n+1)
+  -- colimitTerm k (n+1) h' = E.levelHomotopyGroup (levelIndex k (n+1) h') (n+1)
+  -- Eq.mpr converts from RHS to LHS of the equality
+  -- congrArg gives: levelHomotopyGroup (levelIndex k (n+1) _) _ = levelHomotopyGroup (levelIndex k n h + 1) _
+  fun x => Eq.mpr (congrArg (E.levelHomotopyGroup · (n + 1)) (levelIndex_succ k n h))
+             (E.transitionMap n (levelIndex k n h) x)
 
 /-! ### The Equivalence Relation
 
@@ -373,6 +402,326 @@ theorem omegaSpectrum_bijective (hE : IsOmegaSpectrum E) (k n : ℕ) :
   exact hE k n
 
 end Properties
+
+/-! ## Induced Maps on Stable Homotopy Groups
+
+For a spectrum map f : E → F, we define the induced map f_* : π_k(E) → π_k(F).
+This requires showing that the level-wise induced maps commute with the transition
+maps in the colimit system. -/
+
+section InducedMaps
+
+variable {E F G : Spectrum}
+
+/-- The induced map on level homotopy groups from a spectrum map.
+    Given f : E → F, this is (f_n)_* : π_m(E_n) → π_m(F_n). -/
+def levelInducedMap (f : E ⟶ F) (m n : ℕ) :
+    E.levelHomotopyGroup m n → F.levelHomotopyGroup m n :=
+  inducedπ m (f.levelMap n)
+
+/-- The induced map on loop-level homotopy groups.
+    Given f : E → F, this is Ω(f_{n+1})_* : π_m(ΩE_{n+1}) → π_m(ΩF_{n+1}). -/
+def loopLevelInducedMap (f : E ⟶ F) (m n : ℕ) :
+    E.loopLevelHomotopyGroup m (n + 1) → F.loopLevelHomotopyGroup m (n + 1) :=
+  inducedπ m (loopSpaceMap (f.levelMap (n + 1)))
+
+/-- Composition of inducedGenLoop with two maps equals inducedGenLoop of their composition
+    (pointwise equality, not just homotopic). -/
+theorem inducedGenLoop_comp {X Y Z : PointedTopSpace} (N : Type*) (f : X ⟶ Y) (g : Y ⟶ Z)
+    (γ : GenLoop N X.carrier X.basepoint) :
+    inducedGenLoop N g (inducedGenLoop N f γ) = inducedGenLoop N (f ≫ g) γ := by
+  apply Subtype.ext
+  ext t
+  rfl
+
+/-- Key lemma: composing with f_n ≫ F.ε n gives the same GenLoop as E.ε n ≫ Ω(f_{n+1}).
+    This follows from the spectrum map compatibility condition. -/
+theorem inducedGenLoop_spectrum_comm (f : E ⟶ F) (n m : ℕ)
+    (γ : GenLoop (Fin m) (E.spaceAt n).carrier (E.spaceAt n).basepoint) :
+    inducedGenLoop (Fin m) (E.ε n ≫ loopSpaceMap (f.levelMap (n + 1))) γ =
+    inducedGenLoop (Fin m) (f.levelMap n ≫ F.ε n) γ := by
+  have hcomm : E.ε n ≫ loopSpaceMap (f.levelMap (n + 1)) = f.levelMap n ≫ F.ε n := f.comm n
+  rw [hcomm]
+
+/-- The structure map induced map factors through the loop space map.
+    This is the key compatibility lemma. -/
+theorem structureMapInduced_natural (f : E ⟶ F) (n m : ℕ) (x : E.levelHomotopyGroup m n) :
+    loopLevelInducedMap f m n (E.structureMapInduced n m x) =
+    F.structureMapInduced n m (levelInducedMap f m n x) := by
+  unfold structureMapInduced loopLevelInducedMap levelInducedMap inducedπ
+  induction x using Quotient.ind with
+  | _ γ =>
+    simp only [Quotient.map'_mk'']
+    apply Quotient.sound
+    -- LHS: inducedGenLoop (Ω(f_{n+1})) (inducedGenLoop (E.ε n) γ)
+    -- RHS: inducedGenLoop (F.ε n) (inducedGenLoop (f_n) γ)
+    -- By inducedGenLoop_comp: LHS = inducedGenLoop (E.ε n ≫ Ω(f_{n+1})) γ
+    --                          RHS = inducedGenLoop (f_n ≫ F.ε n) γ
+    rw [inducedGenLoop_comp, inducedGenLoop_comp]
+    rw [inducedGenLoop_spectrum_comm]
+
+/-- Key lemma: the spectrum map induced maps commute with the full transition map.
+    This shows: F.transitionMap ∘ (f_n)_* = (f_{n+1})_* ∘ E.transitionMap -/
+theorem transitionMap_natural (f : E ⟶ F) (n m : ℕ) (x : E.levelHomotopyGroup m n) :
+    levelInducedMap f (m + 1) (n + 1) (E.transitionMap n m x) =
+    F.transitionMap n m (levelInducedMap f m n x) := by
+  unfold transitionMap spectrumTransitionMap
+  simp only [Function.comp_apply]
+  unfold levelInducedMap inducedπ
+  induction x using Quotient.ind with
+  | _ γ =>
+    simp only [Quotient.map'_mk'']
+    unfold loopSpaceHomotopyGroupEquiv
+    apply Quotient.sound
+    -- LHS: inducedGenLoop (f_{n+1}) (genLoopCurryEquiv E (inducedGenLoop (E.ε n) γ))
+    -- RHS: genLoopCurryEquiv F (inducedGenLoop (F.ε n) (inducedGenLoop (f_n) γ))
+    -- Use genLoopCurryEquiv_natural backwards to transform LHS
+    have heq_natural := genLoopCurryEquiv_natural (f.levelMap (n + 1)) m
+        (inducedGenLoop (Fin m) (E.ε n) γ)
+    -- heq_natural : genLoopCurryEquiv F (inducedGenLoop (loopSpaceMap f_{n+1}) (inducedGenLoop (E.ε n) γ))
+    --             = inducedGenLoop f_{n+1} (genLoopCurryEquiv E (inducedGenLoop (E.ε n) γ))
+    have hgoal : inducedGenLoop (Fin (m + 1)) (f.levelMap (n + 1))
+           (genLoopCurryEquiv (E.spaceAt (n + 1)) m (inducedGenLoop (Fin m) (E.ε n) γ))
+        = genLoopCurryEquiv (F.spaceAt (n + 1)) m
+           (inducedGenLoop (Fin m) (F.ε n) (inducedGenLoop (Fin m) (f.levelMap n) γ)) := by
+      calc _ = genLoopCurryEquiv (F.spaceAt (n + 1)) m
+             (inducedGenLoop (Fin m) (loopSpaceMap (f.levelMap (n + 1))) (inducedGenLoop (Fin m) (E.ε n) γ))
+             := heq_natural.symm
+        _ = genLoopCurryEquiv (F.spaceAt (n + 1)) m
+             (inducedGenLoop (Fin m) (E.ε n ≫ loopSpaceMap (f.levelMap (n + 1))) γ)
+             := by rw [inducedGenLoop_comp]
+        _ = genLoopCurryEquiv (F.spaceAt (n + 1)) m
+             (inducedGenLoop (Fin m) (f.levelMap n ≫ F.ε n) γ)
+             := by rw [f.comm n]
+        _ = genLoopCurryEquiv (F.spaceAt (n + 1)) m
+             (inducedGenLoop (Fin m) (F.ε n) (inducedGenLoop (Fin m) (f.levelMap n) γ))
+             := by rw [← inducedGenLoop_comp]
+    -- Convert equality to homotopy
+    exact hgoal ▸ GenLoop.Homotopic.refl _
+
+/-- The induced map on colimit terms.
+    For each level n ≥ startIndex k, this maps E.colimitTerm k n → F.colimitTerm k n. -/
+def colimitTermInduced (f : E ⟶ F) (k : ℤ) (n : ℕ) (h : startIndex k ≤ n) :
+    E.colimitTerm k n h → F.colimitTerm k n h :=
+  levelInducedMap f (levelIndex k n h) n
+
+/-- Helper lemma: levelInducedMap commutes with Eq.mpr type casts on the level index.
+    When m₁ = m₂, applying levelInducedMap at m₁ to a casted element equals
+    casting the result of levelInducedMap at m₂. -/
+theorem levelInducedMap_eqMpr (f : E ⟶ F) (m₁ m₂ : ℕ) (n : ℕ) (hm : m₁ = m₂)
+    (x : E.levelHomotopyGroup m₂ n) :
+    levelInducedMap f m₁ n (Eq.mpr (congrArg (E.levelHomotopyGroup · n) hm) x) =
+    Eq.mpr (congrArg (F.levelHomotopyGroup · n) hm) (levelInducedMap f m₂ n x) := by
+  subst hm
+  rfl
+
+/-- Key naturality lemma: colimitTermInduced commutes with colimitTransition.
+    F.colimitTransition (f_* x) = f_* (E.colimitTransition x) as quotient elements.
+
+    This is the single-step commutativity that implies full commutativity with imageAtLevel.
+    The proof uses transitionMap_natural. -/
+theorem colimitTermInduced_colimitTransition (f : E ⟶ F) (k : ℤ) (n : ℕ) (hn : startIndex k ≤ n)
+    (x : E.colimitTerm k n hn) :
+    F.colimitTransition k n hn (colimitTermInduced f k n hn x) =
+    colimitTermInduced f k (n + 1) (startIndex_succ k n hn) (E.colimitTransition k n hn x) := by
+  -- transitionMap_natural says: levelInducedMap f (m+1) (n+1) (E.transitionMap n m x)
+  --                           = F.transitionMap n m (levelInducedMap f m n x)
+  have hnat := transitionMap_natural f n (levelIndex k n hn) x
+  -- hlev : levelIndex k (n + 1) _ = levelIndex k n hn + 1
+  have hlev : levelIndex k (n + 1) (startIndex_succ k n hn) = levelIndex k n hn + 1 :=
+    levelIndex_succ k n hn
+  -- Unfold definitions to expose the Eq.mpr structure
+  unfold colimitTermInduced colimitTransition colimitTerm
+  -- Both sides involve Eq.mpr with proofs derived from hlev
+  -- Use Eq.rec to handle the dependent cast
+  -- The key insight: both sides, when "un-cast", equal the same thing by hnat
+  -- Prove by showing LHS = RHS via intermediate form
+  have hE_type : E.levelHomotopyGroup (levelIndex k (n + 1) (startIndex_succ k n hn)) (n + 1) =
+                 E.levelHomotopyGroup (levelIndex k n hn + 1) (n + 1) :=
+    congrArg (E.levelHomotopyGroup · (n + 1)) hlev
+  have hF_type : F.levelHomotopyGroup (levelIndex k (n + 1) (startIndex_succ k n hn)) (n + 1) =
+                 F.levelHomotopyGroup (levelIndex k n hn + 1) (n + 1) :=
+    congrArg (F.levelHomotopyGroup · (n + 1)) hlev
+  -- The Eq.mpr in colimitTransition uses congrArg (levelHomotopyGroup · (n+1)) hlev
+  -- Show both sides equal the same thing
+  -- Use Eq.rec with the levelIndex equality to unify the types
+  calc F.colimitTransition k n hn (colimitTermInduced f k n hn x)
+      = Eq.mpr (congrArg (F.levelHomotopyGroup · (n + 1)) hlev)
+          (F.transitionMap n (levelIndex k n hn) (levelInducedMap f (levelIndex k n hn) n x)) := rfl
+    _ = Eq.mpr (congrArg (F.levelHomotopyGroup · (n + 1)) hlev)
+          (levelInducedMap f (levelIndex k n hn + 1) (n + 1) (E.transitionMap n (levelIndex k n hn) x)) := by
+        rw [hnat]
+    _ = levelInducedMap f (levelIndex k (n + 1) (startIndex_succ k n hn)) (n + 1)
+          (Eq.mpr (congrArg (E.levelHomotopyGroup · (n + 1)) hlev) (E.transitionMap n (levelIndex k n hn) x)) := by
+        rw [← levelInducedMap_eqMpr f (levelIndex k (n + 1) _) (levelIndex k n hn + 1) (n + 1) hlev
+            (E.transitionMap n (levelIndex k n hn) x)]
+    _ = colimitTermInduced f k (n + 1) (startIndex_succ k n hn) (E.colimitTransition k n hn x) := rfl
+
+/-- Helper: colimitTermInduced commutes with imageAtLevel.
+    F.imageAtLevel (f_* x) = f_* (E.imageAtLevel x) -/
+theorem colimitTermInduced_imageAtLevel (f : E ⟶ F) (k : ℤ) (n : ℕ) (hn : startIndex k ≤ n)
+    (M : ℕ) (hM : n ≤ M) (x : E.colimitTerm k n hn) :
+    F.imageAtLevel k n hn M hM (colimitTermInduced f k n hn x) =
+    colimitTermInduced f k M (Nat.le_trans hn hM) (E.imageAtLevel k n hn M hM x) := by
+  -- By strong induction on (M - n)
+  induction hd : M - n using Nat.strong_induction_on generalizing n M with
+  | _ d ih =>
+    by_cases hnM : n = M
+    · -- Base case: n = M
+      subst hnM
+      simp only [imageAtLevel_self]
+    · -- Recursive case: n < M
+      have hn_lt_M : n < M := Nat.lt_of_le_of_ne hM hnM
+      have hstep : startIndex k ≤ n + 1 := Nat.le_trans hn (Nat.le_succ n)
+      have hd' : M - (n + 1) < d := by omega
+      -- Unfold imageAtLevel on both sides
+      have hL : F.imageAtLevel k n hn M hM (colimitTermInduced f k n hn x) =
+                F.imageAtLevel k (n + 1) hstep M hn_lt_M
+                  (F.colimitTransition k n hn (colimitTermInduced f k n hn x)) := by
+        rw [imageAtLevel]; simp only [hnM, ↓reduceDIte]
+      have hR : E.imageAtLevel k n hn M hM x =
+                E.imageAtLevel k (n + 1) hstep M hn_lt_M (E.colimitTransition k n hn x) := by
+        rw [imageAtLevel]; simp only [hnM, ↓reduceDIte]
+      rw [hL, hR]
+      -- Use colimitTermInduced_colimitTransition to swap the order
+      rw [colimitTermInduced_colimitTransition]
+      -- Now apply IH
+      exact ih (M - (n + 1)) hd' (n + 1) hstep M hn_lt_M (E.colimitTransition k n hn x) rfl
+
+/-- The induced map on colimit representations preserves the equivalence relation.
+    If two representations are equivalent in E, their images are equivalent in F. -/
+theorem colimitTermInduced_preserves_equiv (f : E ⟶ F) (k : ℤ)
+    (r₁ r₂ : StableHomotopyGroupRep E k)
+    (heq : StableHomotopyGroupRep.Equiv E k r₁ r₂) :
+    StableHomotopyGroupRep.Equiv F k
+      ⟨r₁.level, r₁.level_valid, colimitTermInduced f k r₁.level r₁.level_valid r₁.element⟩
+      ⟨r₂.level, r₂.level_valid, colimitTermInduced f k r₂.level r₂.level_valid r₂.element⟩ := by
+  obtain ⟨N, hN₁, hN₂, heqN⟩ := heq
+  use N, hN₁, hN₂
+  -- Apply colimitTermInduced_imageAtLevel to both sides
+  rw [colimitTermInduced_imageAtLevel f k r₁.level r₁.level_valid N hN₁ r₁.element]
+  rw [colimitTermInduced_imageAtLevel f k r₂.level r₂.level_valid N hN₂ r₂.element]
+  -- Now apply heqN
+  exact congrArg _ heqN
+
+/-- The induced map on stable homotopy group representations. -/
+def StableHomotopyGroupRep.map (f : E ⟶ F) (k : ℤ) (r : StableHomotopyGroupRep E k) :
+    StableHomotopyGroupRep F k where
+  level := r.level
+  level_valid := r.level_valid
+  element := colimitTermInduced f k r.level r.level_valid r.element
+
+/-- The induced map on stable homotopy groups.
+    For f : E → F, this is f_* : π_k(E) → π_k(F). -/
+noncomputable def stableπInduced (f : E ⟶ F) (k : ℤ) :
+    StableHomotopyGroup E k → StableHomotopyGroup F k :=
+  Quotient.map' (StableHomotopyGroupRep.map f k)
+    (fun r₁ r₂ heq => colimitTermInduced_preserves_equiv f k r₁ r₂ heq)
+
+/-- Notation for the induced map on stable homotopy groups. -/
+scoped notation f "₊" => stableπInduced f
+
+/-- The induced map is functorial: identity induces identity. -/
+theorem stableπInduced_id (E : Spectrum) (k : ℤ) :
+    stableπInduced (𝟙 E) k = id := by
+  funext x
+  induction x using Quotient.ind with
+  | _ r =>
+    simp only [stableπInduced, Quotient.map'_mk'', id_eq]
+    apply Quotient.sound
+    -- Show the representations are equivalent
+    use r.level, le_refl _, le_refl _
+    unfold StableHomotopyGroupRep.map colimitTermInduced levelInducedMap inducedπ
+    simp only [imageAtLevel_self]
+    -- (𝟙 E).levelMap n = 𝟙 (E.spaceAt n)
+    -- inducedGenLoop (𝟙 X) γ = γ
+    induction r.element using Quotient.ind with
+    | _ γ =>
+      simp only [Quotient.map'_mk'']
+      congr 1
+
+/-- The induced map is functorial: composition. -/
+theorem stableπInduced_comp (f : E ⟶ F) (g : F ⟶ G) (k : ℤ) :
+    stableπInduced (f ≫ g) k = stableπInduced g k ∘ stableπInduced f k := by
+  funext x
+  induction x using Quotient.ind with
+  | _ r =>
+    simp only [stableπInduced, Quotient.map'_mk'', Function.comp_apply]
+    apply Quotient.sound
+    -- Show the representations are equivalent
+    use r.level, le_refl _, le_refl _
+    unfold StableHomotopyGroupRep.map colimitTermInduced levelInducedMap inducedπ
+    simp only [imageAtLevel_self]
+    -- (f ≫ g).levelMap n = f.levelMap n ≫ g.levelMap n
+    -- inducedGenLoop (f ≫ g) γ ≃ inducedGenLoop g (inducedGenLoop f γ)
+    induction r.element using Quotient.ind with
+    | _ γ =>
+      simp only [Quotient.map'_mk'']
+      congr 1
+
+end InducedMaps
+
+/-! ## Group Structure on Stable Homotopy Groups
+
+The stable homotopy groups π_k(E) are abelian groups. The group structure comes from
+the group structure on the level homotopy groups π_{n+k}(E_n), which are abelian
+groups for n+k ≥ 2. Since the transition maps are group homomorphisms, the colimit
+inherits an abelian group structure.
+
+**Note:** The full group structure requires careful handling of the fact that
+early levels (where n+k < 1) don't have group structure. The standard approach is
+to take the colimit starting from a level where n+k ≥ 2. This is left as future work.
+
+Key lemmas already proved:
+- `transitionMap_mul`: transition maps preserve multiplication
+- `inducedπ_mul`: induced maps on homotopy groups preserve multiplication
+- `loopSpaceHomotopyGroupEquiv_mul`: the loop space isomorphism preserves multiplication
+-/
+
+section GroupStructure
+
+variable (E : Spectrum) (k : ℤ)
+
+/-- The minimum level for group structure: we need levelIndex k n h ≥ 1 for group structure.
+    This is n such that n + k ≥ 1, i.e., n ≥ max(startIndex k, 1 - k). -/
+def groupStartIndex : ℕ := max (startIndex k) (Int.toNat (1 - k))
+
+/-- At groupStartIndex, the level index is at least 1. -/
+theorem levelIndex_ge_one_at_groupStart :
+    1 ≤ levelIndex k (groupStartIndex k) (Nat.le_max_left _ _) := by
+  unfold groupStartIndex levelIndex startIndex
+  -- Goal: 1 ≤ Int.toNat (↑(max (Int.toNat (-k)) (Int.toNat (1 - k))) + k)
+  -- We need to show max(toNat(-k), toNat(1-k)) + k ≥ 1
+  -- Let m = max (Int.toNat (-k)) (Int.toNat (1 - k))
+  set m := max (Int.toNat (-k)) (Int.toNat (1 - k)) with hm_def
+  -- We need 1 ≤ Int.toNat (↑m + k)
+  -- First show ↑m + k ≥ 1
+  have hm_ge : (m : ℤ) + k ≥ 1 := by
+    have h1 : m ≥ Int.toNat (1 - k) := Nat.le_max_right _ _
+    by_cases hk : 1 - k ≤ 0
+    · -- 1 - k ≤ 0, so k ≥ 1, so m + k ≥ 0 + 1 = 1
+      have hk1 : k ≥ 1 := by omega
+      omega
+    · -- 1 - k > 0, so toNat(1-k) = 1 - k, so m ≥ 1 - k, so m + k ≥ 1
+      push_neg at hk
+      have h2 : Int.toNat (1 - k) = (1 - k).toNat := rfl
+      have h3 : (Int.toNat (1 - k) : ℤ) = 1 - k := Int.toNat_of_nonneg (by omega : 0 ≤ 1 - k)
+      have h4 : (m : ℤ) ≥ 1 - k := by
+        calc (m : ℤ) ≥ Int.toNat (1 - k) := Int.ofNat_le.mpr h1
+          _ = 1 - k := h3
+      omega
+  -- Use Int.toNat_le_toNat: 1 ≤ x → toNat 1 ≤ toNat x
+  have h1_eq : (1 : ℕ) = Int.toNat 1 := rfl
+  rw [h1_eq]
+  exact Int.toNat_le_toNat hm_ge
+
+/-- At groupStartIndex, Fin (levelIndex) is nonempty, enabling the group structure. -/
+instance groupStartIndex_nonempty :
+    Nonempty (Fin (levelIndex k (groupStartIndex k) (Nat.le_max_left _ _))) := by
+  have h := levelIndex_ge_one_at_groupStart k
+  exact ⟨⟨0, Nat.lt_of_lt_of_le Nat.zero_lt_one h⟩⟩
+
+end GroupStructure
 
 end Spectrum
 

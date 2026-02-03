@@ -29,10 +29,10 @@ For a pointed space X, the suspension spectrum Σ^∞X has:
 The sphere spectrum 𝕊 = Σ^∞S⁰ is the suspension spectrum of the 0-sphere.
 It is the unit for the smash product of spectra.
 
-### Eilenberg-MacLane Spectrum HR (Future)
-For an abelian group R, the Eilenberg-MacLane spectrum has:
-- Level n: K(R, n) (Eilenberg-MacLane space)
-- This represents ordinary cohomology: H^n(X; R) ≅ [Σ^∞X, Σ^n HR]
+### Trivial Spectrum
+All spaces are the one-point space. This is an Ω-spectrum (proved).
+
+Note: Eilenberg-MacLane spectra are defined separately in `EilenbergMacLane.lean`.
 
 ## References
 
@@ -64,45 +64,6 @@ theorem suspensionSpectrum_level_one : (suspensionSpectrum X).spaceAt 1 = Σ₊ 
 theorem suspensionSpectrum_level_n (n : ℕ) :
     (suspensionSpectrum X).spaceAt n = iteratedSuspension n X := rfl
 
-/-- Suspension of a pointed map. -/
-def suspensionMap {X Y : PointedTopSpace} (f : X ⟶ Y) : Σ₊ X ⟶ Σ₊ Y where
-  toFun := Quotient.lift (fun p => Quotient.mk (suspensionSetoid Y) (f.toFun p.1, p.2))
-    (by
-      intro p q h
-      apply Quotient.sound
-      cases h with
-      | inl h => exact Or.inl (by rw [h])
-      | inr h =>
-        right
-        constructor
-        · obtain ⟨hp, _⟩ := h
-          cases hp with
-          | inl hp => left; exact hp
-          | inr hp =>
-            cases hp with
-            | inl hp => right; left; exact hp
-            | inr hp => right; right; rw [hp]; exact f.map_basepoint
-        · obtain ⟨_, hq⟩ := h
-          cases hq with
-          | inl hq => left; exact hq
-          | inr hq =>
-            cases hq with
-            | inl hq => right; left; exact hq
-            | inr hq => right; right; rw [hq]; exact f.map_basepoint
-    )
-  continuous_toFun := by
-    apply Continuous.quotient_lift
-    refine Continuous.comp ?_ (f.continuous.prodMap continuous_id)
-    exact continuous_quotient_mk'
-  map_basepoint := by
-    show Quotient.lift _ _ (suspensionBasepoint X) = suspensionBasepoint Y
-    simp only [suspensionBasepoint]
-    apply Quotient.sound
-    right
-    constructor
-    · right; right; exact f.map_basepoint
-    · left; rfl
-
 /-- The n-fold iterated suspension of a map. -/
 def iteratedSuspensionMap {X Y : PointedTopSpace} (f : X ⟶ Y) :
     ∀ (n : ℕ), iteratedSuspension n X ⟶ iteratedSuspension n Y
@@ -116,7 +77,13 @@ noncomputable def suspensionSpectrumMap (f : X ⟶ Y) :
   comm n := by
     -- Need: ε_n ≫ Ω(Σ^∞f_{n+1}) = Σ^∞f_n ≫ ε_n
     -- This is the naturality of the suspension unit η
-    sorry
+    -- E.ε n = suspensionUnit (iteratedSuspension n X)
+    -- levelMap n = iteratedSuspensionMap f n
+    -- levelMap (n+1) = suspensionMap (iteratedSuspensionMap f n)
+    show suspensionUnit (iteratedSuspension n X) ≫
+           loopSpaceMap (suspensionMap (iteratedSuspensionMap f n)) =
+         iteratedSuspensionMap f n ≫ suspensionUnit (iteratedSuspension n Y)
+    exact (suspensionUnit_natural (iteratedSuspensionMap f n)).symm
 
 end SuspensionSpectrum
 
@@ -302,64 +269,6 @@ theorem mkSpectrum_isOmega (spaces : ℕ → PointedTopSpace)
   hWeak
 
 end OmegaSpectrumConstruction
-
-/-! ## Eilenberg-MacLane Spectra
-
-The Eilenberg-MacLane spectrum HR for an abelian group R requires:
-1. Eilenberg-MacLane spaces K(R, n) with π_n(K(R,n)) = R and π_k(K(R,n)) = 0 for k ≠ n
-2. Weak equivalences K(R, n) ≃_w Ω(K(R, n+1))
-
-We define the STRUCTURE of an Eilenberg-MacLane spectrum as a package of:
-- A spectrum E
-- A proof that E is an Ω-spectrum
-- Evidence that the homotopy groups satisfy the EM property
-
-This is NOT an axiom - it's a specification. To create an instance, one must
-actually construct K(R,n) spaces and prove all properties.
--/
-
-section EilenbergMacLane
-
-/-- An Eilenberg-MacLane spectrum for an abelian group R is an Ω-spectrum HR
-    satisfying the characteristic homotopy group property:
-    - π_0(HR) ≅ R
-    - π_k(HR) = 0 for k ≠ 0
-
-    This is a STRUCTURE, not an axiom. To construct an instance, one must:
-    1. Build Eilenberg-MacLane spaces K(R, n)
-    2. Assemble them into a spectrum
-    3. Prove the Ω-spectrum property
-    4. Prove the homotopy group characterization
-
-    Note: The full formulation would use the stable homotopy groups StableHomotopyGroup.
-    Since those depend on the loop-space isomorphism (which has sorrys), we use
-    a simplified statement here. -/
-structure EilenbergMacLaneSpectrum (R : Type*) [AddCommGroup R] where
-  /-- The underlying spectrum -/
-  spectrum : Spectrum
-  /-- HR is an Ω-spectrum -/
-  isOmega : IsOmegaSpectrum spectrum
-  /-- The 0-th level space has homotopy concentrated in degree 0
-      (where the group structure is R). A full formulation would state:
-      - π_0(spectrum.spaceAt 0) ≅ R as groups
-      - π_k(spectrum.spaceAt n) = 0 for k ≠ n
-      For now, we use the level-0 bijection. -/
-  homotopy_zero : ∃ (φ : R → HomotopyGroup.Pi 0 (spectrum.spaceAt 0).carrier
-      (spectrum.spaceAt 0).basepoint),
-    Function.Bijective φ
-
-/-- Two Eilenberg-MacLane spectra for the same group are equivalent as spectra.
-    This is a consequence of the uniqueness of K(R, n) spaces up to weak equivalence.
-    (Statement only - proof requires the uniqueness theorem for EM spaces) -/
-theorem eilenbergMacLane_unique (R : Type*) [AddCommGroup R]
-    (HR₁ HR₂ : EilenbergMacLaneSpectrum R) :
-    ∃ (f : HR₁.spectrum ⟶ HR₂.spectrum), ∀ n,
-      IsWeakHomotopyEquivalence (f.levelMap n) := by
-  -- This follows from the uniqueness of K(R, n) up to weak equivalence
-  -- and the fact that Ω-spectra are determined by their spaces
-  sorry
-
-end EilenbergMacLane
 
 end Spectrum
 

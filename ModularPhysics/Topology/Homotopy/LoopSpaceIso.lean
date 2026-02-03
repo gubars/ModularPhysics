@@ -227,6 +227,88 @@ theorem curryGenLoopMap_apply
     (t : Fin n → I) (s : I) :
     ((curryGenLoopMap X n δ).val t) s = δ.val (Fin.snoc t s) := rfl
 
+/-- Uncurrying commutes with transAt: composing path-valued GenLoops along index i in the
+    n-cube corresponds to composing the uncurried (n+1)-cube GenLoops along Fin.castSucc i.
+
+    This is a key compatibility lemma for proving the group homomorphism property.
+    The proof shows that both sides evaluate to the same value at every point. -/
+theorem uncurryGenLoopMap_transAt (i : Fin n)
+    (γ₁ γ₂ : GenLoop (Fin n) (Path X.basepoint X.basepoint) (Path.refl X.basepoint)) :
+    uncurryGenLoopMap X n (GenLoop.transAt i γ₁ γ₂) =
+    GenLoop.transAt (Fin.castSucc i) (uncurryGenLoopMap X n γ₁) (uncurryGenLoopMap X n γ₂) := by
+  -- Both sides are GenLoops in I^{n+1} → X. We show they're equal pointwise.
+  apply Subtype.ext
+  apply ContinuousMap.ext
+  intro t
+  -- Unfold LHS: (transAt i γ₁ γ₂)(init t)(t(last n))
+  simp only [uncurryGenLoopMap_apply]
+  -- The transAt is defined as copy, and copy f g h applied to t equals g t
+  rw [GenLoop.transAt, GenLoop.transAt]
+  simp only [GenLoop.copy, ContinuousMap.coe_mk]
+  -- Key: (Fin.init t) i = t (Fin.castSucc i)
+  have hkey : (Fin.init t) i = t (Fin.castSucc i) := rfl
+  simp only [hkey]
+  -- Now both conditions match. Check the branches.
+  split_ifs with h
+  · -- First branch: both use γ₁ with scaled i-coordinate
+    -- LHS: (γ₁ (update (init t) i scaled))(t (last n))
+    -- RHS: (uncurry γ₁) (update t (castSucc i) scaled)
+    --    = (γ₁ (init (update t (castSucc i) scaled))) ((update t (castSucc i) scaled) (last n))
+    have hlast : Fin.last n ≠ Fin.castSucc i := by
+      intro heq
+      have : (Fin.last n).val = (Fin.castSucc i).val := congrArg Fin.val heq
+      simp only [Fin.val_last, Fin.val_castSucc] at this
+      omega
+    have hinit : Fin.init (Function.update t (Fin.castSucc i)
+        (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i)))) =
+        Function.update (Fin.init t) i (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i))) := by
+      ext j
+      simp only [Fin.init, Function.update_apply]
+      by_cases hj : j = i
+      · subst hj; simp only [↓reduceIte]
+      · simp only [hj, ↓reduceIte]
+        have hne : Fin.castSucc j ≠ Fin.castSucc i := fun heq => hj (Fin.castSucc_injective _ heq)
+        simp only [hne, ↓reduceIte]
+    have hupdate_last : (Function.update t (Fin.castSucc i)
+        (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i)))) (Fin.last n) = t (Fin.last n) := by
+      simp only [Function.update_apply, hlast, ↓reduceIte]
+    -- The RHS is (uncurryGenLoopMap X n γ₁) applied to the updated t
+    -- It unfolds to (γ₁ (init (updated t))) ((updated t) (last n))
+    -- By hinit: init (updated t) = update (init t) i (...)
+    -- By hupdate_last: (updated t) (last n) = t (last n)
+    -- So RHS = (γ₁ (update (init t) i ...)) (t (last n)) = LHS
+    let t' := Function.update t (Fin.castSucc i) (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i)))
+    -- Show that RHS = (γ₁ (Fin.init t')) (t' (Fin.last n))
+    change (γ₁ (Function.update (Fin.init t) i _)) (t (Fin.last n)) =
+           (γ₁ (Fin.init t')) (t' (Fin.last n))
+    -- Both sides are equal: Fin.init t' = update (init t) i ... by hinit
+    -- and t' (last n) = t (last n) by hupdate_last
+    -- The Set.projIcc proofs are equal by proof irrelevance
+    exact congrArg₂ (fun x y => (γ₁ x) y) hinit.symm hupdate_last.symm
+  · -- Second branch: both use γ₂ with scaled i-coordinate
+    have hlast : Fin.last n ≠ Fin.castSucc i := by
+      intro heq
+      have : (Fin.last n).val = (Fin.castSucc i).val := congrArg Fin.val heq
+      simp only [Fin.val_last, Fin.val_castSucc] at this
+      omega
+    have hinit : Fin.init (Function.update t (Fin.castSucc i)
+        (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i) - 1))) =
+        Function.update (Fin.init t) i (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i) - 1)) := by
+      ext j
+      simp only [Fin.init, Function.update_apply]
+      by_cases hj : j = i
+      · subst hj; simp only [↓reduceIte]
+      · simp only [hj, ↓reduceIte]
+        have hne : Fin.castSucc j ≠ Fin.castSucc i := fun heq => hj (Fin.castSucc_injective _ heq)
+        simp only [hne, ↓reduceIte]
+    have hupdate_last : (Function.update t (Fin.castSucc i)
+        (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i) - 1))) (Fin.last n) = t (Fin.last n) := by
+      simp only [Function.update_apply, hlast, ↓reduceIte]
+    let t' := Function.update t (Fin.castSucc i) (Set.projIcc 0 1 zero_le_one (2 * t (Fin.castSucc i) - 1))
+    change (γ₂ (Function.update (Fin.init t) i _)) (t (Fin.last n)) =
+           (γ₂ (Fin.init t')) (t' (Fin.last n))
+    exact congrArg₂ (fun x y => (γ₂ x) y) hinit.symm hupdate_last.symm
+
 /-- The curry/uncurry equivalence at the GenLoop level.
 
     Mathematical content:
@@ -391,6 +473,53 @@ theorem genLoopCurryEquiv_homotopic_inv
       exact hjval
     exact H.eq_fst t hbdy
 
+/-! ### Naturality of genLoopCurryEquiv
+
+The curry equivalence is natural with respect to pointed maps. -/
+
+/-- Naturality of genLoopCurryEquiv with respect to pointed maps.
+
+    For f : X → Y, the curry equivalence commutes with the induced maps:
+    currying a loop in ΩX and then applying f yields a homotopic result to
+    applying Ωf and then currying.
+
+    Mathematically: If γ : I^n → ΩX and f : X → Y, then
+    curry(Ωf(γ)) ≈ f(curry(γ)) as maps I^{n+1} → Y.
+
+    This follows because both operations just compose with f:
+    - LHS: (Ωf(γ))(t)(s) = f(γ(t)(s)), then curry gives f(γ(init t)(t_last))
+    - RHS: curry(γ) = γ(init t)(t_last), then f gives f(γ(init t)(t_last))
+    So both are definitionally equal. -/
+theorem genLoopCurryEquiv_natural {X Y : PointedTopSpace} (f : X ⟶ Y) (n : ℕ)
+    (γ : GenLoop (Fin n) (loopSpace X).carrier (loopSpace X).basepoint) :
+    (genLoopCurryEquiv Y n (inducedGenLoop (Fin n) (loopSpaceMap f) γ)) =
+    (inducedGenLoop (Fin (n + 1)) f (genLoopCurryEquiv X n γ)) := by
+  -- Both sides are definitionally equal - they both compute to f(γ(init t)(t_last))
+  apply Subtype.ext
+  apply ContinuousMap.ext
+  intro t
+  -- LHS: (genLoopCurryEquiv Y n (inducedGenLoop (loopSpaceMap f) γ)).val t
+  --    = uncurryGenLoopMap Y n (inducedGenLoop (loopSpaceMap f) γ) t
+  --    = (inducedGenLoop (loopSpaceMap f) γ (Fin.init t)) (t (Fin.last n))
+  --    = (loopSpaceMap f (γ (Fin.init t))) (t (Fin.last n))
+  --    = f ((γ (Fin.init t)) (t (Fin.last n)))
+  -- RHS: (inducedGenLoop f (genLoopCurryEquiv X n γ)).val t
+  --    = f ((genLoopCurryEquiv X n γ).val t)
+  --    = f (uncurryGenLoopMap X n γ t)
+  --    = f ((γ (Fin.init t)) (t (Fin.last n)))
+  simp only [genLoopCurryEquiv, Equiv.coe_fn_mk, uncurryGenLoopMap_apply,
+             inducedGenLoop, toContinuousMap, ContinuousMap.comp_apply, ContinuousMap.coe_mk,
+             loopSpaceMap]
+  rfl
+
+/-- Corollary: genLoopCurryEquiv yields homotopic results with induced maps. -/
+theorem genLoopCurryEquiv_natural_homotopic {X Y : PointedTopSpace} (f : X ⟶ Y) (n : ℕ)
+    (γ : GenLoop (Fin n) (loopSpace X).carrier (loopSpace X).basepoint) :
+    GenLoop.Homotopic
+      (genLoopCurryEquiv Y n (inducedGenLoop (Fin n) (loopSpaceMap f) γ))
+      (inducedGenLoop (Fin (n + 1)) f (genLoopCurryEquiv X n γ)) := by
+  rw [genLoopCurryEquiv_natural]
+
 end CurryUncurryInfra
 
 /-! ## The Main Equivalence
@@ -449,10 +578,38 @@ theorem loopSpaceHomotopyGroupEquiv_mul (n : ℕ) (h1 h2 : HomotopyGroup.Pi (n +
     (loopSpace X).carrier (loopSpace X).basepoint) :
     loopSpaceHomotopyGroupEquiv X (n + 1) (h1 * h2) =
     loopSpaceHomotopyGroupEquiv X (n + 1) h1 * loopSpaceHomotopyGroupEquiv X (n + 1) h2 := by
-  -- This follows from the fact that the homeomorphism underlying the equivalence
-  -- is compatible with the group operation on homotopy groups.
-  -- The group operation comes from concatenation of loops.
-  sorry
+  -- Use quotient induction to get representatives first
+  induction h1 using Quotient.ind
+  induction h2 using Quotient.ind
+  rename_i γ₁ γ₂
+  -- Now h1 = ⟦γ₁⟧ and h2 = ⟦γ₂⟧
+  -- Change the goal to use explicit function application for multiplication
+  change loopSpaceHomotopyGroupEquiv X (n + 1) (((· * ·) : _ → _ → HomotopyGroup.Pi (n + 1)
+      (loopSpace X).carrier (loopSpace X).basepoint) ⟦γ₁⟧ ⟦γ₂⟧) =
+    (loopSpaceHomotopyGroupEquiv X (n + 1) ⟦γ₁⟧) * (loopSpaceHomotopyGroupEquiv X (n + 1) ⟦γ₂⟧)
+  -- Rewrite source multiplication using mul_spec: ⟦p⟧ * ⟦q⟧ = ⟦transAt i q p⟧
+  rw [HomotopyGroup.mul_spec (i := ⟨0, Nat.zero_lt_succ n⟩)]
+  -- Now the goal is:
+  -- loopSpaceHomotopyGroupEquiv ⟦transAt 0 γ₂ γ₁⟧ = loopSpaceHomotopyGroupEquiv ⟦γ₁⟧ * loopSpaceHomotopyGroupEquiv ⟦γ₂⟧
+  -- loopSpaceHomotopyGroupEquiv is Quotient.congr with genLoopCurryEquiv
+  -- (Quotient.congr e h) ⟦x⟧ = ⟦e x⟧ by Quotient.congr_mk
+  unfold loopSpaceHomotopyGroupEquiv
+  erw [Quotient.congr_mk, Quotient.congr_mk, Quotient.congr_mk]
+  simp only [genLoopCurryEquiv, Equiv.coe_fn_mk]
+  -- Apply the key lemma: uncurry (transAt i γ₂ γ₁) = transAt (castSucc i) (uncurry γ₂) (uncurry γ₁)
+  rw [uncurryGenLoopMap_transAt]
+  -- The LHS is now ⟦transAt (castSucc 0) (uncurry γ₂) (uncurry γ₁)⟧
+  -- The RHS is ⟦uncurry γ₁⟧ * ⟦uncurry γ₂⟧
+  -- Change the RHS to explicit function application
+  change ⟦GenLoop.transAt (Fin.castSucc ⟨0, Nat.zero_lt_succ n⟩)
+      (uncurryGenLoopMap X (n + 1) γ₂) (uncurryGenLoopMap X (n + 1) γ₁)⟧ =
+    ((· * ·) : _ → _ → HomotopyGroup.Pi (n + 2) X.carrier X.basepoint)
+      ⟦uncurryGenLoopMap X (n + 1) γ₁⟧ ⟦uncurryGenLoopMap X (n + 1) γ₂⟧
+  -- Rewrite RHS using mul_spec
+  rw [HomotopyGroup.mul_spec (i := ⟨0, Nat.zero_lt_succ (n + 1)⟩)]
+  -- Now both sides are ⟦transAt 0 (uncurry γ₂) (uncurry γ₁)⟧
+  -- castSucc 0 = 0 in Fin (n + 2)
+  rfl
 
 end MainEquivalence
 

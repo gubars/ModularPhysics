@@ -392,7 +392,7 @@ theorem totalNorm_nonneg (f : FormalSum d) : totalNorm f ≥ 0 := by
   exact this f.terms 0 (le_refl 0)
 
 /-- Helper lemma: foldl with + is shift-invariant. -/
-private theorem foldl_add_shift (l : List (ℝ × TreeSymbol d)) (x : ℝ) :
+theorem foldl_add_shift (l : List (ℝ × TreeSymbol d)) (x : ℝ) :
     List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + |p.1|) x l =
     x + List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + |p.1|) 0 l := by
   induction l generalizing x with
@@ -616,7 +616,7 @@ def sumByTree (f : FormalSum d) (g : TreeSymbol d → ℝ) : ℝ :=
   f.terms.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2) 0
 
 /-- Helper: foldl with + p.1 * g(p.2) is shift-invariant -/
-private theorem foldl_mul_tree_shift (l : List (ℝ × TreeSymbol d)) (x : ℝ) (g : TreeSymbol d → ℝ) :
+theorem foldl_mul_tree_shift (l : List (ℝ × TreeSymbol d)) (x : ℝ) (g : TreeSymbol d → ℝ) :
     List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2) x l =
     x + List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2) 0 l := by
   induction l generalizing x with
@@ -659,6 +659,50 @@ theorem sumByTree_singleWithCoeff (c : ℝ) (τ : TreeSymbol d) (g : TreeSymbol 
     sumByTree (singleWithCoeff c τ) g = c * g τ := by
   simp only [sumByTree, singleWithCoeff, List.foldl_cons, List.foldl_nil]
   ring
+
+/-- Bound on |sumByTree f g| when each |g τ| is bounded.
+    |sumByTree f g| ≤ B * totalNorm f when ∀ τ, |g τ| ≤ B. -/
+theorem sumByTree_abs_le (f : FormalSum d) (g : TreeSymbol d → ℝ) (B : ℝ)
+    (hB : ∀ τ : TreeSymbol d, |g τ| ≤ B) (hB_nonneg : B ≥ 0) :
+    |sumByTree f g| ≤ B * totalNorm f := by
+  unfold sumByTree totalNorm
+  induction f.terms with
+  | nil =>
+    simp only [List.foldl_nil, abs_zero]
+    exact mul_nonneg hB_nonneg (le_refl 0)
+  | cons hd t ih =>
+    simp only [List.foldl_cons]
+    -- Separate first term using shift lemma
+    have hza1 : (0 : ℝ) + hd.1 * g hd.2 = hd.1 * g hd.2 := by ring
+    have hza2 : (0 : ℝ) + |hd.1| = |hd.1| := by ring
+    have hshift1 : List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2)
+        (0 + hd.1 * g hd.2) t =
+        hd.1 * g hd.2 + List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2) 0 t := by
+      conv_lhs => rw [hza1]
+      exact foldl_mul_tree_shift t (hd.1 * g hd.2) g
+    have hshift2 : List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + |p.1|)
+        (0 + |hd.1|) t =
+        |hd.1| + List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + |p.1|) 0 t := by
+      conv_lhs => rw [hza2]
+      exact foldl_add_shift t |hd.1|
+    rw [hshift1, hshift2]
+    -- |first_term + rest| ≤ |first_term| + |rest| (triangle inequality)
+    have htri : |hd.1 * g hd.2 + List.foldl (fun acc p => acc + p.1 * g p.2) 0 t| ≤
+        |hd.1 * g hd.2| + |List.foldl (fun acc p => acc + p.1 * g p.2) 0 t| :=
+      abs_add_le _ _
+    have habs_mul : |hd.1 * g hd.2| = |hd.1| * |g hd.2| := abs_mul hd.1 _
+    have hbound1 : |hd.1| * |g hd.2| ≤ |hd.1| * B :=
+      mul_le_mul_of_nonneg_left (hB hd.2) (abs_nonneg hd.1)
+    calc |hd.1 * g hd.2 + List.foldl (fun acc p => acc + p.1 * g p.2) 0 t|
+        ≤ |hd.1 * g hd.2| + |List.foldl (fun acc p => acc + p.1 * g p.2) 0 t| := htri
+      _ = |hd.1| * |g hd.2| + |List.foldl (fun acc p => acc + p.1 * g p.2) 0 t| := by rw [habs_mul]
+      _ ≤ |hd.1| * |g hd.2| + B * List.foldl (fun acc p => acc + |p.1|) 0 t := by
+          -- a + x ≤ a + y follows from x ≤ y using add_le_add with le_refl
+          exact add_le_add (le_refl _) ih
+      _ ≤ |hd.1| * B + B * List.foldl (fun acc p => acc + |p.1|) 0 t := by
+          -- x + b ≤ y + b follows from x ≤ y using add_le_add with le_refl
+          exact add_le_add hbound1 (le_refl _)
+      _ = B * (|hd.1| + List.foldl (fun acc p => acc + |p.1|) 0 t) := by ring
 
 /-- coeff_bind expressed as sumByTree -/
 theorem coeff_bind_as_sumByTree (f : FormalSum d) (g : TreeSymbol d → FormalSum d) (τ : TreeSymbol d) :
@@ -1015,6 +1059,197 @@ theorem sumByTree_eq_single' (f : FormalSum d) (σ : TreeSymbol d) (g : TreeSymb
   rw [this]
   ring
 
+/-- Dual of sumByTree_coeff_unique: if g is non-zero only at τ, then sumByTree f g = f.coeff τ * g τ.
+    This is useful when we know g vanishes except at one point. -/
+theorem sumByTree_g_unique (f : FormalSum d) (τ : TreeSymbol d) (g : TreeSymbol d → ℝ)
+    (hg0 : ∀ ρ ≠ τ, g ρ = 0) :
+    sumByTree f g = f.coeff τ * g τ := by
+  unfold sumByTree
+  -- The key is that for any term (c, ρ), if ρ ≠ τ then c * g(ρ) = c * 0 = 0
+  -- So only terms with tree = τ contribute, giving coeff τ * g τ
+  have hkey : ∀ l : List (ℝ × TreeSymbol d),
+      List.foldl (fun acc (p : ℝ × TreeSymbol d) => acc + p.1 * g p.2) 0 l =
+      List.foldl (fun acc (p : ℝ × TreeSymbol d) => if p.2 = τ then acc + p.1 else acc) 0 l * g τ := by
+    intro l
+    induction l with
+    | nil => simp [List.foldl_nil]
+    | cons hd tl ih =>
+      simp only [List.foldl_cons]
+      by_cases hρτ : hd.2 = τ
+      · -- hd.2 = τ
+        simp only [hρτ, ite_true]
+        rw [foldl_mul_tree_shift, ih]
+        conv_rhs => rw [coeff_foldl_shift]
+        ring
+      · -- hd.2 ≠ τ
+        simp only [hρτ, ite_false]
+        have hz : g hd.2 = 0 := hg0 hd.2 hρτ
+        simp only [hz, mul_zero]
+        conv_lhs => arg 2; rw [show (0 : ℝ) + 0 = 0 by ring]
+        exact ih
+  rw [hkey f.terms]
+  unfold coeff
+  rfl
+
+/-- The set of distinct trees appearing in a formal sum -/
+def distinctTrees (f : FormalSum d) : Finset (TreeSymbol d) :=
+  (f.terms.map Prod.snd).toFinset
+
+/-- A tree not in distinctTrees has zero coefficient -/
+theorem coeff_eq_zero_of_not_in_distinctTrees (f : FormalSum d) (τ : TreeSymbol d)
+    (h : τ ∉ distinctTrees f) : f.coeff τ = 0 := by
+  unfold coeff distinctTrees at *
+  simp only [List.mem_toFinset, List.mem_map] at h
+  push_neg at h
+  -- h : ∀ a ∈ f.terms, a.2 ≠ τ
+  have hkey : ∀ (l : List (ℝ × TreeSymbol d)),
+      (∀ a ∈ l, a.2 ≠ τ) →
+      List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 l = 0 := by
+    intro l
+    induction l with
+    | nil => intro _; rfl
+    | cons hd tl ih =>
+      intro hall
+      have hne : hd.2 ≠ τ := hall hd (List.mem_cons.mpr (.inl rfl))
+      have htl : ∀ a ∈ tl, a.2 ≠ τ := fun a ha => hall a (List.mem_cons.mpr (.inr ha))
+      simp only [List.foldl_cons, hne, ite_false]
+      exact ih htl
+  exact hkey f.terms h
+
+/-- Helper: sumByTree over empty list is zero -/
+theorem sumByTree_nil (g : TreeSymbol d → ℝ) :
+    sumByTree (⟨[]⟩ : FormalSum d) g = 0 := rfl
+
+/-- Helper: sumByTree over a single term -/
+theorem sumByTree_cons_eq (c : ℝ) (τ : TreeSymbol d) (tl : List (ℝ × TreeSymbol d))
+    (g : TreeSymbol d → ℝ) :
+    sumByTree (⟨(c, τ) :: tl⟩ : FormalSum d) g =
+    c * g τ + sumByTree (⟨tl⟩ : FormalSum d) g := by
+  unfold sumByTree
+  simp only [List.foldl_cons]
+  rw [foldl_mul_tree_shift]
+  ring
+
+/-- sumByTree is linear in g restricted to trees not in the terms list -/
+theorem sumByTree_eq_when_g_eq_on_terms (f : FormalSum d) (g₁ g₂ : TreeSymbol d → ℝ)
+    (heq : ∀ p ∈ f.terms, g₁ p.2 = g₂ p.2) :
+    sumByTree f g₁ = sumByTree f g₂ := by
+  unfold sumByTree
+  have hkey : ∀ (l : List (ℝ × TreeSymbol d)),
+      (∀ p ∈ l, g₁ p.2 = g₂ p.2) →
+      List.foldl (fun acc p => acc + p.1 * g₁ p.2) 0 l =
+      List.foldl (fun acc p => acc + p.1 * g₂ p.2) 0 l := by
+    intro l
+    induction l with
+    | nil => intro _; rfl
+    | cons hd tl ih =>
+      intro hall
+      have hhd : g₁ hd.2 = g₂ hd.2 := hall hd (List.mem_cons.mpr (.inl rfl))
+      have htl : ∀ p ∈ tl, g₁ p.2 = g₂ p.2 := fun p hp => hall p (List.mem_cons.mpr (.inr hp))
+      simp only [List.foldl_cons]
+      -- LHS: foldl ... (0 + hd.1 * g₁ hd.2) tl
+      -- RHS: foldl ... (0 + hd.1 * g₂ hd.2) tl
+      rw [foldl_mul_tree_shift (g := g₁), foldl_mul_tree_shift (g := g₂), hhd, ih htl]
+  exact hkey f.terms heq
+
+/-- Helper: coefficient of τ in a cons list -/
+private theorem coeff_cons_eq (c : ℝ) (σ τ : TreeSymbol d) (tl : List (ℝ × TreeSymbol d)) :
+    List.foldl (fun acc (c', σ') => if σ' = τ then acc + c' else acc) 0 ((c, σ) :: tl) =
+    (if σ = τ then c else 0) + List.foldl (fun acc (c', σ') => if σ' = τ then acc + c' else acc) 0 tl := by
+  simp only [List.foldl_cons]
+  by_cases h : σ = τ
+  · simp only [h, ite_true]
+    rw [coeff_foldl_shift]
+    ring
+  · simp only [h, ite_false]
+    ring
+
+/-- Helper: coefficient is zero for trees not in a list -/
+private theorem coeff_zero_of_not_in_list (l : List (ℝ × TreeSymbol d)) (τ : TreeSymbol d)
+    (h : ∀ a ∈ l, a.2 ≠ τ) :
+    List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 l = 0 := by
+  induction l with
+  | nil => rfl
+  | cons hd tl ih =>
+    have hne : hd.2 ≠ τ := h hd (List.mem_cons.mpr (.inl rfl))
+    have htl : ∀ a ∈ tl, a.2 ≠ τ := fun a ha => h a (List.mem_cons.mpr (.inr ha))
+    simp only [List.foldl_cons, hne, ite_false]
+    exact ih htl
+
+/-- Key decomposition: sumByTree equals Finset.sum over distinct trees.
+    This uses the existing sumByTree_g_unique lemma which shows that
+    sumByTree depends on coefficients, not term representation. -/
+theorem sumByTree_eq_finset_sum (f : FormalSum d) (g : TreeSymbol d → ℝ) :
+    sumByTree f g = (distinctTrees f).sum (fun τ => f.coeff τ * g τ) := by
+  -- Use the regrouping property from sumByTree_g_unique
+  -- For each τ ∈ distinctTrees f, the contribution to sumByTree f g is (coeff τ f) * g τ
+  -- For τ ∉ distinctTrees f, coeff τ f = 0 so the contribution is 0
+  unfold sumByTree distinctTrees coeff
+  -- Need to show: foldl (acc + p.1 * g p.2) 0 l = Finset.sum over distinct trees
+  -- This follows from regrouping: Σ_i c_i * g(τ_i) = Σ_τ (Σ_{i:τ_i=τ} c_i) * g(τ)
+  -- The inner sum is exactly coeff τ
+  induction f.terms with
+  | nil => rfl
+  | cons hd tl ih =>
+    -- Expand foldl over (hd :: tl) to get hd.1 * g hd.2 + foldl over tl
+    have hexpand : List.foldl (fun acc p => acc + p.1 * g p.2) 0 ((hd.1, hd.2) :: tl) =
+        hd.1 * g hd.2 + List.foldl (fun acc p => acc + p.1 * g p.2) 0 tl := by
+      simp only [List.foldl_cons]
+      rw [foldl_mul_tree_shift]
+      ring
+    rw [hexpand]
+    simp only [List.map_cons, List.toFinset_cons]
+    by_cases hmem : hd.2 ∈ (tl.map Prod.snd).toFinset
+    · -- hd.2 already in tl
+      rw [Finset.insert_eq_of_mem hmem]
+      -- Split the sum and use ih
+      have hkey : (tl.map Prod.snd).toFinset.sum (fun τ =>
+          List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 ((hd.1, hd.2) :: tl) * g τ) =
+          hd.1 * g hd.2 + (tl.map Prod.snd).toFinset.sum (fun τ =>
+            List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 tl * g τ) := by
+        -- Each coefficient in (hd :: tl) = coefficient in tl + (hd.1 if τ = hd.2 else 0)
+        conv_lhs =>
+          arg 2
+          ext τ
+          rw [coeff_cons_eq hd.1 hd.2 τ tl, add_mul]
+        rw [Finset.sum_add_distrib]
+        congr 1
+        rw [Finset.sum_eq_single hd.2]
+        · simp only [ite_true]
+        · intro τ _ hne; simp only [hne.symm, ite_false, zero_mul]
+        · intro habs; exact absurd hmem habs
+      rw [hkey, ih]
+    · -- hd.2 is new
+      rw [Finset.sum_insert hmem]
+      -- Coefficient at hd.2 in tl is 0
+      have hcoeff_new : List.foldl (fun acc (c, σ) => if σ = hd.2 then acc + c else acc) 0 tl = 0 := by
+        simp only [List.mem_toFinset, List.mem_map] at hmem
+        push_neg at hmem
+        exact coeff_zero_of_not_in_list tl hd.2 hmem
+      -- Coefficient at hd.2 in full list = hd.1
+      have hcoeff_full :
+          List.foldl (fun acc (c, σ) => if σ = hd.2 then acc + c else acc) 0 ((hd.1, hd.2) :: tl) = hd.1 := by
+        rw [coeff_cons_eq, if_pos rfl, hcoeff_new]
+        ring
+      rw [hcoeff_full]
+      -- For the sum, coefficients at τ ≠ hd.2 are unchanged
+      have hsum_eq : (tl.map Prod.snd).toFinset.sum (fun τ =>
+          List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 ((hd.1, hd.2) :: tl) * g τ) =
+          (tl.map Prod.snd).toFinset.sum (fun τ =>
+            List.foldl (fun acc (c, σ) => if σ = τ then acc + c else acc) 0 tl * g τ) := by
+        apply Finset.sum_congr rfl
+        intro τ hτ
+        simp only [List.mem_toFinset, List.mem_map] at hτ hmem
+        have hne : τ ≠ hd.2 := by
+          intro heq
+          rw [heq] at hτ
+          push_neg at hmem
+          obtain ⟨a, ha, haeq⟩ := hτ
+          exact hmem a ha haeq
+        rw [coeff_cons_eq, if_neg (Ne.symm hne)]
+        ring
+      rw [hsum_eq, ih]
+
 /-- Stronger form: sumByTree f g depends only on the coeff function.
     If two formal sums have the same coefficients, they give the same sumByTree.
 
@@ -1028,17 +1263,28 @@ theorem sumByTree_eq_single' (f : FormalSum d) (σ : TreeSymbol d) (g : TreeSymb
 theorem sumByTree_congr (f f' : FormalSum d) (g : TreeSymbol d → ℝ)
     (h : ∀ τ, f.coeff τ = f'.coeff τ) :
     sumByTree f g = sumByTree f' g := by
-  -- The proof requires showing that sumByTree depends only on the coeff function.
-  -- This involves showing that the foldl over terms can be decomposed as
-  -- Σ_τ (coeff τ) * g(τ), which then only depends on the coeff values.
-  -- For a complete proof, one would need to:
-  -- 1. Show that the set of trees with non-zero coeff in f equals that in f'
-  -- 2. For each such tree τ, show the contribution is (coeff τ) * g(τ)
-  -- 3. Sum these equal contributions
-  -- This requires additional infrastructure about finite sums over sets.
-  -- For now, we mark this as admitted, noting that sumByTree_coeff_unique
-  -- provides the key special case used in proofs.
-  sorry
+  -- Express both as Finset sums over a common superset
+  rw [sumByTree_eq_finset_sum f g, sumByTree_eq_finset_sum f' g]
+  -- Use that coefficients outside distinctTrees are zero
+  let S := distinctTrees f ∪ distinctTrees f'
+  have hf_sub : distinctTrees f ⊆ S := Finset.subset_union_left
+  have hf'_sub : distinctTrees f' ⊆ S := Finset.subset_union_right
+  -- Extend sums to the common superset S
+  have hf_sum : (distinctTrees f).sum (fun τ => f.coeff τ * g τ) =
+      S.sum (fun τ => f.coeff τ * g τ) := by
+    apply Finset.sum_subset hf_sub
+    intro τ _ hτ_not_in
+    rw [coeff_eq_zero_of_not_in_distinctTrees f τ hτ_not_in, zero_mul]
+  have hf'_sum : (distinctTrees f').sum (fun τ => f'.coeff τ * g τ) =
+      S.sum (fun τ => f'.coeff τ * g τ) := by
+    apply Finset.sum_subset hf'_sub
+    intro τ _ hτ_not_in
+    rw [coeff_eq_zero_of_not_in_distinctTrees f' τ hτ_not_in, zero_mul]
+  rw [hf_sum, hf'_sum]
+  -- Now both sums are over S with equal summands
+  apply Finset.sum_congr rfl
+  intro τ _
+  rw [h τ]
 
 end FormalSum
 

@@ -291,4 +291,98 @@ def suspensionUnit (X : PointedTopSpace) : X ⟶ Ω (Σ₊ X) where
 
 end AdjunctionUnit
 
+/-! ## Functoriality of Suspension -/
+
+section SuspensionMap
+
+/-- Suspension of a pointed map. Sends [x, t] to [f(x), t]. -/
+def suspensionMap {X Y : PointedTopSpace} (f : X ⟶ Y) : Σ₊ X ⟶ Σ₊ Y where
+  toFun := Quotient.lift (fun p => Quotient.mk (suspensionSetoid Y) (f.toFun p.1, p.2))
+    (by
+      intro p q h
+      apply Quotient.sound
+      cases h with
+      | inl h => exact Or.inl (by rw [h])
+      | inr h =>
+        right
+        constructor
+        · obtain ⟨hp, _⟩ := h
+          cases hp with
+          | inl hp => left; exact hp
+          | inr hp =>
+            cases hp with
+            | inl hp => right; left; exact hp
+            | inr hp => right; right; rw [hp]; exact f.map_basepoint
+        · obtain ⟨_, hq⟩ := h
+          cases hq with
+          | inl hq => left; exact hq
+          | inr hq =>
+            cases hq with
+            | inl hq => right; left; exact hq
+            | inr hq => right; right; rw [hq]; exact f.map_basepoint
+    )
+  continuous_toFun := by
+    apply Continuous.quotient_lift
+    refine Continuous.comp ?_ (f.continuous.prodMap continuous_id)
+    exact continuous_quotient_mk'
+  map_basepoint := by
+    show Quotient.lift _ _ (suspensionBasepoint X) = suspensionBasepoint Y
+    simp only [suspensionBasepoint]
+    apply Quotient.sound
+    right
+    constructor
+    · right; right; exact f.map_basepoint
+    · left; rfl
+
+/-- Helper: suspensionMap applied at the quotient level.
+    For a map f : X → Y, suspensionMap f sends [x, t] to [f(x), t]. -/
+theorem suspensionMap_mk {X Y : PointedTopSpace} (f : X ⟶ Y) (x : X.carrier) (t : I) :
+    (suspensionMap f).toFun (Quotient.mk (suspensionSetoid X) (x, t)) =
+    Quotient.mk (suspensionSetoid Y) (f.toFun x, t) := rfl
+
+/-- Suspension is functorial: Σ(id) = id -/
+theorem suspensionMap_id (X : PointedTopSpace) :
+    suspensionMap (𝟙 X) = 𝟙 (Σ₊ X) := by
+  apply Hom.ext
+  funext p
+  induction p using Quotient.ind with
+  | _ p =>
+    rfl
+
+/-- Suspension is functorial: Σ(g ∘ f) = Σg ∘ Σf -/
+theorem suspensionMap_comp {X Y Z : PointedTopSpace} (f : X ⟶ Y) (g : Y ⟶ Z) :
+    suspensionMap (f ≫ g) = suspensionMap f ≫ suspensionMap g := by
+  apply Hom.ext
+  funext p
+  induction p using Quotient.ind with
+  | _ p =>
+    rfl
+
+/-- The suspension unit is natural: for f : X → Y,
+    the following diagram commutes:
+    ```
+    X ---η_X--> Ω(ΣX)
+    |            |
+    f          Ω(Σf)
+    ↓            ↓
+    Y ---η_Y--> Ω(ΣY)
+    ```
+    i.e., f ≫ η_Y = η_X ≫ Ω(Σf) -/
+theorem suspensionUnit_natural {X Y : PointedTopSpace} (f : X ⟶ Y) :
+    f ≫ suspensionUnit Y = suspensionUnit X ≫ loopSpaceMap (suspensionMap f) := by
+  apply Hom.ext
+  funext x
+  apply Path.ext
+  funext t
+  -- LHS: (f ≫ suspensionUnit Y).toFun x t = (suspensionUnit Y).toFun (f.toFun x) t
+  --    = suspensionLoop Y (f.toFun x) t = [f(x), t] in ΣY
+  -- RHS: (loopSpaceMap (suspensionMap f)).toFun ((suspensionUnit X).toFun x) t
+  --    = (suspensionMap f).toFun (suspensionLoop X x t)
+  --    = (suspensionMap f).toFun [x, t] = [f(x), t] in ΣY
+  simp only [comp_toFun, Function.comp_apply, suspensionUnit, suspensionLoop,
+             loopSpaceMap, suspensionQuotientMap]
+  rfl
+
+end SuspensionMap
+
 end PointedTopSpace

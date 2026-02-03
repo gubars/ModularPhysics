@@ -183,6 +183,13 @@ noncomputable def fixedPointMap (data : AbstractSPDEData d params γ)
     model := data.initial_data.model
     bound_const := Ff.bound_const + data.noise.bound_const
     bound_nonneg := add_nonneg Ff.bound_nonneg data.noise.bound_nonneg
+    homogeneity_bounded := fun x p hp => by
+      -- Combined sum (Ff.f x + noise.f x).terms = Ff.f x.terms ++ noise.f x.terms
+      have hterms : (Ff.f x + data.noise.f x).terms = (Ff.f x).terms ++ (data.noise.f x).terms := rfl
+      rw [hterms, List.mem_append] at hp
+      cases hp with
+      | inl hFf => exact Ff.homogeneity_bounded x p hFf
+      | inr hnoise => exact data.noise.homogeneity_bounded x p hnoise
     local_bound := fun x K hx => by
       -- Triangle inequality
       calc FormalSum.totalNorm (Ff.f x + data.noise.f x)
@@ -203,6 +210,18 @@ noncomputable def fixedPointMap (data : AbstractSPDEData d params γ)
     model := data.initial_data.model
     bound_const := data.initial_data.bound_const + integrated.bound_const
     bound_nonneg := add_nonneg data.initial_data.bound_nonneg integrated.bound_nonneg
+    homogeneity_bounded := fun x p hp => by
+      -- Combined sum.terms = initial_data.f x.terms ++ integrated.f x.terms
+      have hterms : (data.initial_data.f x + integrated.f x).terms =
+          (data.initial_data.f x).terms ++ (integrated.f x).terms := rfl
+      rw [hterms, List.mem_append] at hp
+      cases hp with
+      | inl hinit => exact data.initial_data.homogeneity_bounded x p hinit
+      | inr hint =>
+        -- integrated is in D^{γ+β}, need to project to D^γ
+        -- This requires the integration operator to preserve the homogeneity bound
+        -- (it gains regularity but the output should still satisfy the D^γ bound)
+        sorry
     local_bound := fun x K hx => by
       calc FormalSum.totalNorm (data.initial_data.f x + integrated.f x)
           ≤ FormalSum.totalNorm (data.initial_data.f x) + FormalSum.totalNorm (integrated.f x) :=
