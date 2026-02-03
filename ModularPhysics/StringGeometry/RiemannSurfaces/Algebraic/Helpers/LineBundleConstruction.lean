@@ -151,11 +151,13 @@ namespace LineBundleSheafData
 
 variable {RS : RiemannSurface} {O : StructureSheaf RS}
 
-/-- Convert to LineBundleSheafAssignment for use in cohomology theory. -/
+/-- Convert to LineBundleSheafAssignment for use in cohomology theory.
+
+    **Note:** We assume sheafOf 0 corresponds to the structure sheaf O.
+    This is the case for properly constructed LineBundleSheafData. -/
 noncomputable def toAssignment (data : LineBundleSheafData RS O) :
     LineBundleSheafAssignment RS O where
   sheafOf := fun D => (data.sheafOf D).toCoherentSheaf
-  zero_isStructure := trivial
 
 /-- Global sections of O(D) -/
 def H0 (data : LineBundleSheafData RS O) (D : Divisor RS) : Type* :=

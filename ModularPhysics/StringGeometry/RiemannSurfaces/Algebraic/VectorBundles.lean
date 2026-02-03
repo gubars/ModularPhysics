@@ -22,9 +22,6 @@ This file provides the **algebraic definitions** of:
 For the **combinatorial computation** of intersection numbers via ribbon graphs,
 see `Combinatorial/Moduli.lean` and `Combinatorial/Helpers/Kontsevich.lean`.
 
-The Witten-Kontsevich theorem connects these:
-  ⟨τ_{d₁}...τ_{dₙ}⟩_g = ∫_{M̄_{g,n}} ψ₁^{d₁}...ψₙ^{dₙ} = Σ_Γ (graph contributions)
-
 ## Main Definitions
 
 * `HodgeBundle'` - The Hodge bundle E with fiber H⁰(Σ, K) at [Σ]
@@ -95,68 +92,78 @@ structure ChernClass (Base : Type*) where
 -/
 
 /-- The Hodge bundle E over M_{g,n}.
-    Fiber at [Σ; p₁,...,pₙ] is H⁰(Σ, K), the space of holomorphic 1-forms. -/
+    Fiber at [Σ; p₁,...,pₙ] is H⁰(Σ, K), the space of holomorphic 1-forms.
+
+    **Property:** The fiber at any point [Σ; p₁,...,pₙ] is isomorphic to H⁰(Σ, K).
+    This follows from the construction of the Hodge bundle as π_*(K) where
+    π : C_{g,n} → M_{g,n} is the universal curve. -/
 structure HodgeBundle' (g n : ℕ) where
   /-- The underlying vector bundle structure -/
   bundle : VectorBundle (ModuliSpacePointed g n)
-  /-- Rank equals genus -/
+  /-- Rank equals genus (follows from Riemann-Roch: h⁰(K) = g) -/
   rankIsGenus : bundle.rank = g
-  /-- Fiber is holomorphic 1-forms -/
-  fiberDescription : True  -- Fiber at [Σ] is H⁰(Σ, K)
 
-/-- The Hodge line bundle λ = det(E) -/
+/-- The Hodge line bundle λ = det(E).
+
+    **Construction:** λ is the determinant line bundle of the Hodge bundle E.
+    Its first Chern class λ₁ = c₁(λ) is fundamental in intersection theory on M_g. -/
 structure HodgeLineBundle (g n : ℕ) where
   /-- The determinant of the Hodge bundle -/
   bundle : LineBundle (ModuliSpacePointed g n)
-  /-- Is the determinant of E -/
-  isDetHodge : True
+  /-- The Hodge bundle whose determinant this is -/
+  hodgeBundle : HodgeBundle' g n
+  /-- First Chern class c₁(λ) = λ₁ -/
+  firstChernClass : ChernClass (ModuliSpacePointed g n)
 
-/-- First Chern class of the Hodge line bundle -/
-noncomputable def lambdaClass' (g n : ℕ) (_ : HodgeLineBundle g n) :
+/-- First Chern class of the Hodge line bundle (accessor). -/
+def lambdaClass' (g n : ℕ) (L : HodgeLineBundle g n) :
     ChernClass (ModuliSpacePointed g n) :=
-  ⟨Unit⟩  -- Placeholder
+  L.firstChernClass
 
 /-!
 ## Cotangent Line Bundles and ψ-classes
 -/
 
 /-- The cotangent line bundle Lᵢ at the i-th marked point.
-    Fiber at [Σ; p₁,...,pₙ] is T*_{pᵢ}Σ, the cotangent space at pᵢ. -/
+    Fiber at [Σ; p₁,...,pₙ] is T*_{pᵢ}Σ, the cotangent space at pᵢ.
+
+    **Construction:** Lᵢ = σᵢ*(ω_{C/M}) where σᵢ is the i-th section of the
+    universal curve and ω_{C/M} is the relative dualizing sheaf. -/
 structure CotangentLineBundle (g n : ℕ) (i : Fin n) where
   /-- The underlying line bundle -/
   bundle : LineBundle (ModuliSpacePointed g n)
-  /-- Fiber is cotangent space at pᵢ -/
-  fiberIsCotangent : True
+  /-- First Chern class ψᵢ = c₁(Lᵢ) -/
+  firstChernClass : ChernClass (ModuliSpacePointed g n)
 
-/-- The ψ-class at the i-th marked point: ψᵢ = c₁(Lᵢ) -/
-noncomputable def psiClass' (g n : ℕ) (i : Fin n)
-    (_ : CotangentLineBundle g n i) :
+/-- The ψ-class at the i-th marked point: ψᵢ = c₁(Lᵢ) (accessor). -/
+def psiClass' (g n : ℕ) (i : Fin n) (L : CotangentLineBundle g n i) :
     ChernClass (ModuliSpacePointed g n) :=
-  ⟨Unit⟩  -- Placeholder
-
-/-- The canonical section σᵢ : M_{g,n} → C_{g,n} at the i-th marked point -/
-structure CanonicalSection (g n : ℕ) (i : Fin n) where
-  /-- The section map -/
-  section_ : ModuliSpacePointed g n → Type*  -- Placeholder for universal curve
-  /-- Image is the i-th marked point -/
-  isMarkedPoint : True
+  L.firstChernClass
 
 /-!
 ## The Universal Curve
 -/
 
-/-- The universal curve C_{g,n} → M_{g,n} -/
+/-- The universal curve C_{g,n} → M_{g,n}.
+
+    **Construction:** The universal curve is a family of curves over M_{g,n}
+    where the fiber over [Σ; p₁,...,pₙ] is the curve Σ itself.
+
+    **Properties:**
+    - Has n canonical sections σ₁,...,σₙ marking the points p₁,...,pₙ
+    - Carries the relative dualizing sheaf ω_{C/M} -/
 structure UniversalCurve (g n : ℕ) where
   /-- The total space -/
   total : Type*
   /-- Projection to moduli space -/
   proj : total → ModuliSpacePointed g n
-  /-- Fiber at [Σ; p₁,...,pₙ] is Σ -/
-  fiberIsCurve : True
-  /-- Has n canonical sections -/
+  /-- The n canonical sections σᵢ : M_{g,n} → C_{g,n} -/
   sections : Fin n → ModuliSpacePointed g n → total
-  /-- Sections give the marked points -/
-  sectionsAreMarkedPoints : True
+
+/-- The canonical section σᵢ : M_{g,n} → C_{g,n} at the i-th marked point. -/
+def CanonicalSection (g n : ℕ) (C : UniversalCurve g n) (i : Fin n) :
+    ModuliSpacePointed g n → C.total :=
+  C.sections i
 
 /-- The relative dualizing sheaf ω_{C/M} -/
 structure RelativeDualizingSheaf (g n : ℕ) (_ : UniversalCurve g n) where
@@ -212,16 +219,9 @@ structure LambdaClassK (g n k : ℕ) where
   /-- Is the k-th Chern class of E -/
   isChernClass : True
 
-/-- Mumford's relation: λ_g = 0 on M_g for g > 0 (since E is defined over
-    a space of dimension 3g - 3 < 2g for g ≥ 2) -/
-theorem mumford_relation (g : ℕ) (hg : g ≥ 2) :
-    True := by  -- λ_g = 0 on M_g
-  trivial
 
 /-!
 ## Cohomology of Vector Bundles
-
-For Donagi-Witten, we need H¹(M_g, Sym²E).
 -/
 
 /-- Symmetric power of a vector bundle -/
@@ -239,33 +239,5 @@ structure SheafCohomology (Base : Type*) (E : VectorBundle Base) (i : ℕ) where
   [vectorSpace : AddCommGroup group]
 
 attribute [instance] SheafCohomology.vectorSpace
-
-/-- H¹(M_g, Sym²E) - the obstruction group for Donagi-Witten -/
-structure DonagiWittenObstructionGroup (g : ℕ) where
-  /-- The cohomology group -/
-  group : Type*
-  /-- Is H¹(M_g, Sym²E) -/
-  isCohomology : True
-
-/-- Key lemma for Donagi-Witten: H¹(M_g, Sym²E) ≠ 0 for g ≥ 5 -/
-theorem donagi_witten_key_lemma (g : ℕ) (hg : g ≥ 5)
-    (H : DonagiWittenObstructionGroup g) :
-    Nonempty H.group := by
-  sorry
-
-/-!
-## String and Dilaton Equations
--/
-
-/-- String equation: removing a τ₀ insertion -/
-theorem string_equation' (g : ℕ) (exponents : List ℕ)
-    (h : 0 ∈ exponents) :
-    True := by  -- ⟨τ₀ ∏τ_{dᵢ}⟩ = Σⱼ ⟨∏ᵢ≠ⱼ τ_{dᵢ} · τ_{dⱼ-1}⟩
-  trivial
-
-/-- Dilaton equation: effect of τ₁ insertion -/
-theorem dilaton_equation' (g n : ℕ) (exponents : Fin n → ℕ) :
-    True := by  -- ⟨τ₁ ∏τ_{dᵢ}⟩ = (2g - 2 + n) ⟨∏τ_{dᵢ}⟩
-  trivial
 
 end RiemannSurfaces.Moduli

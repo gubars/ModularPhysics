@@ -148,10 +148,13 @@ GAGA then shows that algebraic and analytic constructions agree.
     assignment as input and verify properties. This avoids placeholder
     definitions while maintaining mathematical rigor. -/
 structure LineBundleSheafAssignment (RS : RiemannSurface) (O : StructureSheaf RS) where
-  /-- The sheaf O(D) for each divisor D -/
+  /-- The sheaf O(D) for each divisor D.
+
+      **Key property (assumed):** O(0) ≅ O (the structure sheaf).
+      This is not explicitly encoded as a field since we don't have
+      sheaf isomorphism infrastructure. Instead, when constructing a
+      LineBundleSheafAssignment, ensure sheafOf 0 corresponds to O. -/
   sheafOf : Divisor RS → CoherentSheaf RS O
-  /-- O(0) = O as a coherent sheaf (up to isomorphism, encoded by dimension) -/
-  zero_isStructure : True  -- Placeholder for proper isomorphism
 
 /-- Cohomology data for a line bundle O(D), given a sheaf assignment.
 

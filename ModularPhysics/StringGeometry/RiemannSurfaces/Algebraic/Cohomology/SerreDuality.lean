@@ -127,15 +127,16 @@ theorem h1_canonical (CRS : CompactRiemannSurface)
 The cup product and residue give a perfect pairing.
 -/
 
-/-- The Serre duality pairing for a divisor D:
+/-- Data for Serre duality: the relevant cohomology groups.
 
-    H⁰(K - D) × H¹(D) → H¹(K) ≅ ℂ
+    For Serre duality, we need:
+    - H⁰(K - D): global sections of the dual line bundle
+    - H¹(D): first cohomology of O(D)
 
-    **Construction**:
-    - Cup product: H⁰(K - D) ⊗ H¹(D) → H¹(K - D + D) = H¹(K)
-    - Compose with residue: H¹(K) → ℂ
-
-    **Perfection**: This pairing is perfect (non-degenerate on both sides). -/
+    **Mathematical content**: There exists a perfect pairing H⁰(K-D) × H¹(D) → ℂ
+    (via cup product and residue), inducing the isomorphism. The pairing itself
+    is not constructed here; its existence is encoded by the dimension equality
+    in SerreDuality.dimension_eq which is the key consequence. -/
 structure SerrePairing (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
@@ -147,10 +148,6 @@ structure SerrePairing (CRS : CompactRiemannSurface)
   /-- H¹(D) -/
   H1D : SheafCohomologyGroup CRS.toRiemannSurface
     (coherentSheafOfDivisor CRS.toRiemannSurface O L D) 1
-  /-- The pairing H⁰(K-D) × H¹(D) → ℂ -/
-  pairing : H0KD.carrier → H1D.carrier → ℂ
-  /-- Non-degeneracy (perfection) -/
-  perfect : True  -- Placeholder: the pairing induces isomorphisms
 
 /-!
 ## Serre Duality Theorem
@@ -202,10 +199,10 @@ Serre duality exists for all divisors on compact Riemann surfaces.
 Given a `CompactCohomologyTheory`, we can construct the `SerreDuality` structure.
 -/
 
-/-- Construct a Serre pairing from a cohomology theory.
+/-- Construct Serre pairing data from a cohomology theory.
 
-    The pairing uses the cohomology groups from the theory, with an abstract
-    pairing function (since the cup product construction is not formalized). -/
+    The SerrePairing records the cohomology groups H⁰(K-D) and H¹(D)
+    needed for Serre duality. -/
 noncomputable def serrePairingFromTheory (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
     (T : CompactCohomologyTheory CRS O)
@@ -214,8 +211,6 @@ noncomputable def serrePairingFromTheory (CRS : CompactRiemannSurface)
     SerrePairing CRS O T.lineBundleSheaves K D where
   H0KD := T.cohomology (T.lineBundleSheaves.sheafOf (K.divisor - D)) 0
   H1D := T.cohomology (T.lineBundleSheaves.sheafOf D) 1
-  pairing := fun _ _ => 0  -- Abstract pairing (structure exists by dimension)
-  perfect := trivial
 
 /-- The duality equivalence exists for finite-dimensional vector spaces of equal dimension.
 

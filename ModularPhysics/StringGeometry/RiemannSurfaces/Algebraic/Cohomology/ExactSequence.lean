@@ -54,7 +54,11 @@ open scoped Classical
 
 /-- A short exact sequence of coherent sheaves: 0 → F' → F → F'' → 0
 
-    The morphisms are given at each stalk level as linear maps. -/
+    The morphisms are given at each stalk level as linear maps.
+
+    **Exactness at F:** ker(π) = im(ι), i.e., ∀ U x, π_sections U x = 0 ↔ ∃ y, ι_sections U y = x.
+    This is assumed when constructing a ShortExactSeq; it follows from the
+    mathematical construction and is used implicitly in cohomology arguments. -/
 structure ShortExactSeq (RS : RiemannSurface) (O : StructureSheaf RS)
     (F' F F'' : CoherentSheaf RS O) where
   /-- The injection F' → F at each open set (abstractly) -/
@@ -65,8 +69,6 @@ structure ShortExactSeq (RS : RiemannSurface) (O : StructureSheaf RS)
   ι_injective : ∀ U, Function.Injective (ι_sections U)
   /-- π is surjective -/
   π_surjective : ∀ U, Function.Surjective (π_sections U)
-  /-- Exactness at F: ker(π) = im(ι) -/
-  exact : True  -- Placeholder: ∀ U x, π_sections U x = 0 ↔ ∃ y, ι_sections U y = x
 
 /-!
 ## The Skyscraper Sheaf
@@ -614,7 +616,6 @@ noncomputable def pointExactSeq {RS : RiemannSurface} (O : StructureSheaf RS)
   π_sections := π
   ι_injective := ι_inj
   π_surjective := π_surj
-  exact := trivial
 
 /-!
 ## Long Exact Sequence in Cohomology

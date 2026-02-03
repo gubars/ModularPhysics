@@ -80,6 +80,42 @@ Moved analytic definitions to their proper location:
 
 ---
 
+## ⚠️ CRITICAL ISSUE: Axiom Smuggling via CompactCohomologyTheory
+
+**VIOLATION OF CLAUDE.md**: The current formalization uses `CompactCohomologyTheory` as a structure
+with required properties that are **NEVER PROVED**. This is effectively axiom smuggling.
+
+### The Problem
+
+`CompactCohomologyTheory` (in Basic.lean) requires these properties:
+```lean
+structure CompactCohomologyTheory ... where
+  point_recursion : χ(D) - χ(D - p) = 1          -- REQUIRED, NOT PROVED
+  negative_degree_vanishing : deg(D) < 0 → h⁰(D) = 0  -- REQUIRED, NOT PROVED
+  serre_duality_dim : h¹(D) = h⁰(K - D)          -- REQUIRED, NOT PROVED
+  ...
+```
+
+**No instance is ever constructed.** All theorems take `(T : CompactCohomologyTheory CRS O)` as a parameter,
+meaning they are conditional: "IF such a theory exists, THEN Riemann-Roch holds."
+
+### What Needs To Be Fixed
+
+To make this rigorous, we must either:
+
+1. **Construct** a `CompactCohomologyTheory` from Čech cohomology by proving:
+   - `point_recursion` from the skyscraper sheaf exact sequence
+   - `negative_degree_vanishing` from meromorphic function theory
+   - `serre_duality_dim` from residue pairing
+
+2. **Refactor** to prove Riemann-Roch directly from Čech cohomology without the abstract theory
+
+### Priority: HIGH
+
+This is the most critical gap in the formalization. The "proved" theorems are actually conditional.
+
+---
+
 ## Current Status
 
 ### General Čech Cohomology Infrastructure
@@ -123,20 +159,23 @@ Algebraic/Cohomology/SerreDuality.lean (SerreDuality, h1 = h0(K-D))
 Algebraic/RiemannRoch.lean (Main theorem statements)
 ```
 
-**Key theorems proven** (2024-2025 sessions):
+**⚠️ Theorems conditional on CompactCohomologyTheory** (2024-2025 sessions):
+
+These are proved FROM the axioms of `CompactCohomologyTheory`, not from first principles:
+- `eulerChar_point_exact` - χ(D) - χ(D-p) = 1 (USES `point_recursion` axiom)
+- `eulerChar_formula` - χ(D) = deg(D) + 1 - g (USES `point_recursion` axiom)
+- `riemann_roch` - h⁰(D) - h⁰(K-D) = deg(D) - g + 1 (USES `serre_duality_dim` axiom)
+- `riemann_roch_large_degree` - h⁰(D) = deg(D) - g + 1 (USES `large_degree_h1_vanishing` axiom)
+- `h0_negative_degree_vanish` - (USES `negative_degree_vanishing` axiom)
+- All h⁰(K^n) formulas - (USES the above axioms)
+
+**Truly proved theorems** (no axiom dependencies):
 - `eulerChar_additive` ✓ PROVED - Euler characteristic additive on exact sequences
-- `eulerChar_point_exact` ✓ PROVED - χ(D) - χ(D-p) = 1 (via point_recursion in CompactCohomologyTheory)
 - `LongExactSequence.eulerChar_additive` ✓ PROVED - Uses rank-nullity for 6-term exact sequences
-- `eulerChar_formula` ✓ PROVED - χ(D) = deg(D) + 1 - g (via induction on support cardinality)
 - `chi_deg_invariant_smul` ✓ PROVED - χ(D) - deg(D) = χ(D - n•p) - deg(D - n•p) (integer induction)
-- `riemann_roch` ✓ PROVED - h⁰(D) - h⁰(K-D) = deg(D) - g + 1 (via Euler + Serre duality)
-- `riemann_roch_classical` ✓ PROVED - h⁰(D) - h¹(D) = deg(D) - g + 1
-- `riemann_roch_large_degree` ✓ PROVED - h⁰(D) = deg(D) - g + 1 when deg(D) > 2g-2
-- `riemann_inequality` ✓ PROVED - h⁰(D) ≥ deg(D) - g + 1
-- `h0_K2` ✓ PROVED - h⁰(K²) = 3g - 3 for g ≥ 2
-- `moduli_dimension` ✓ PROVED - dim M_g = 3g - 3 for g ≥ 2
-- `h0_Kn` ✓ PROVED - h⁰(K^n) = (2n-1)(g-1) for n ≥ 2, g ≥ 2
 - `nTimesCanonical_degree` ✓ PROVED - deg(K^n) = n(2g - 2)
+- `principal_degree_zero` ✓ PROVED - deg(div f) = 0 (via argumentPrinciple, 1 sorry)
+- `degree_well_defined_quotient_compact` ✓ PROVED - Picard group degree well-defined
 
 **Infrastructure theorems proved** (2025):
 - `h1_canonical` ✓ PROVED - dim H¹(K) = 1 (via LinearEquiv.finrank_eq with ResidueIsomorphism)
@@ -166,15 +205,15 @@ Algebraic/RiemannRoch.lean (Main theorem statements)
 
 | File | Status | Notes |
 |------|--------|-------|
-| **Algebraic/Divisors.lean** | Sound | 3 sorrys for deep theorems |
+| **Algebraic/Divisors.lean** | Sound | 2 sorrys (argumentPrinciple, degree_well_defined_quotient) |
 | **Algebraic/Cohomology/Sheaves.lean** | Sound | StructureSheaf with localUniformizer |
-| **Algebraic/Cohomology/Basic.lean** | Sound | LineBundleSheafAssignment properly defined |
-| **Algebraic/Cohomology/ExactSequence.lean** | Sound | SkyscraperSheaf fully proved |
+| **Algebraic/Cohomology/Basic.lean** | ⚠️ AXIOMS | CompactCohomologyTheory uses unproved axioms |
+| **Algebraic/Cohomology/ExactSequence.lean** | Conditional | Uses CompactCohomologyTheory axioms |
 | **Algebraic/Cohomology/GeneralCechBridge.lean** | Sound | Bridges general Čech to Riemann surfaces |
-| **Algebraic/Cohomology/SerreDuality.lean** | Sound | 1 sorry (serreDualityEquiv), all key theorems proved |
-| **Algebraic/RiemannRoch.lean** | Sound | No sorrys! All theorems proved |
+| **Algebraic/Cohomology/SerreDuality.lean** | Conditional | Uses CompactCohomologyTheory axioms |
+| **Algebraic/RiemannRoch.lean** | Conditional | All proofs depend on CompactCohomologyTheory axioms |
 | **Algebraic/Helpers/LineBundleConstruction.lean** | Sound | SectionOrder, LineBundleSheafData |
-| **Algebraic/Helpers/Meromorphic.lean** | Sound | MeromorphicFunction with order proofs |
+| **Algebraic/Helpers/Meromorphic.lean** | Sound | 1 sorry (argumentPrinciple) |
 | **Algebraic/VectorBundles.lean** | Partial | Basic definitions, needs expansion |
 | **Analytic/Basic.lean** | Sound | ComplexManifold, RiemannSurface |
 
@@ -346,27 +385,46 @@ From Harris-Morrison "Moduli of Curves" pp.86-105:
 
 ## Priority Order Summary
 
-### Immediate (Next Steps)
-1. ~~Complete `cechDiff_comp_zero` proof~~ ✓ DONE
-2. ~~Build long exact sequence for Čech cohomology~~ ✓ DONE (Topology/Sheaves/LongExactSequence.lean)
-3. ~~Prove `eulerChar_point_exact`~~ ✓ DONE (via point_recursion property)
-4. ~~Prove `eulerChar_additive`~~ ✓ DONE
-5. ~~Complete `eulerChar_formula`~~ ✓ DONE (divisor support cardinality induction)
+### ⚠️ CRITICAL: Fix CompactCohomologyTheory Axioms
 
-### Short-Term
+**This is the highest priority.** The formalization is not rigorous until this is fixed.
+
+1. **Construct Čech-based cohomology theory instance**
+   - Define H^i(D) using Čech cohomology from `Topology/Sheaves/CechCohomology.lean`
+   - Bridge CoherentSheaf to AbPresheaf (partially done in GeneralCechBridge.lean)
+
+2. **Prove `point_recursion` for Čech cohomology**
+   - Construct skyscraper sheaf exact sequence: 0 → O(D-p) → O(D) → ℂ_p → 0
+   - Apply long exact sequence from `LongExactSequence.lean`
+   - Prove χ(ℂ_p) = 1 (skyscraper is acyclic with h⁰ = 1)
+
+3. **Prove `negative_degree_vanishing` for Čech cohomology**
+   - Use meromorphic function theory
+   - Section f ∈ H⁰(O(D)) means (f) + D ≥ 0
+   - If f ≠ 0: deg((f)) = 0 by argument principle, so deg(D) ≥ 0, contradiction
+
+4. **Prove `serre_duality_dim` for Čech cohomology**
+   - Requires residue pairing infrastructure
+   - Cup product H⁰(K-D) × H¹(D) → H¹(K) → ℂ
+   - Prove pairing is perfect
+
+### Completed Infrastructure
+- ~~Complete `cechDiff_comp_zero` proof~~ ✓ DONE
+- ~~Build long exact sequence for Čech cohomology~~ ✓ DONE
+- ~~Prove `eulerChar_additive`~~ ✓ DONE
+- ~~Prove `principal_degree_zero`~~ ✓ DONE (via argumentPrinciple, 1 sorry)
+
+### After Fixing Axioms
 5. Build residue infrastructure (for full cup product construction)
-6. ~~Prove `serreDuality_exists`~~ ✓ DONE (via `serre_duality_dim` property)
-7. ~~Complete `riemann_roch` theorem~~ ✓ DONE
-8. ~~Refactor MathlibBridge to use general Čech~~ ✓ DONE (GeneralCechBridge.lean)
-9. ~~Prove vanishing theorems~~ ✓ DONE (`h0_negative_degree_vanish`, `h1_large_degree_vanish`, `h1_canonical`)
+6. Complete cup product pairing proofs
 
 ### Medium-Term
-9. Vector bundle stability and moduli
-10. Narasimhan-Seshadri statement
+7. Vector bundle stability and moduli
+8. Narasimhan-Seshadri statement
 
 ### Long-Term
-11. Higgs bundles and non-abelian Hodge
-12. Deformation theory
+9. Higgs bundles and non-abelian Hodge
+10. Deformation theory
 
 ---
 

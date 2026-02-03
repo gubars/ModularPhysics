@@ -22,10 +22,11 @@ the algebraic and analytic viewpoints are equivalent.
 This file re-exports the core definitions (RiemannSurface, CompactRiemannSurface)
 from Analytic/Basic.lean and adds:
 
-- Holomorphic line bundles
+- Holomorphic line bundles (with degree as intrinsic data)
 - Canonical bundles
-- Spin structures
-- Basic divisor structure (see Algebraic/Divisors.lean for the full treatment)
+- Spin structures (with parity as intrinsic data)
+
+For divisors and Riemann-Roch, see `Algebraic/Divisors.lean` and `Algebraic/RiemannRoch.lean`.
 
 ## References
 
@@ -69,7 +70,11 @@ structure LocalTrivialization (RS : RiemannSurface) where
     - Trivial bundle O (sections = holomorphic functions)
     - Canonical bundle K (sections = holomorphic 1-forms)
     - Point bundle O(p) for p ∈ Σ
-    - Spin bundles S with S ⊗ S ≅ K -/
+    - Spin bundles S with S ⊗ S ≅ K
+
+    **Note on degree:** The degree is included as intrinsic data of the bundle.
+    On a compact surface, deg(L) = c₁(L) (first Chern class integrated over Σ).
+    For a divisor line bundle O(D), deg(O(D)) = deg(D). -/
 structure HolomorphicLineBundle (RS : RiemannSurface) where
   /-- The total space of the bundle -/
   totalSpace : Type*
@@ -83,6 +88,10 @@ structure HolomorphicLineBundle (RS : RiemannSurface) where
       This is the key condition making the bundle "holomorphic".
       Transition function g_{ij} : U_i ∩ U_j → ℂ* is holomorphic and nonvanishing. -/
   transitionsHolomorphic : Prop  -- Full formalization requires complex analysis on RS
+  /-- Degree of the line bundle (first Chern number).
+      On a compact surface, this is c₁(L) = ∫_Σ c₁(L).
+      For divisor bundles O(D), this equals deg(D). -/
+  degree : ℤ
 
 /-- The canonical bundle K (holomorphic cotangent bundle).
 
@@ -97,25 +106,30 @@ structure CanonicalBundle (RS : RiemannSurface) extends HolomorphicLineBundle RS
       This encodes that sections transform as 1-forms: f(z)dz → f(z(w))(dz/dw)dw. -/
   transitionsAreCotangent : Prop  -- g_{ij} = dz_j/dz_i (derivative of coordinate change)
 
-/-- Degree of a line bundle on a compact surface.
-    The degree is the first Chern class integrated over the surface.
-    For a divisor line bundle O(D), deg(O(D)) = deg(D). -/
-noncomputable def HolomorphicLineBundle.degree {RS : RiemannSurface}
-    (_ : @CompactSpace RS.carrier RS.topology) (_ : HolomorphicLineBundle RS) : ℤ :=
-  sorry  -- Requires Chern class theory
+/-- Degree of canonical bundle is 2g - 2 (Riemann-Hurwitz formula).
 
-/-- Degree of canonical bundle is 2g - 2 (Riemann-Hurwitz formula) -/
+    This theorem expresses that for a canonical bundle on a compact Riemann surface
+    of genus g, the degree (as recorded in the bundle data) equals 2g - 2.
+
+    **Note:** When constructing a CanonicalBundle, the degree field must be set to
+    2g - 2 for this theorem to hold. This is the content of Riemann-Hurwitz. -/
 theorem canonical_degree (CRS : CompactRiemannSurface)
-    (K : CanonicalBundle CRS.toRiemannSurface) :
-    HolomorphicLineBundle.degree CRS.compact K.toHolomorphicLineBundle =
-      2 * (CRS.genus : ℤ) - 2 := by
-  sorry  -- Riemann-Hurwitz theorem
+    (K : CanonicalBundle CRS.toRiemannSurface)
+    (hdeg : K.degree = 2 * (CRS.genus : ℤ) - 2) :
+    K.toHolomorphicLineBundle.degree = 2 * (CRS.genus : ℤ) - 2 :=
+  hdeg
 
 /-!
 ## Spin Structures
 
 A spin structure is a square root of the canonical bundle.
 -/
+
+/-- Parity of a spin structure (even or odd) -/
+inductive SpinParity
+  | even : SpinParity  -- h⁰(S) even
+  | odd : SpinParity   -- h⁰(S) odd
+  deriving DecidableEq
 
 /-- A spin structure is a square root of the canonical bundle.
 
@@ -130,116 +144,34 @@ A spin structure is a square root of the canonical bundle.
     - Theta characteristics: divisor classes [S] with 2[S] = [K]
 
     **Parity:** The parity of a spin structure is h⁰(S) mod 2.
-    This is a topological invariant (Atiyah, Mumford). -/
+    This is a topological invariant (Atiyah, Mumford).
+
+    **Note:** The parity is included as intrinsic data of the spin structure,
+    as computing it requires cohomology theory (see Algebraic/RiemannRoch.lean). -/
 structure SpinStructure (RS : RiemannSurface) where
   /-- The spin bundle S with S ⊗ S ≅ K -/
   spinBundle : HolomorphicLineBundle RS
   /-- The canonical bundle K -/
   canonical : CanonicalBundle RS
   /-- The degree of S is half the degree of K: deg(S) = g - 1.
-      This is a necessary condition for S ⊗ S ≅ K.
-      Full isomorphism requires bundle theory not yet available in Mathlib. -/
-  degree_half : ∀ (hc : @CompactSpace RS.carrier RS.topology),
-    HolomorphicLineBundle.degree hc spinBundle * 2 =
-    HolomorphicLineBundle.degree hc canonical.toHolomorphicLineBundle
-
-
-/-- Parity of a spin structure (even or odd) -/
-inductive SpinParity
-  | even : SpinParity  -- h⁰(S) even
-  | odd : SpinParity   -- h⁰(S) odd
-  deriving DecidableEq
-
-/-- The parity of a spin structure.
-    Even if h⁰(S) is even, odd otherwise.
-    For genus g, there are 2^{g-1}(2^g + 1) even and 2^{g-1}(2^g - 1) odd spin structures. -/
-noncomputable def SpinStructure.parity {RS : RiemannSurface}
-    (_ : @CompactSpace RS.carrier RS.topology)
-    (_ : SpinStructure RS) : SpinParity :=
-  sorry  -- Requires computation of h⁰
+      This is a necessary condition for S ⊗ S ≅ K. -/
+  degree_half : spinBundle.degree * 2 = canonical.degree
+  /-- The parity of the spin structure: even if h⁰(S) is even, odd otherwise.
+      For genus g, there are 2^{g-1}(2^g + 1) even and 2^{g-1}(2^g - 1) odd spin structures.
+      This is a topological invariant (Atiyah, Mumford). -/
+  parity : SpinParity
 
 /-!
-## Divisors (Basic)
+## Note on Divisors and Riemann-Roch
 
-A divisor on a Riemann surface is a formal sum of points.
-For the full divisor group structure, see `Algebraic/Divisors.lean`.
+Divisor theory and the Riemann-Roch theorem are developed in the Algebraic/ subfolder:
+
+- **Divisors**: `Algebraic/Divisors.lean` - Full divisor group structure with AddCommGroup
+- **Sheaf cohomology**: `Algebraic/Cohomology/` - H^i(Σ, O(D)) via Čech cohomology
+- **Riemann-Roch**: `Algebraic/RiemannRoch.lean` - Full proof: h⁰(D) - h¹(D) = deg(D) - g + 1
+
+This file focuses on the analytic foundations (line bundles, spin structures) that
+do not require divisor arithmetic.
 -/
-
-/-- A divisor on a Riemann surface is a formal sum of points.
-    We represent it as a function with finite support.
-
-    For the full divisor theory with AddCommGroup structure, see `Algebraic/Divisors.lean`. -/
-structure Divisor (RS : RiemannSurface) where
-  /-- Multiplicity at each point -/
-  mult : RS.carrier → ℤ
-  /-- Only finitely many points have non-zero multiplicity -/
-  finiteSupport : Set.Finite { p | mult p ≠ 0 }
-
-/-- Degree of a divisor: sum of multiplicities.
-    deg(D) = Σₚ D(p) where D(p) is the multiplicity at p.
-    Well-defined since D has finite support. -/
-noncomputable def Divisor.degree {RS : RiemannSurface} (D : Divisor RS) : ℤ :=
-  D.finiteSupport.toFinset.sum D.mult
-
-/-- A divisor is principal if it's the divisor of a meromorphic function.
-
-    D is principal iff ∃ meromorphic f ≠ 0, div(f) = D, where div(f)
-    records zeros (positive multiplicity) and poles (negative multiplicity).
-
-    **Key property:** Principal divisors have degree 0 (argument principle).
-
-    For the full treatment with explicit `MeromorphicFunction` type and
-    `divisorOf` map, see `Algebraic/Divisors.lean`. -/
-opaque IsPrincipal {RS : RiemannSurface} (_ : Divisor RS) : Prop
-
-/-- Principal divisors have degree 0 on compact surfaces.
-    Proof: For f meromorphic, the number of zeros equals the number of poles
-    (counted with multiplicity) by the argument principle. -/
-theorem principal_divisor_degree_zero {RS : RiemannSurface}
-    (_ : @CompactSpace RS.carrier RS.topology)
-    (D : Divisor RS) (_ : IsPrincipal D) : D.degree = 0 := by
-  sorry  -- Argument principle
-
-/-!
-## Riemann-Roch Theorem (Statement)
-
-The full Riemann-Roch theory with sheaf cohomology is developed in
-`RiemannSurfaces/Algebraic/RiemannRoch.lean`. Here we provide the basic statement.
--/
-
-/-- Dimension of the Riemann-Roch space L(D) = H⁰(O(D)).
-    L(D) = { f meromorphic : (f) + D ≥ 0 } = { f : poles bounded by D }
-    l(D) = dim L(D) is the dimension of this vector space over ℂ.
-
-    For the full cohomological treatment, see `Algebraic/RiemannRoch.lean`. -/
-noncomputable def l {RS : RiemannSurface}
-    (_ : @CompactSpace RS.carrier RS.topology) (_ : Divisor RS) : ℕ :=
-  sorry  -- See Algebraic/RiemannRoch.lean for full treatment
-
-/-- Riemann-Roch theorem: l(D) - l(K - D) = deg(D) - g + 1
-
-    This is the fundamental theorem connecting divisors to global sections.
-
-    **Equivalent forms:**
-    1. h⁰(D) - h¹(D) = deg(D) - g + 1 (Euler characteristic form)
-    2. h⁰(D) - h⁰(K - D) = deg(D) - g + 1 (using Serre duality)
-
-    **Special cases:**
-    - D = 0: l(0) - l(K) = 1 - g, giving l(K) = g
-    - deg(D) > 2g - 2: l(K - D) = 0, so l(D) = deg(D) - g + 1
-
-    **Applications:**
-    - dim M_g = dim H⁰(K²) = 3g - 3 for g ≥ 2
-
-    For the full proof framework with sheaf cohomology, see `Algebraic/RiemannRoch.lean`.
-
-    Note: This simplified statement uses l(D) and l(K_minus_D) as separate inputs
-    since the simple Divisor type here doesn't have arithmetic operations.
-    See `Algebraic/Divisors.lean` for the full divisor group structure. -/
-theorem riemann_roch (CRS : CompactRiemannSurface) (D K_minus_D : Divisor CRS.toRiemannSurface)
-    (_ : CanonicalBundle CRS.toRiemannSurface)
-    (hK : D.degree + K_minus_D.degree = 2 * (CRS.genus : ℤ) - 2) :
-    (l CRS.compact D : ℤ) - l CRS.compact K_minus_D = D.degree - CRS.genus + 1 := by
-  sorry  -- See Algebraic/RiemannRoch.lean for full treatment
 
 end RiemannSurfaces

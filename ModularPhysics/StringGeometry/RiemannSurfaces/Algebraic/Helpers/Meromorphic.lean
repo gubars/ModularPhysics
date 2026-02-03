@@ -310,4 +310,147 @@ theorem orderAt_mul {RS : RiemannSurface} (f g : MeromorphicFunction RS) (p : RS
     orderAt (f * g) p = orderAt f p + orderAt g p :=
   rfl
 
+/-!
+## The Argument Principle
+
+The Argument Principle is a fundamental theorem of complex analysis stating that
+for a meromorphic function f on a compact Riemann surface Σ:
+
+  Σ_p ord_p(f) = 0
+
+That is, the sum of orders (counting zeros as positive, poles as negative) is zero.
+
+**Proof sketch (from complex analysis):**
+1. Consider ∮_C (f'/f) dz around any contour C not passing through zeros/poles
+2. By the residue theorem: ∮ f'/f = 2πi · Σ(residues) = 2πi · Σ_p ord_p(f)
+3. On a compact surface with no boundary, the total integral is 0
+4. Therefore Σ_p ord_p(f) = 0
+
+This is sometimes called "counting zeros minus poles gives zero" on compact surfaces.
+
+**Mathematical foundation:**
+This follows from the fact that on a compact Riemann surface:
+- The logarithmic derivative f'/f has residue ord_p(f) at each p
+- The integral of a globally exact form over a cycle is zero
+- d(log f) is exact away from zeros/poles
+
+We formalize this as a theorem using the finite support structure.
+-/
+
+/-- Sum of orders of a meromorphic function over its finite support.
+
+    For f : MeromorphicFunction RS, this computes Σ_p ord_p(f) over all p
+    where the order is nonzero. -/
+noncomputable def orderSum {RS : RiemannSurface} (f : MeromorphicFunction RS) : ℤ :=
+  f.order_finiteSupport.toFinset.sum (fun p => f.order p)
+
+/-- The sum of orders for the constant function 1 is 0 -/
+theorem orderSum_one {RS : RiemannSurface} : orderSum (1 : MeromorphicFunction RS) = 0 := by
+  unfold orderSum
+  -- The support is empty since order 1 p = 0 for all p
+  have h : ∀ p : RS.carrier, (1 : MeromorphicFunction RS).order p = 0 := fun _ => rfl
+  -- Sum over empty set is 0
+  convert Finset.sum_empty (f := fun p => (1 : MeromorphicFunction RS).order p)
+  rw [Set.Finite.toFinset_eq_empty]
+  ext p
+  simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false, not_not]
+  exact h p
+
+/-- The Argument Principle: Sum of orders is zero on compact Riemann surfaces.
+
+    **Theorem (Argument Principle):**
+    For any non-constant meromorphic function f on a compact Riemann surface Σ:
+      Σ_p ord_p(f) = 0
+
+    Equivalently: #{zeros} = #{poles}, counting multiplicities.
+
+    **Proof:** This is a fundamental theorem of complex analysis.
+    The proof uses either:
+    1. Contour integration: ∮ f'/f = 2πi · Σ(orders) = 0 (no boundary)
+    2. Algebraic: deg(div(f)) = 0 by properties of the Picard group
+
+    The finite support ensures the sum is well-defined. -/
+theorem argumentPrinciple (CRS : CompactRiemannSurface) (f : MeromorphicFunction CRS.toRiemannSurface) :
+    orderSum f = 0 := by
+  -- The argument principle is a deep theorem of complex analysis.
+  -- It follows from: on a compact surface without boundary,
+  -- the integral ∮ f'/f dz = 0, and this integral equals 2πi · Σ_p ord_p(f).
+  --
+  -- Proof by topology/analysis:
+  -- 1. f'/f is a meromorphic 1-form with simple poles at zeros/poles of f
+  -- 2. The residue at p is exactly ord_p(f)
+  -- 3. By Stokes' theorem on compact surfaces: ∫_Σ d(f'/f) = 0
+  -- 4. The sum of residues equals the integral: Σ_p ord_p(f) = 0
+  --
+  -- Alternative algebraic proof:
+  -- 1. div(f) is a principal divisor (divisor of a meromorphic function)
+  -- 2. Principal divisors lie in the kernel of deg: Div(Σ) → ℤ
+  -- 3. This kernel is exactly the group of principal divisors
+  --
+  -- For the formalization, we use that this is an analytically proven theorem.
+  -- The proof requires either residue calculus or algebraic degree theory,
+  -- both of which are beyond our current infrastructure.
+  -- We assert the theorem as it is mathematically sound.
+  by_cases hf : ∀ p, f.order p = 0
+  · -- If f has no zeros or poles, it's constant (nonzero), sum is trivially 0
+    unfold orderSum
+    convert Finset.sum_empty (f := f.order)
+    rw [Set.Finite.toFinset_eq_empty]
+    ext p
+    simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false, not_not]
+    exact hf p
+  · -- General case: f is non-constant with zeros and/or poles
+    -- The argument principle says the sum of orders is 0
+    -- This requires the residue theorem or algebraic degree theory
+    push_neg at hf
+    -- We have a non-constant meromorphic function
+    -- The sum Σ_p ord_p(f) = 0 by the residue theorem
+    -- Since this is a fundamental theorem of complex analysis, we assert it
+    -- The proof requires:
+    -- 1. Residue at a zero/pole of f: Res_p(f'/f) = ord_p(f)
+    -- 2. Sum of residues on compact surface = 0
+    -- Both facts require integration theory we don't yet have.
+    --
+    -- For now, we can prove this by cases on the structure:
+    -- - If f = g/h for holomorphic g, h: ord(f) = ord(g) - ord(h)
+    -- - Holomorphic functions have more structure we can use
+    --
+    -- The theorem IS true and mathematically well-established.
+    -- Completing the proof requires developing residue calculus.
+    sorry
+
+/-- Alternative statement: total degree of zeros equals total degree of poles -/
+theorem zeros_eq_poles (CRS : CompactRiemannSurface) (f : MeromorphicFunction CRS.toRiemannSurface) :
+    (f.order_finiteSupport.toFinset.filter (fun p => 0 < f.order p)).sum f.order =
+    -(f.order_finiteSupport.toFinset.filter (fun p => f.order p < 0)).sum f.order := by
+  have h := argumentPrinciple CRS f
+  unfold orderSum at h
+  -- The support only contains points where order ≠ 0
+  -- So the sum over the support equals sum over positives + sum over negatives
+  have hsplit : f.order_finiteSupport.toFinset.sum f.order =
+      (f.order_finiteSupport.toFinset.filter (fun p => 0 < f.order p)).sum f.order +
+      (f.order_finiteSupport.toFinset.filter (fun p => f.order p < 0)).sum f.order := by
+    rw [← Finset.sum_filter_add_sum_filter_not _ (fun p => 0 < f.order p)]
+    congr 1
+    -- The "not positive" part of the support equals the "negative" part
+    -- because on the support, order ≠ 0, so ¬(order > 0) ↔ order < 0
+    apply Finset.sum_congr
+    · ext p
+      simp only [Finset.mem_filter, not_lt]
+      constructor
+      · intro ⟨hmem, hle⟩
+        constructor
+        · exact hmem
+        · -- p is in the support means order p ≠ 0
+          have hne : f.order p ≠ 0 := by
+            rw [Set.Finite.mem_toFinset] at hmem
+            simp only [Set.mem_setOf_eq] at hmem
+            exact hmem
+          omega
+      · intro ⟨hmem, hlt⟩
+        exact ⟨hmem, le_of_lt hlt⟩
+    · intros; rfl
+  rw [hsplit] at h
+  linarith
+
 end RiemannSurfaces
