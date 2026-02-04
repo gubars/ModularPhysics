@@ -1,5 +1,7 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.SerreDuality
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.CechTheory
+-- Note: CechTheory and SerreDuality use CompactRiemannSurface (analytic),
+-- so they live in GAGA/Cohomology, not Algebraic/Cohomology
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.SerreDuality
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.CechTheory
 
 /-!
 # The Riemann-Roch Theorem

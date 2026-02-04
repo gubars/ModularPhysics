@@ -155,7 +155,7 @@ theorem trivalent_edge_count (V E : ℕ) (htriv : 2 * E = 3 * V) :
     of the moduli space, which equals (real edges)/2. Here we state the correct
     formula for the number of edges. -/
 theorem dimension_formula (g n V E F : ℕ)
-    (hstable : 2 * g + n > 2)
+    (_hstable : 2 * g + n > 2)
     (htriv : 2 * E = 3 * V)
     (hfaces : F = n)  -- boundary components = faces for trivalent
     (heuler : (V : ℤ) - E + F = 2 - 2 * g - n) :

@@ -1,4 +1,4 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.ExactSequence
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequence
 import Mathlib.Topology.Category.TopCat.Opens
 import Mathlib.Topology.Sets.Opens
 import Mathlib.Algebra.Category.ModuleCat.Basic

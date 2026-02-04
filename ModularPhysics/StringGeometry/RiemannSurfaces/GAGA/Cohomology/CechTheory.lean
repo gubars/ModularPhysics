@@ -1,6 +1,6 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.GeneralCechBridge
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.GeneralCechBridge
 import ModularPhysics.Topology.Sheaves.LongExactSequence
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
 import Mathlib.LinearAlgebra.Dimension.Finrank
 import Mathlib.GroupTheory.QuotientGroup.Defs
 
@@ -546,26 +546,78 @@ The key theorems proved (or to be proved) in this file:
 These are PROVED directly from Čech cohomology, not axiomatized.
 -/
 
+/-!
+## Core Cohomology Theorems
+
+The fundamental theorems for Riemann-Roch via Čech cohomology.
+These are THEOREMS with sorrys - not axioms bundled in structures.
+
+The proofs require substantial infrastructure:
+- h⁰(O) = 1: Maximum principle + identification of H⁰(O) with holomorphic functions
+- h¹(O) = g: Hodge theory / de Rham comparison
+- Point exact sequence: Long exact sequence from 0 → O(D-p) → O(D) → ℂ_p → 0
+-/
+
 /-- **h⁰(O) = 1**: Only constants are holomorphic on a compact Riemann surface.
 
-    **Proof**: Maximum principle - a non-constant holomorphic function would
-    attain its maximum modulus in the interior, contradiction. -/
+    **Proof sketch:** If f is holomorphic on compact Σ, then |f| attains its
+    maximum. By the maximum modulus principle, f must be constant. So H⁰(Σ, O) ≅ ℂ,
+    which has dimension 1.
+
+    **Required infrastructure:**
+    1. Identification of H⁰(O) with holomorphic functions
+    2. Maximum modulus principle for compact surfaces
+    3. Liouville's theorem (bounded entire functions are constant) -/
 theorem h0_structure_cech
     {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
-    (gc : FiniteGoodCover (L.sheafOf 0)) :
-    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) gc 0) = 1 := by
-  sorry  -- Requires maximum principle
+    (gc : ∀ D : Divisor CRS.toRiemannSurface, FiniteGoodCover (L.sheafOf D)) :
+    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) (gc 0) 0) = 1 := by
+  sorry
 
-/-- **h¹(O) = g**: The first Betti number equals the genus.
+/-- **h¹(O) = g**: The first cohomology dimension equals the genus.
 
-    **Note**: This is essentially the definition of genus for Riemann surfaces. -/
+    This is a deep theorem (Hodge theory / de Rham comparison):
+    - Topological: g = dim H¹(Σ, ℂ) / 2 = first Betti number / 2
+    - Cohomological: h¹(O) = dim of Čech 1-cocycles mod coboundaries
+
+    The equality follows from Hodge decomposition:
+      H¹(Σ, ℂ) ≅ H⁰(Σ, Ω¹) ⊕ H¹(Σ, O)
+    with dim H⁰(Σ, Ω¹) = dim H¹(Σ, O) = g.
+
+    **Required infrastructure:**
+    1. Hodge decomposition for compact Riemann surfaces
+    2. De Rham isomorphism
+    3. Identification of cohomological and topological genus -/
 theorem h1_structure_cech
     {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
-    (gc : FiniteGoodCover (L.sheafOf 0)) :
-    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) gc 1) = CRS.genus := by
-  sorry  -- Definitional: genus is defined as h¹(O)
+    (gc : ∀ D : Divisor CRS.toRiemannSurface, FiniteGoodCover (L.sheafOf D)) :
+    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) (gc 0) 1) = CRS.genus := by
+  sorry
+
+/-- **Point exact sequence**: χ(D) - χ(D-p) = 1.
+
+    From the short exact sequence 0 → O(D-p) → O(D) → ℂ_p → 0:
+    - Long exact sequence gives alternating sum = 0
+    - χ(ℂ_p) = 1 - 0 = 1 (skyscraper: H⁰ = ℂ, H¹ = 0)
+    - Therefore χ(D) - χ(D-p) = χ(ℂ_p) = 1
+
+    **Required infrastructure:**
+    1. Construction of the short exact sequence of sheaves
+    2. Long exact sequence in Čech cohomology
+    3. Computation of skyscraper sheaf cohomology -/
+theorem point_exact_cech
+    {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}
+    (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
+    (gc : ∀ D : Divisor CRS.toRiemannSurface, FiniteGoodCover (L.sheafOf D))
+    (D : Divisor CRS.toRiemannSurface) (p : CRS.toRiemannSurface.carrier) :
+    let H0D := cechToSheafCohomologyGroup (L.sheafOf D) (gc D) 0
+    let H1D := cechToSheafCohomologyGroup (L.sheafOf D) (gc D) 1
+    let H0Dp := cechToSheafCohomologyGroup (L.sheafOf (D - Divisor.point p)) (gc (D - Divisor.point p)) 0
+    let H1Dp := cechToSheafCohomologyGroup (L.sheafOf (D - Divisor.point p)) (gc (D - Divisor.point p)) 1
+    eulerCharacteristic H0D H1D - eulerCharacteristic H0Dp H1Dp = 1 := by
+  sorry
 
 /-- **Cohomological dimension vanishing**: H^i = 0 for i ≥ 2 on curves. -/
 theorem vanishing_cech
@@ -595,7 +647,9 @@ noncomputable def cech_chi {CRS : CompactRiemannSurface}
 /-- **The Riemann-Roch Recursion**: χ(O(D)) - χ(O(D - p)) = 1.
 
     **Proof**: From 0 → O(D-p) → O(D) → ℂ_p → 0, the long exact sequence gives
-    χ(O(D)) - χ(O(D-p)) = χ(ℂ_p) = 1. -/
+    χ(O(D)) - χ(O(D-p)) = χ(ℂ_p) = 1.
+
+    This is a direct consequence of point_exact_cech. -/
 theorem eulerChar_point_exact_cech {CRS : CompactRiemannSurface}
     {O : StructureSheaf CRS.toRiemannSurface}
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
@@ -603,8 +657,9 @@ theorem eulerChar_point_exact_cech {CRS : CompactRiemannSurface}
     (D : Divisor CRS.toRiemannSurface)
     (p : CRS.toRiemannSurface.carrier) :
     cech_chi L gc D - cech_chi L gc (D - Divisor.point p) = 1 := by
-  -- This requires the long exact sequence from the point exact sequence
-  sorry
+  -- This follows from point_exact_cech
+  have hpe := point_exact_cech L gc D p
+  exact hpe
 
 -- Helper: degree of D - point p
 private theorem degree_sub_point {RS : RiemannSurface} (D : Divisor RS) (p : RS.carrier) :
@@ -693,9 +748,9 @@ private theorem chi_deg_base_cech {CRS : CompactRiemannSurface}
     (gc : ∀ D : Divisor CRS.toRiemannSurface, FiniteGoodCover (L.sheafOf D)) :
     cech_chi L gc 0 - (0 : Divisor CRS.toRiemannSurface).degree = 1 - CRS.genus := by
   simp only [Divisor.degree_zero, sub_zero]
-  -- h⁰(O) = 1, h¹(O) = g
-  have h0 := h0_structure_cech L (gc 0)
-  have h1 := h1_structure_cech L (gc 0)
+  -- h⁰(O) = 1, h¹(O) = g from the structure theorems
+  have h0 := h0_structure_cech L gc
+  have h1 := h1_structure_cech L gc
   -- cech_chi is defined as eulerCharacteristic of the two cohomology groups
   show (h_i (cechToSheafCohomologyGroup (L.sheafOf 0) (gc 0) 0) : ℤ) -
        h_i (cechToSheafCohomologyGroup (L.sheafOf 0) (gc 0) 1) = 1 - CRS.genus
@@ -704,7 +759,12 @@ private theorem chi_deg_base_cech {CRS : CompactRiemannSurface}
 
 /-- **Riemann-Roch Formula** (Čech version): χ(O(D)) = deg(D) + 1 - g.
 
-    Proved by well-founded induction on the support cardinality of D. -/
+    Proved by well-founded induction on the support cardinality of D.
+
+    **Dependencies** (theorems with sorrys):
+    - h0_structure_cech: h⁰(O) = 1 (maximum principle)
+    - h1_structure_cech: h¹(O) = g (Hodge theory)
+    - point_exact_cech: χ(D) - χ(D-p) = 1 (long exact sequence) -/
 theorem eulerChar_formula_cech {CRS : CompactRiemannSurface}
     {O : StructureSheaf CRS.toRiemannSurface}
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)

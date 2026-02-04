@@ -1,4 +1,5 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
+-- Note: Cohomology.Basic uses CompactRiemannSurface, so it lives in GAGA/Cohomology
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.Meromorphic
 
 /-!

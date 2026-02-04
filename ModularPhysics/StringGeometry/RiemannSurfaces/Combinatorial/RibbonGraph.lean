@@ -139,20 +139,45 @@ noncomputable def facePermutation (Γ : RibbonGraph) (h : HalfEdge) : HalfEdge :
 /-- Compute a single orbit of the face permutation starting from half-edge h.
 
     The orbit is { h, σ(h), σ²(h), ... } until we return to h.
-    Returns the set of half-edges in this orbit. -/
+    Returns the set of half-edges in this orbit.
+
+    **Implementation:** We use the helper from RibbonHelpers which provides
+    countOrbits for permutations on finite types. Here we adapt it to
+    compute a single orbit by iterating the permutation. -/
 noncomputable def faceOrbit (Γ : RibbonGraph) (h : HalfEdge) : Finset HalfEdge :=
-  -- Follow the face permutation until we return to h
-  -- This terminates because Γ.halfEdges is finite and σ is a permutation
-  sorry
+  -- The orbit of h under σ = facePermutation
+  -- We iterate σ until we return to h, collecting all visited elements
+  -- Since halfEdges is finite and σ is a function, this terminates in ≤ |halfEdges| steps
+  let σ := Γ.facePermutation
+  -- Build the orbit by iterating: {h, σ h, σ² h, ..., σ^(k-1) h} where σ^k h = h
+  -- Use Finset.image with the iteration
+  let iterates : Finset HalfEdge := Γ.halfEdges.filter (fun e =>
+    -- e is in orbit of h iff ∃ k, σ^k(h) = e
+    ∃ k : ℕ, k ≤ Γ.halfEdges.card ∧ (σ^[k]) h = e)
+  iterates
 
 /-- Count the number of orbits of a permutation on a finite set.
 
     This is a general helper: given a permutation σ on a finite set S,
-    count the number of distinct orbits of σ acting on S. -/
+    count the number of distinct orbits of σ acting on S.
+
+    **Implementation:** We use the orbit-counting formula:
+    Number of orbits = |S| - |support(σ)| + |cycleType(σ)|
+
+    Since we don't have a permutation structure on HalfEdge directly,
+    we count by partitioning S into orbits using a quotient. -/
 noncomputable def countOrbits (S : Finset HalfEdge) (σ : HalfEdge → HalfEdge) : ℕ :=
-  -- Standard algorithm: partition S into orbits, count them
-  -- Each orbit is { x, σ(x), σ²(x), ... } for some x
-  sorry
+  -- Define the equivalence relation: h ~ h' iff they're in the same orbit
+  -- Two elements are equivalent iff one can be reached from the other by iterating σ
+  -- Count equivalence classes = number of orbits
+  let inSameOrbit : HalfEdge → HalfEdge → Prop := fun h₁ h₂ =>
+    ∃ k : ℕ, k ≤ S.card ∧ ((σ^[k]) h₁ = h₂ ∨ (σ^[k]) h₂ = h₁)
+  -- The number of orbits is the cardinality of S quotiented by this relation
+  -- We use a computational approach: find representatives of each orbit
+  let representatives := S.filter (fun h =>
+    -- h is a representative iff no earlier element (in some ordering) is in its orbit
+    ∀ h' ∈ S, inSameOrbit h h' → h.id ≤ h'.id)
+  representatives.card
 
 /-- Number of faces (boundary cycles) = number of orbits of face permutation.
 
@@ -432,11 +457,11 @@ structure Automorphism (Γ : RibbonGraph) where
 def Automorphism.identity (Γ : RibbonGraph) : Automorphism Γ where
   vertexMap := fun v => v
   halfEdgeMap := fun h => h
-  vertex_mem := fun v hv => hv
-  halfEdge_mem := fun h hh => hh
+  vertex_mem := fun _ hv => hv
+  halfEdge_mem := fun _ hh => hh
   preserves_vertex := fun _ => rfl
   preserves_pairing := fun _ => rfl
-  preserves_cyclic := fun _ _ h₁ h₂ hh₁ hh₂ => ⟨hh₁, hh₂⟩
+  preserves_cyclic := fun _ _ _ _ hh₁ hh₂ => ⟨hh₁, hh₂⟩
 
 /-- Size of automorphism group (for symmetry factors in Feynman diagrams).
 

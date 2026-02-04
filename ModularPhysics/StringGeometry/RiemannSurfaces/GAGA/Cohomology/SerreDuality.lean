@@ -1,6 +1,6 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.ExactSequence
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.CechTheory
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequence
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.CechTheory
 
 /-!
 # Serre Duality for Riemann Surfaces
@@ -261,8 +261,8 @@ These are proved using Čech cohomology directly.
 theorem h1_structure_eq_genus_cech (CRS : CompactRiemannSurface)
     (O : StructureSheaf CRS.toRiemannSurface)
     (L : LineBundleSheafAssignment CRS.toRiemannSurface O)
-    (gc : FiniteGoodCover (L.sheafOf 0)) :
-    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) gc 1) = CRS.genus :=
+    (gc : ∀ D : Divisor CRS.toRiemannSurface, FiniteGoodCover (L.sheafOf D)) :
+    h_i (cechToSheafCohomologyGroup (L.sheafOf 0) (gc 0) 1) = CRS.genus :=
   h1_structure_cech L gc
 
 /-- For deg(D) < 0: h⁰(D) = 0 (using Čech cohomology).

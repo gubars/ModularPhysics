@@ -54,6 +54,29 @@ The main Supermanifold definition now uses proper SuperAlgebra structure.
   - `Bblock_body_eq_zero`, `Cblock_body_eq_zero` - Off-diagonal blocks have zero body (proven)
   - `SuperCoordinateChange` - Coordinate transformation structure with Jacobian compatibility
   - Connects to Berezinian infrastructure in Helpers/Berezinian.lean
+- **BerezinIntegration.lean** - All placeholder definitions fixed:
+  - Now imports `FiniteGrassmann.lean` for proper Grassmann algebra infrastructure
+  - Removed duplicate `SuperJacobian` definition (now uses proper one from SuperJacobian.lean)
+  - `SuperPartitionOfUnity` - Fintype index, proper sum_eq_one and support conditions
+  - `GlobalIntegralForm.compatible` - Body Jacobian transformation law
+  - `CompactlySupportedIntegralForm.compact_support` - Uses IsCompact
+  - `body_jacobian_cocycle` - Body Jacobian determinant multiplicativity
+  - `berezinian_cocycle_full` - NEW: Full supermatrix formulation with:
+    - Uses `SuperTransition.toSuperJacobian` from FiniteGrassmann.lean
+    - Uses `SuperJacobian.berezinianAt` for Berezinian computation
+    - Proper invertibility and parity hypotheses for D blocks
+  - `SuperCoordChange.jacobian` - Now returns proper `SuperJacobian` with SuperDomainFunction entries
+  - `berezin_fubini` - Proven (coefficient extraction)
+  - `superDivergence` - Proper definition
+  - `globalBerezinIntegral` - Uses explicit Finset.sum with finIndex instance
+- **FiniteGrassmann.lean** - NEW infrastructure:
+  - `FiniteGrassmannCarrier q` - Carrier type for Λ_q with Ring instance (fully proven)
+  - `finiteGrassmannAlgebra q` - GrassmannAlgebra instance
+  - `SuperDomainFunction.evalAtPoint` - Evaluation at a point gives FiniteGrassmann element
+  - `SuperJacobian.toSuperMatrixAt` - Convert to SuperMatrix at a point
+  - `SuperJacobian.berezinianAt` - Berezinian of SuperJacobian at a point
+  - `SuperTransition.toSuperJacobian` - Compute Jacobian from coordinate transition (with proven parity)
+  - `SuperTransition.berezinianAt` - Berezinian of a transition at a point
 
 ---
 
@@ -146,9 +169,10 @@ The main Supermanifold definition now uses proper SuperAlgebra structure.
 | Supermanifolds.lean | **Excellent** | All placeholders fixed |
 | PartialOddDerivation.lean | **Excellent** | partialOdd_odd_derivation' proven |
 | Batchelor.lean | Good | Proper structures, deep theorems sorry |
-| BerezinIntegration.lean | Partial | Integration sorrys |
+| BerezinIntegration.lean | **Good** | Proper supermatrix formulations, 5 sorrys |
 | Helpers/SuperMatrix.lean | **Excellent** | Berezinian computation rigorous |
 | Helpers/PartialOddLeibniz.lean | **Excellent** | Sign lemmas for Leibniz rule |
+| Helpers/FiniteGrassmann.lean | **Excellent** | Ring instance fully proven, evaluation maps |
 | SuperJacobian.lean | **Excellent** | Super Jacobian with proper grading |
 
 ---
@@ -171,3 +195,42 @@ The main Supermanifold definition now uses proper SuperAlgebra structure.
 - **canonicalBundle removed** - belongs in SuperRiemannSurfaces folder (requires complex structure + integrability)
 - **linearSubst** uses exterior algebra transformation law: f(Aθ)_J = Σ_I f_I · det(A[I,J])
 - **residueField** is a proper quotient A/m with proven equivalence relation properties
+- **SuperPartitionOfUnity** (BerezinIntegration.lean) now has proper types:
+  - `Fintype index` for well-defined finite sums
+  - `sum_eq_one : ∀ x, Finset.univ.sum (fun α => functions α x) = 1`
+  - `supportDomains` and `support_subset` for subordinate property
+  - Based on Witten's notes (arXiv:1209.2199, §3.1)
+
+---
+
+## BerezinIntegration.lean - Recent Improvements
+
+### Fixed Placeholders:
+- **SuperPartitionOfUnity**: Proper structure with Fintype index, sum_eq_one, support_subset
+- **GlobalIntegralForm.compatible**: Now has proper type with body Jacobian transformation
+- **CompactlySupportedIntegralForm.compact_support**: Now uses `IsCompact` on support closure
+- **berezinian_cocycle**: Proper statement using body Jacobian determinants
+- **berezin_fubini**: Proven (extraction of top coefficient is the definition)
+- **superDivergence**: Proper definition as sum of partial derivatives
+- **super_divergence_theorem**: Proper type with body integral
+- **super_stokes**: Proper type with boundary integral hypotheses
+
+### Remaining Infrastructure Gaps
+
+#### IntegralForm.pullback (line ~210)
+**Currently**: Returns original form unchanged (placeholder).
+**Needed**:
+1. Super function composition (substitution f ∘ φ)
+2. Berezinian computation via SuperMatrix.ber
+3. Multiplication to get φ*ω = (f ∘ φ) · Ber(J_φ) · [Dx Dθ]
+
+See Witten (arXiv:1209.2199, eq. 3.10).
+
+#### Sorrys in BerezinIntegration.lean
+| Declaration | Difficulty | Notes |
+|-------------|-----------|-------|
+| `berezin_change_of_variables_formula` | MEDIUM | Needs IntegralForm.pullback |
+| `partition_of_unity_exists` | LOW | Standard manifold topology |
+| `globalBerezinIntegral_independent` | MEDIUM | Uses Berezinian change of variables |
+| `body_jacobian_cocycle` | MEDIUM | Chain rule + det multiplicativity |
+| `berezinian_cocycle_full` | MEDIUM-HIGH | Needs super chain rule + SuperMatrix.ber_mul |

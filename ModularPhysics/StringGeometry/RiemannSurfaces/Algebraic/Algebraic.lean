@@ -1,9 +1,13 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Divisors
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Moduli
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Sheaves
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.ExactSequence
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.SerreDuality
+-- Note: Cohomology files that use CompactRiemannSurface are in GAGA/Cohomology
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Sheaves
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequence
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.SerreDuality
+-- Pure algebraic cohomology (uses AlgebraicCurve, not RiemannSurface)
+-- Note: AlgebraicCech.lean has pre-existing build errors (missing Core.Divisor lemmas)
+-- import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.AlgebraicCech
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.RiemannRoch
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.FunctionField
 

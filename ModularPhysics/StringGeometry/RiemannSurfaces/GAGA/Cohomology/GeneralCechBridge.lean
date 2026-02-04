@@ -1,5 +1,5 @@
 import ModularPhysics.Topology.Sheaves.CechCohomology
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.MathlibBridge
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.MathlibBridge
 import Mathlib.Topology.Sets.Opens
 
 /-!

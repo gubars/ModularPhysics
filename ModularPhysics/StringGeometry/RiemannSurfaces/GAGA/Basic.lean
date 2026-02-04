@@ -1,7 +1,7 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.ExactSequence
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.CechTheory
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequence
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.CechTheory
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Divisors
 
 /-!
@@ -75,8 +75,17 @@ algebraic and analytic structures.
     Note: The projectivity and algebraicity are asserted as propositions.
     These follow from a deep theorem but we don't prove them here. -/
 structure AlgebraicAnalyticSurface extends CompactRiemannSurface where
-  /-- The surface is projective (embeds in some projective space) -/
-  projective : ∃ (n : ℕ), n ≥ 2  -- Embedding into ℙⁿ exists
+  /-- The dimension of the projective space ℙⁿ into which the surface embeds.
+
+      Every compact Riemann surface of genus g embeds into ℙⁿ for some n:
+      - Genus 0: ℙ¹ itself (n = 1 suffices)
+      - Genus 1: Cubic in ℙ² (n = 2 suffices)
+      - Genus ≥ 2: Canonical embedding into ℙ^{g-1} or other embeddings
+
+      We require n ≥ 1 since the surface must embed in at least ℙ¹. -/
+  embeddingDim : ℕ
+  /-- The embedding dimension is at least 1 (surface embeds in some projective space) -/
+  embeddingDim_pos : embeddingDim ≥ 1
   /-- The algebraic structure (function field) on the surface -/
   algStructure : AlgebraicStructureOn toRiemannSurface
 
@@ -138,14 +147,22 @@ structure GAGACohomology (S : AlgebraicAnalyticSurface)
     (L : LineBundleSheafAssignment S.toRiemannSurface O)
     (gaga : GAGAEquivalence S O)
     (gc : ∀ D : Algebraic.Divisor S.toRiemannSurface, CechTheory.FiniteGoodCover (L.sheafOf D)) where
-  /-- For sheaves of divisors O(D), analytification preserves cohomology dimensions:
-      h^i(S, O(D)^an) = h^i(S, O(D)) since O(D)^an = O(D) by GAGA.
+  /-- The Euler characteristic computed via Čech cohomology equals deg + 1 - g.
 
-      Note: By gaga.isEquivalence, gaga.analytify.map (L.sheafOf D) = L.sheafOf D,
-      so this is automatically true (dimension_preserved is reflexivity). -/
-  dimension_preserved : ∀ (D : Algebraic.Divisor S.toRiemannSurface) (i : ℕ),
-    h_i (CechTheory.cechToSheafCohomologyGroup (L.sheafOf D) (gc D) i) =
-    h_i (CechTheory.cechToSheafCohomologyGroup (L.sheafOf D) (gc D) i)
+      This is the key computational result: the Čech-computed Euler characteristic
+      matches the algebraic Riemann-Roch formula. In our unified representation,
+      this follows from the algebraic Riemann-Roch theorem.
+
+      **Mathematical content:** For the analytified sheaf O(D)^an = O(D) (by GAGA),
+      χ(O(D)) = h⁰(O(D)) - h¹(O(D)) = deg(D) + 1 - g. -/
+  euler_char_formula : ∀ (D : Algebraic.Divisor S.toRiemannSurface),
+    CechTheory.cech_chi L gc D = D.degree + 1 - S.genus
+  /-- Cohomology vanishes in high degrees (curves are 1-dimensional).
+
+      For i ≥ 2, H^i(S, O(D)) = 0. This is a topological consequence of
+      the curve being 1-dimensional. -/
+  cohom_vanishing_high : ∀ (D : Algebraic.Divisor S.toRiemannSurface) (i : ℕ),
+    i ≥ 2 → h_i (CechTheory.cechToSheafCohomologyGroup (L.sheafOf D) (gc D) i) = 0
 
 /-!
 ## GAGA for Line Bundles
@@ -267,5 +284,59 @@ GAGA bridges the two viewpoints of Riemann surfaces:
 For compact Riemann surfaces, these are equivalent by GAGA, so
 results proved in one setting transfer to the other.
 -/
+
+/-!
+## Bridge Between Algebraic and Analytic
+
+These theorems formalize the correspondence between:
+- `AlgebraicCurve` (pure algebraic, in `Algebraic/FunctionField.lean`)
+- `RiemannSurface` with `AlgebraicStructure` (analytic with algebraic data)
+
+The key insight is that for a compact Riemann surface S:
+1. S.carrier (the points) becomes the Point type
+2. The function field K(S) from AlgebraicStructureOn becomes the FunctionField
+3. The valuations and argument principle carry over
+-/
+
+/-- A compact Riemann surface with algebraic structure gives a compact algebraic curve.
+
+    This is the fundamental bridge: every compact Riemann surface is algebraic,
+    and we can extract a purely algebraic `CompactAlgebraicCurve` from it.
+
+    The construction uses:
+    - Points: S.carrier (the analytic points are the algebraic closed points)
+    - Function field: S.algStructure.FunctionField (meromorphic = rational functions)
+    - Valuations: S.algStructure.valuation (order of zero/pole at each point) -/
+noncomputable def toCompactAlgebraicCurve (S : AlgebraicAnalyticSurface) :
+    Algebraic.CompactAlgebraicCurve where
+  Point := S.toRiemannSurface.carrier
+  FunctionField := S.algStructure.FunctionField
+  valuation := S.algStructure.valuation
+  valuation_zero := S.algStructure.valuation_zero
+  valuation_one := S.algStructure.valuation_one
+  valuation_mul := S.algStructure.valuation_mul
+  valuation_inv := S.algStructure.valuation_inv
+  valuation_finiteSupport := S.algStructure.valuation_finiteSupport
+  argumentPrinciple := by
+    -- The argument principle: sum of orders of a nonzero function is 0
+    -- This follows from compactness and the analytic argument principle
+    sorry
+  genus := S.genus
+
+/-- Riemann-Roch transfers between the two settings.
+
+    For a compact Riemann surface S with algebraic structure and
+    GAGA equivalence, the Euler characteristic formula holds:
+    χ(D) = deg(D) + 1 - g -/
+theorem riemann_roch_gaga_transfer (S : AlgebraicAnalyticSurface)
+    (O : StructureSheaf S.toRiemannSurface)
+    (L : LineBundleSheafAssignment S.toRiemannSurface O)
+    (gaga : GAGAEquivalence S O)
+    (gc : ∀ D : Algebraic.Divisor S.toRiemannSurface, CechTheory.FiniteGoodCover (L.sheafOf D))
+    (_ : GAGACohomology S O L gaga gc)
+    (D : Algebraic.Divisor S.toRiemannSurface) :
+    -- The analytic Euler characteristic equals the algebraic one
+    CechTheory.cech_chi L gc D = D.degree + 1 - S.genus := by
+  exact CechTheory.eulerChar_formula_cech L gc D
 
 end RiemannSurfaces.GAGA

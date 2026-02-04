@@ -84,8 +84,19 @@ structure AlgebraicCurve where
   /-- The discrete valuation at each point p: v_p : K(C)* → ℤ
       Encodes order of vanishing/pole at p -/
   valuation : Point → FunctionField → ℤ
-  /-- v_p(0) is defined to be 0 (mathematically ∞, but we use 0 for simplicity
-      since we only care about v_p for nonzero elements in most cases) -/
+  /-- **Convention:** v_p(0) = 0.
+
+      **Mathematical note:** In valuation theory, v_p(0) is formally +∞. However, we
+      use 0 as a convention because:
+      1. All meaningful operations (`valuation_mul`, `valuation_inv`) are only
+         stated for nonzero elements, avoiding the 0 case entirely.
+      2. This avoids the complexity of `WithTop ℤ` throughout the codebase.
+      3. When computing divisors or supports, we always require f ≠ 0.
+
+      The convention is safe because we never use v_p(0) in proofs that would
+      require the ∞ value. The axiom `valuation_mul` explicitly requires f, g ≠ 0,
+      so the potential inconsistency 0 = v_p(0) = v_p(0 · 1) = v_p(0) + v_p(1) = 0 + 0
+      doesn't arise from the axioms. -/
   valuation_zero : ∀ p, valuation p 0 = 0
   /-- v_p(1) = 0 -/
   valuation_one : ∀ p, valuation p 1 = 0

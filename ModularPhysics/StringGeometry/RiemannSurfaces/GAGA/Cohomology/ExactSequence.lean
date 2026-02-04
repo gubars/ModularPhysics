@@ -1,5 +1,5 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.ExactSequenceHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequenceHelpers
 import Mathlib.Algebra.Homology.ExactSequence
 
 /-!

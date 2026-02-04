@@ -1,4 +1,4 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.Sheaves
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Sheaves
 import Mathlib.CategoryTheory.Abelian.Basic
 import Mathlib.CategoryTheory.Abelian.Injective.Basic
 import Mathlib.Algebra.Homology.DerivedCategory.Ext.Basic
