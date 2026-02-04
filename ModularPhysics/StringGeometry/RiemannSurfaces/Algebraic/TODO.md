@@ -45,10 +45,37 @@ theorem riemann_roch_algebraic (C : Algebraic.CompactAlgebraicCurve)
 4. `valuation_one` - Removed from `AlgebraicCurve`, now a theorem (derivable from `valuation_mul`)
 5. `valuation_inv` - Removed from `AlgebraicCurve`, now a theorem (derivable from `valuation_mul`)
 
+**Axiom Classification for CompactAlgebraicCurve** (see `Helpers/DVRStructure.lean`):
+
+The remaining structure fields in `CompactAlgebraicCurve` are **not smuggled theorems** - they
+are fundamental axioms that cannot be derived from each other:
+
+*Category 1: Properness Axioms* (capture "compact/projective")
+- `argumentPrinciple`: deg(div(f)) = 0 for all f ≠ 0
+- `regularIsConstant`: f regular everywhere ⟹ f ∈ ℂ (Liouville)
+
+These are independent consequences of properness. Neither implies the other without
+additional scheme-theoretic infrastructure.
+
+*Category 2: DVR Axioms* (capture "smooth curve over ℂ")
+- `localParameter` + `localParameter_valuation`: uniformizer exists at each point
+- `localParameter_nonpos_away`: uniformizer has no extra zeros (constraint on choice)
+- `leadingCoefficientUniqueness`: residue field at each point is ℂ
+
+The key insight: `leadingCoefficientUniqueness` encodes "residue field = ℂ", which is:
+- NOT derivable from DVR theory alone
+- A property of smooth curves over algebraically closed fields
+- The algebraic encoding of being able to "evaluate" units at a point
+
+To replace this with Mathlib DVR theory, we would need to:
+1. Construct O_p = {f : v_p(f) ≥ 0} as a subring (done in `DVRStructure.lean`)
+2. Show O_p is a DVR (requires showing uniformizer generates maximal ideal)
+3. Prove residue field O_p/m_p ≅ ℂ (requires the algebraically closed property)
+
 **Audited structures (no issues):**
 - `AlgebraicCurve` - Core DVR axioms: `valuation_zero` (convention), `valuation_mul`,
   `valuation_add_min`, `valuation_finiteSupport`. Derived: `valuation_one`, `valuation_inv`.
-- `CompactAlgebraicCurve` - Now clean after removing redundant fields
+- `CompactAlgebraicCurve` - Minimal axiom set for "compact smooth curve over ℂ"
 - `AlgebraicStructureOn`, `CompactAlgebraicStructureOn` - Updated to match
 - `CanonicalDivisor` - Just data (divisor K) + property (deg = 2g-2)
 - `ProperCanonicalDivisor` - Extends CanonicalDivisor with h⁰(K) = g requirement

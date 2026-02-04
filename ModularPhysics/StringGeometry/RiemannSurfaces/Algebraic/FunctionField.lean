@@ -258,8 +258,25 @@ This is sometimes stated as "principal divisors have degree zero".
 
 /-- A compact algebraic curve (smooth projective curve over ℂ).
 
-    For a compact curve, the argument principle holds: the degree
-    of any principal divisor is zero. -/
+    This structure captures the essential properties of a smooth projective
+    algebraic curve over ℂ. The axioms fall into two categories:
+
+    **Category 1: Properness Axioms** (capture "compact/projective")
+    - `argumentPrinciple`: deg(div(f)) = 0 for all f ≠ 0
+    - `regularIsConstant`: f regular everywhere ⟹ f ∈ ℂ (Liouville)
+
+    **Category 2: DVR Axioms** (capture "smooth curve over ℂ")
+    - `localParameter` + `localParameter_valuation`: uniformizer exists
+    - `localParameter_nonpos_away`: uniformizer has no extra zeros
+    - `leadingCoefficientUniqueness`: residue field at each point is ℂ
+
+    These are **not smuggled theorems** - they form a minimal axiom set.
+    See `Helpers/DVRStructure.lean` for detailed analysis showing that
+    none of these are derivable from the others.
+
+    In particular, `leadingCoefficientUniqueness` encodes "residue field = ℂ"
+    which is a fundamental property of smooth curves over algebraically closed
+    fields, not derivable from DVR theory alone. -/
 structure CompactAlgebraicCurve extends AlgebraicCurve where
   /-- The ℂ-algebra structure on the function field -/
   [algebraInst : FunctionFieldAlgebra toAlgebraicCurve]
