@@ -1,6 +1,6 @@
 import ModularPhysics.StringGeometry.SuperRiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.VectorBundles
 
 /-!
 # Supermoduli Space of Super Riemann Surfaces
@@ -62,7 +62,7 @@ H¹(M_g, Sym²E) where E is the odd tangent bundle.
 
 namespace Supermanifolds
 
-open RiemannSurfaces Parity
+open RiemannSurfaces RiemannSurfaces.Moduli Parity
 
 /-!
 ## The Supermoduli Space as a Supermanifold

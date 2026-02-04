@@ -43,8 +43,8 @@ namespace RiemannSurfaces
 
 -- Re-export core definitions from Analytic
 -- This allows downstream code to continue using RiemannSurfaces.RiemannSurface
-export Analytic (ComplexManifold RiemannSurface CompactRiemannSurface
-  complexManifold_complex ComplexPlane RiemannSphere genus0Surface genus0Surface_genus
-  chartedSpace_onePoint complexManifold_onePoint)
+export Analytic (RiemannSurface CompactRiemannSurface
+  ComplexPlane RiemannSphere genus0Surface genus0Surface_genus
+  chartedSpace_onePoint isManifold_onePoint)
 
 end RiemannSurfaces

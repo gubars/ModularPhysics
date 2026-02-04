@@ -1,6 +1,7 @@
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
 import ModularPhysics.StringGeometry.Supermanifolds.Superalgebra
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Helpers.SpinStructure
 
 /-!
 # Super Riemann Surfaces
@@ -278,7 +279,7 @@ noncomputable def SuperRiemannSurface.reducedSurface (SRS : SuperRiemannSurface)
     secondCountable := inferInstance
     connected := inferInstance
     chartedSpace := sorry  -- Induced from supermanifold structure
-    complexManifold := sorry  -- Complex structure from SRS
+    isManifold := sorry  -- Complex manifold structure from SRS
   }
   compact := inferInstance
   genus := SRS.genus

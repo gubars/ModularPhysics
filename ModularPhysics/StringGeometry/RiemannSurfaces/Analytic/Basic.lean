@@ -8,8 +8,10 @@ import Mathlib.LinearAlgebra.Dimension.Finrank
 import Mathlib.Topology.Connected.PathConnected
 import Mathlib.Analysis.Convex.PathConnected
 import Mathlib.Topology.Compactification.OnePoint.Basic
+import Mathlib.Topology.OpenPartialHomeomorph.Basic
 import Mathlib.Analysis.Analytic.Basic
 import Mathlib.Analysis.SpecialFunctions.Complex.Analytic
+import Mathlib.Analysis.SpecialFunctions.Complex.Circle
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
 
 /-!
@@ -36,9 +38,19 @@ This file is imported by the main Basic.lean for backward compatibility.
 
 ## Main Definitions
 
-* `ComplexManifold` - A charted space with holomorphic transitions
 * `RiemannSurface` - A connected 1-dimensional complex manifold
 * `CompactRiemannSurface` - A compact Riemann surface with genus
+
+## Complex Manifold Structure via Mathlib
+
+We use Mathlib's `IsManifold (modelWithCornersSelf ℂ ℂ) ∞ M` for complex manifold structure.
+The model `modelWithCornersSelf ℂ ℂ` uses ℂ as the scalar field, so `ContDiffOn ℂ n` checks
+ℂ-differentiability (Fréchet derivative is ℂ-linear), which is equivalent
+to holomorphicity via Cauchy-Riemann equations.
+
+The key theorem bridging these notions is `DifferentiableOn.contDiffOn` from
+`Mathlib.Analysis.Complex.CauchyIntegral`: on open sets, complex differentiability
+implies `ContDiffOn ℂ n` for any n, since holomorphic functions are analytic.
 
 ## References
 
@@ -49,43 +61,21 @@ This file is imported by the main Basic.lean for backward compatibility.
 
 namespace RiemannSurfaces.Analytic
 
+open scoped Manifold
+
 /-!
 ## Complex Manifold Structure
 
-Mathlib provides `ChartedSpace H M` for manifolds with charts to model space H.
-For complex manifolds, H = ℂ. The additional requirement is that transition
-functions φⱼ ∘ φᵢ⁻¹ are holomorphic (complex differentiable), not just continuous.
+Mathlib provides `IsManifold I n M` for n-times differentiable manifolds.
+For complex manifolds of dimension 1, we use:
+- Model: `modelWithCornersSelf ℂ ℂ` (the identity model with corners on ℂ)
+- Smoothness: `∞` (smooth, which for ℂ means holomorphic/analytic)
+
+The `IsManifold (modelWithCornersSelf ℂ ℂ) ∞ M` class requires transition functions to be
+`ContDiffOn ℂ ∞`, i.e., infinitely ℂ-differentiable. Since ℂ-differentiability
+requires the Fréchet derivative to be ℂ-linear (equivalent to Cauchy-Riemann),
+this gives exactly the structure of a complex manifold with holomorphic transitions.
 -/
-
-/-- A complex manifold is a charted space over ℂ with holomorphic transition functions.
-
-    **Definition:** M is a complex manifold if:
-    1. M is a ChartedSpace over ℂ (has atlas of charts to ℂ)
-    2. All transition functions are holomorphic (complex differentiable)
-
-    The transition function between charts e and e' is e.symm ≫ e' restricted
-    to the overlap of their sources. Holomorphicity means this is DifferentiableOn ℂ.
-
-    **Note:** In Mathlib, `SmoothManifoldWithCorners 𝓘(ℂ, ℂ) M` gives smooth structure,
-    but smooth over ℂ does not automatically mean holomorphic. We assert holomorphicity
-    explicitly. -/
-class ComplexManifold (M : Type*) [TopologicalSpace M] [ChartedSpace ℂ M] : Prop where
-  /-- Transition functions are holomorphic (complex differentiable) -/
-  holomorphic_transitions : ∀ e e' : OpenPartialHomeomorph M ℂ,
-    e ∈ atlas ℂ M → e' ∈ atlas ℂ M →
-    DifferentiableOn ℂ (e.symm.trans e') (e.symm.trans e').source
-
-/-- ℂ with the standard single-chart atlas is a complex manifold.
-
-    The atlas for ℂ contains only OpenPartialHomeomorph.refl ℂ (the identity chart),
-    so all transitions are the identity map, which is trivially holomorphic. -/
-instance complexManifold_complex : ComplexManifold ℂ where
-  holomorphic_transitions := fun e e' he he' => by
-    -- The atlas for ℂ is {OpenPartialHomeomorph.refl ℂ}
-    -- Both e and e' are the identity, so e.symm.trans e' is identity on ℂ
-    rw [chartedSpaceSelf_atlas] at he he'
-    simp only [he, he', OpenPartialHomeomorph.refl_symm, OpenPartialHomeomorph.refl_trans]
-    exact differentiableOn_id
 
 /-!
 ## Riemann Surface Definition
@@ -96,12 +86,17 @@ instance complexManifold_complex : ComplexManifold ℂ where
     A Riemann surface consists of:
     1. A topological space M that is Hausdorff and second countable
     2. A ChartedSpace structure over ℂ (atlas of charts to ℂ)
-    3. Holomorphic transition functions (ComplexManifold)
+    3. Holomorphic transition functions (IsManifold (modelWithCornersSelf ℂ ℂ) ∞)
     4. Connectedness
 
     **1-dimensionality:** The complex dimension is 1 because the model space is ℂ
     (not ℂⁿ for n > 1). This is encoded in `ChartedSpace ℂ M` where the model
     space ℂ has dim_ℂ = 1. Equivalently, it has real dimension 2.
+
+    **Complex manifold structure:** We use Mathlib's `IsManifold (modelWithCornersSelf ℂ ℂ) ∞ M`
+    which requires transitions to be `ContDiffOn ℂ ∞`. Since ℂ-differentiability
+    (Fréchet derivative being ℂ-linear) is equivalent to holomorphicity via
+    Cauchy-Riemann, this gives a complex manifold with holomorphic transitions.
 
     **Key invariants:**
     - Riemann surfaces are orientable (ℂ ≅ ℝ² with standard orientation)
@@ -118,8 +113,8 @@ structure RiemannSurface where
   secondCountable : @SecondCountableTopology carrier topology
   /-- Charted space over ℂ -/
   chartedSpace : @ChartedSpace ℂ _ carrier topology
-  /-- Holomorphic transitions -/
-  complexManifold : @ComplexManifold carrier topology chartedSpace
+  /-- Complex manifold structure with holomorphic transitions -/
+  isManifold : @IsManifold ℂ _ ℂ _ _ ℂ _ (modelWithCornersSelf ℂ ℂ) ⊤ carrier topology chartedSpace
   /-- Connected -/
   connected : @ConnectedSpace carrier topology
 
@@ -136,41 +131,167 @@ private instance complex_connectedSpace : ConnectedSpace ℂ where
   isPreconnected_univ := complex_isPreconnected_univ
   toNonempty := ⟨0⟩
 
-/-- The complex plane ℂ as a Riemann surface -/
+/-- The complex plane ℂ as a Riemann surface.
+
+    ℂ is automatically a complex manifold via `instIsManifoldModelSpace`:
+    the model space is always a manifold over itself. -/
 noncomputable def ComplexPlane : RiemannSurface where
   carrier := ℂ
   topology := inferInstance
   t2 := inferInstance
   secondCountable := inferInstance
   chartedSpace := inferInstance
-  complexManifold := complexManifold_complex
+  isManifold := inferInstance  -- instIsManifoldModelSpace
   connected := complex_connectedSpace
+
+/-!
+## Riemann Sphere
+
+The Riemann sphere ℂP¹ = ℂ ∪ {∞} is the one-point compactification of ℂ.
+It has a two-chart atlas:
+- φ₀: ℂ → ℂ (identity on the finite part)
+- φ₁: (OnePoint ℂ) \ {0} → ℂ, z ↦ 1/z with ∞ ↦ 0
+
+The transition function φ₁ ∘ φ₀⁻¹(z) = 1/z is holomorphic on ℂ \ {0}.
+
+**Note:** Full construction of the charted space structure requires significant
+infrastructure. We provide the structure with placeholders that should be
+filled in when Mathlib has better support for one-point compactification
+as a manifold.
+-/
+
+/-- The finite chart on the Riemann sphere: embeds ℂ into OnePoint ℂ.
+
+    This chart covers everything except the point at infinity.
+    The source is `Set.range (↑)` (the image of the coercion ℂ → OnePoint ℂ).
+
+    Construction uses the symm of the open embedding's partial homeomorphism:
+    `coe : ℂ → OnePoint ℂ` is an open embedding, so its symm gives a partial
+    homeomorphism from `OnePoint ℂ` to `ℂ` with source = range coe. -/
+noncomputable def riemannSphereFiniteChart : OpenPartialHomeomorph (OnePoint ℂ) ℂ :=
+  ((OnePoint.isOpenEmbedding_coe (X := ℂ)).toOpenPartialHomeomorph (↑)).symm
+
+/-- The chart at infinity on the Riemann sphere: z ↦ 1/z with ∞ ↦ 0.
+
+    This chart covers everything except z = 0. -/
+noncomputable def riemannSphereInftyChart : OpenPartialHomeomorph (OnePoint ℂ) ℂ where
+  toFun := fun x => match x with
+    | OnePoint.some z => if z = 0 then 0 else z⁻¹  -- 0 is not in source
+    | OnePoint.infty => 0
+  invFun := fun w => if w = 0 then OnePoint.infty else OnePoint.some w⁻¹
+  source := {OnePoint.infty} ∪ ((↑) '' {z : ℂ | z ≠ 0})
+  target := Set.univ
+  map_source' := fun _ _ => Set.mem_univ _
+  map_target' := fun w _ => by
+    by_cases hw : w = 0
+    · simp [hw]
+    · right; use w⁻¹; simp [inv_ne_zero hw, hw]
+  left_inv' := fun x hx => by
+    cases x with
+    | infty =>
+      -- toFun(∞) = 0, invFun(0) = ∞
+      simp only [OnePoint.infty]
+      rfl
+    | coe z =>
+      simp only [Set.mem_union, Set.mem_singleton_iff, Set.mem_image, Set.mem_setOf_eq] at hx
+      cases hx with
+      | inl h => exact (OnePoint.coe_ne_infty z h).elim
+      | inr h =>
+        obtain ⟨w, hw, hwz⟩ := h
+        -- hwz : ↑w = ↑z, so w = z and z ≠ 0
+        have hz : z ≠ 0 := by
+          have heq : w = z := OnePoint.coe_injective hwz
+          rw [← heq]; exact hw
+        -- toFun(↑z) = z⁻¹ (since z ≠ 0)
+        -- invFun(z⁻¹) = ↑((z⁻¹)⁻¹) = ↑z (since z⁻¹ ≠ 0)
+        have hz_inv_ne : z⁻¹ ≠ 0 := inv_ne_zero hz
+        simp only [OnePoint.some]
+        simp [hz, hz_inv_ne, inv_inv]
+  right_inv' := fun w _ => by
+    by_cases hw : w = 0 <;> simp [hw, inv_inv]
+  open_source := by
+    -- {∞} ∪ (coe '' {z | z ≠ 0}) is open
+    -- In OnePoint topology, a set containing ∞ is open iff its preimage complement is compact
+    rw [OnePoint.isOpen_iff_of_mem (by simp : OnePoint.infty ∈ _)]
+    constructor
+    · -- The complement of {z | z ≠ 0} in ℂ is {0}, which is closed
+      convert isClosed_singleton (x := (0 : ℂ))
+      ext z
+      simp only [Set.mem_compl_iff, Set.mem_preimage, Set.mem_union, Set.mem_singleton_iff,
+        Set.mem_image, Set.mem_setOf_eq, not_or, not_exists, not_and]
+      constructor
+      · intro ⟨h1, h2⟩
+        by_contra hz
+        exact h2 z hz rfl
+      · intro hz
+        constructor
+        · exact OnePoint.coe_ne_infty z
+        · intro w hw hwz
+          have : w = z := OnePoint.coe_injective hwz
+          rw [this] at hw
+          exact hw hz
+    · -- {0} is compact
+      convert isCompact_singleton (x := (0 : ℂ))
+      ext z
+      simp only [Set.mem_compl_iff, Set.mem_preimage, Set.mem_union, Set.mem_singleton_iff,
+        Set.mem_image, Set.mem_setOf_eq, not_or, not_exists, not_and]
+      constructor
+      · intro ⟨h1, h2⟩
+        by_contra hz
+        exact h2 z hz rfl
+      · intro hz
+        constructor
+        · exact OnePoint.coe_ne_infty z
+        · intro w hw hwz
+          have : w = z := OnePoint.coe_injective hwz
+          rw [this] at hw
+          exact hw hz
+  open_target := isOpen_univ
+  continuousOn_toFun := by sorry
+  continuousOn_invFun := by sorry
 
 /-- ChartedSpace instance for the Riemann sphere.
 
     **Construction:** Uses two charts:
-    - φ₀: ℂ → ℂ (identity on the finite part)
-    - φ₁: (OnePoint ℂ) \ {0} → ℂ, z ↦ 1/z with ∞ ↦ 0
+    - `riemannSphereFiniteChart`: identity on the finite part (covers ℂ)
+    - `riemannSphereInftyChart`: z ↦ 1/z with ∞ ↦ 0 (covers (OnePoint ℂ) \ {0})
 
-    **Transition function:** φ₁ ∘ φ₀⁻¹(z) = 1/z on ℂ \ {0}
-
-    This requires constructing explicit OpenPartialHomeomorphs and proving
-    continuity of the inversion map. We defer to sorry as the Mathlib API
-    for OnePoint requires careful handling. -/
+    **Transition function:** φ₁ ∘ φ₀⁻¹(z) = 1/z on ℂ \ {0}, which is holomorphic. -/
 noncomputable instance chartedSpace_onePoint : ChartedSpace ℂ (OnePoint ℂ) where
-  atlas := sorry  -- {chart on ℂ, chart near ∞}
-  chartAt := sorry
-  mem_chart_source := sorry
-  chart_mem_atlas := sorry
+  atlas := {riemannSphereFiniteChart, riemannSphereInftyChart}
+  chartAt := fun x => match x with
+    | .infty => riemannSphereInftyChart
+    | .some z => if z = 0 then riemannSphereFiniteChart else riemannSphereInftyChart
+  mem_chart_source := fun x => by
+    cases x with
+    | infty => simp [riemannSphereInftyChart]
+    | coe z =>
+      by_cases hz : z = 0
+      · simp only [hz, ↓reduceIte]
+        -- Need to show (0 : ℂ) ∈ source of finite chart = range coe
+        simp only [riemannSphereFiniteChart, OpenPartialHomeomorph.symm_source,
+          Topology.IsOpenEmbedding.toOpenPartialHomeomorph_target]
+        exact Set.mem_range_self (0 : ℂ)
+      · simp only [hz, ↓reduceIte, riemannSphereInftyChart]
+        right; exact ⟨z, hz, rfl⟩
+  chart_mem_atlas := fun x => by
+    cases x with
+    | infty => right; rfl
+    | coe z =>
+      by_cases hz : z = 0
+      · simp only [hz, ↓reduceIte]; left; rfl
+      · simp only [hz, ↓reduceIte]; right; rfl
 
-/-- ComplexManifold instance for the Riemann sphere.
+/-- IsManifold instance for the Riemann sphere.
 
     **Holomorphicity:** The transition function z ↦ 1/z is holomorphic
-    on ℂ \ {0}, with derivative -1/z². This makes the Riemann sphere
-    a complex manifold. -/
-instance complexManifold_onePoint : ComplexManifold (OnePoint ℂ) where
-  holomorphic_transitions := fun _ _ _ _ => by
-    -- Transition z ↦ 1/z is holomorphic on ℂ \ {0}
+    on ℂ \ {0}, with derivative -1/z². Since holomorphic implies ContDiff ℂ ∞,
+    this makes the Riemann sphere a complex manifold. -/
+noncomputable instance isManifold_onePoint : IsManifold (modelWithCornersSelf ℂ ℂ) ⊤ (OnePoint ℂ) where
+  compatible := fun {e e'} he he' => by
+    simp only [atlas] at he he'
+    -- Need to check all four combinations of charts
+    -- The key is that z ↦ 1/z is holomorphic on ℂ \ {0}, hence ContDiff ℂ ∞
     sorry
 
 /-- The Riemann sphere ℂP¹ (one-point compactification of ℂ) -/
@@ -179,8 +300,8 @@ noncomputable def RiemannSphere : RiemannSurface where
   topology := inferInstance
   t2 := inferInstance  -- OnePoint of locally compact T2 space is T4 hence T2
   secondCountable := RiemannSurfaces.Topology.OnePoint.Complex.secondCountableTopology
-  chartedSpace := inferInstance
-  complexManifold := complexManifold_onePoint
+  chartedSpace := chartedSpace_onePoint
+  isManifold := isManifold_onePoint
   connected := RiemannSurfaces.Topology.OnePoint.Complex.connectedSpace
 
 /-!
@@ -211,7 +332,7 @@ structure CompactRiemannSurface extends RiemannSurface where
 /-- Genus 0: the Riemann sphere -/
 noncomputable def genus0Surface : CompactRiemannSurface where
   toRiemannSurface := RiemannSphere
-  compact := OnePoint.instCompactSpace  -- OnePoint of any space is compact
+  compact := @OnePoint.instCompactSpace ℂ _
   genus := 0
 
 /-- The Riemann sphere has genus 0 (by definition in our structure) -/
@@ -222,7 +343,8 @@ end RiemannSurfaces.Analytic
 -- Re-export for backward compatibility
 namespace RiemannSurfaces
 
-export Analytic (ComplexManifold RiemannSurface CompactRiemannSurface
-  complexManifold_complex ComplexPlane RiemannSphere genus0Surface genus0Surface_genus)
+export Analytic (RiemannSurface CompactRiemannSurface
+  ComplexPlane RiemannSphere genus0Surface genus0Surface_genus
+  chartedSpace_onePoint isManifold_onePoint)
 
 end RiemannSurfaces

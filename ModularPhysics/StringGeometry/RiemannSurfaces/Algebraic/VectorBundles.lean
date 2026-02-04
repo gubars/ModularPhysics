@@ -78,24 +78,38 @@ def isStable (g n : ℕ) : Prop :=
 
     This is an abstract definition - the underlying set and topology are not
     constructed here. For the stack structure, see Algebraic/Moduli.lean.
-    For the Teichmüller theory, see Analytic/Moduli.lean. -/
+    For the Teichmüller theory, see Analytic/Moduli.lean.
+
+    **Complex dimension:** The complex dimension of M_{g,n} is an intrinsic property
+    determined by deformation theory. At a point [C; p₁,...,pₙ], the tangent space is
+    T_{[C,p₁,...,pₙ]} M_{g,n} ≅ H¹(C, T_C(-p₁-...-pₙ)).
+    By Riemann-Roch, this has dimension 3g - 3 + n when the stability condition holds. -/
 structure ModuliSpacePointed (g n : ℕ) where
   /-- The underlying set of points (isomorphism classes of pointed curves) -/
   points : Type*
   /-- Stability condition -/
   stable : isStable g n
+  /-- Complex dimension of the moduli space (intrinsic property from deformation theory) -/
+  complexDim : ℤ
 
-/-- Complex dimension of M_{g,n} is 3g - 3 + n.
+/-- Dimension formula for M_{g,n}: dim M_{g,n} = 3g - 3 + n.
 
-    This follows from deformation theory:
-    - dim T_{[C,p₁,...,pₙ]} M_{g,n} = dim H¹(C, T_C(-p₁-...-pₙ))
-    - By Riemann-Roch: dim = 3g - 3 + n -/
-noncomputable def ModuliSpacePointed.complexDim (g n : ℕ) : ℤ :=
-  3 * g - 3 + n
+    This fundamental result follows from deformation theory:
+    1. The tangent space at [C; p₁,...,pₙ] is H¹(C, T_C(-p₁-...-pₙ))
+    2. By Serre duality: H¹(C, T_C(-D)) ≅ H⁰(C, K_C² ⊗ O(D))^*
+    3. By Riemann-Roch applied to the canonical bundle:
+       dim H¹(C, T_C(-D)) = -χ(T_C(-D)) = -(2-2g - (2g-2) - n) = 3g - 3 + n
 
-/-- Dimension formula for M_{g,n} -/
-theorem pointed_moduli_dimension (g n : ℕ) :
-    ModuliSpacePointed.complexDim g n = 3 * g - 3 + n := rfl
+    **Note:** Full proof requires tangent space infrastructure and Riemann-Roch
+    on the universal curve. See Algebraic/DeformationTheory.lean (TODO). -/
+theorem pointed_moduli_dimension (g n : ℕ) (M : ModuliSpacePointed g n) :
+    M.complexDim = 3 * g - 3 + n := by
+  sorry
+
+/-- The moduli space M_g of genus g curves (without marked points).
+
+    This is the special case M_{g,0} of the pointed moduli space. -/
+abbrev ModuliSpace (g : ℕ) := ModuliSpacePointed g 0
 
 /-!
 ## Abstract Vector Bundle Framework
