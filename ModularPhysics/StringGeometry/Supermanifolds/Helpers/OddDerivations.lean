@@ -1,6 +1,8 @@
 import Mathlib.Algebra.Ring.Basic
 import Mathlib.Algebra.Module.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
+import Mathlib.Analysis.Calculus.ContDiff.Basic
+import Mathlib.Analysis.Calculus.ContDiff.Operations
 import Mathlib.Data.Complex.Basic
 
 /-!
@@ -150,17 +152,55 @@ The condition D_θ² = ∂/∂z ensures that the composition of superholomorphic
 functions is superholomorphic.
 -/
 
-/-- A superholomorphic function satisfies D̄f = 0 -/
+/-- A superholomorphic function satisfies D̄f = 0.
+
+    **Note**: Over ℝ, we use smoothness conditions as a proxy.
+    The proper formulation requires complex structure and ∂/∂z̄ = 0.
+    Here we require f₀ and f₁ to be smooth (C^∞), which is a necessary
+    but not sufficient condition for holomorphicity.
+
+    Note: We use `(⊤ : ℕ∞)` coerced to `WithTop ℕ∞` for C^∞ smoothness. -/
 structure Superholomorphic where
   /-- The super function -/
   f : SuperFunction11
-  /-- Holomorphic condition on f₀ -/
-  f0_hol : True  -- Placeholder: ∂f₀/∂z̄ = 0
-  /-- Holomorphic condition on f₁ -/
-  f1_hol : True  -- Placeholder: ∂f₁/∂z̄ = 0
+  /-- C^∞ smoothness condition on f₀ (proxy for holomorphicity over ℝ) -/
+  f0_smooth : ContDiff ℝ (⊤ : ℕ∞) f.f0
+  /-- C^∞ smoothness condition on f₁ (proxy for holomorphicity over ℝ) -/
+  f1_smooth : ContDiff ℝ (⊤ : ℕ∞) f.f1
 
-/-- Composition of superholomorphic functions is superholomorphic -/
-theorem superholomorphic_comp (_ _ : Superholomorphic) : True := by
-  trivial  -- Requires full (1|1) complex super structure
+/-- Composition of super functions.
+    (f ∘ g)(z, θ) = f(g₀(z) + θg₁(z), g₁(z) + θg₀'(z)·θ)
+    where we use D_θ g to get the transformed odd coordinate. -/
+noncomputable def SuperFunction11.comp (f g : SuperFunction11) : SuperFunction11 :=
+  -- Composition: evaluate f at (g₀(z), g₁(z))
+  -- f₀(g₀(z)) + θ[f₁(g₀(z))·g₁(z) + f₀'(g₀(z))·g₁(z)]
+  -- Simplified form using chain rule structure:
+  ⟨fun z => f.f0 (g.f0 z),
+   fun z => f.f1 (g.f0 z) * g.f1 z + deriv f.f0 (g.f0 z) * g.f1 z⟩
+
+/-- Composition of superholomorphic functions is superholomorphic.
+
+    **Key insight**: The condition D_θ² = ∂/∂z ensures that composition
+    preserves the superholomorphic structure. -/
+noncomputable def superholomorphic_comp (f g : Superholomorphic) : Superholomorphic where
+  f := f.f.comp g.f
+  f0_smooth := f.f0_smooth.comp g.f0_smooth
+  f1_smooth := by
+    -- f₁(g₀(z)) · g₁(z) + f₀'(g₀(z)) · g₁(z)
+    -- Both terms are smooth compositions of smooth functions
+    unfold SuperFunction11.comp
+    simp only
+    -- Use (⊤ : ℕ∞) consistently for C^∞ smoothness
+    -- Term 1: f₁ ∘ g₀ is smooth (composition of smooth)
+    have h1 : ContDiff ℝ (⊤ : ℕ∞) (fun z => f.f.f1 (g.f.f0 z)) := f.f1_smooth.comp g.f0_smooth
+    -- Term 2: g₁ is smooth
+    have h2 : ContDiff ℝ (⊤ : ℕ∞) g.f.f1 := g.f1_smooth
+    -- Term 3: deriv f₀ is smooth (derivative of C^∞ is C^∞)
+    -- contDiff_infty_iff_deriv: ContDiff 𝕜 (⊤ : ℕ∞) f ↔ Differentiable 𝕜 f ∧ ContDiff 𝕜 (⊤ : ℕ∞) (deriv f)
+    have h3 : ContDiff ℝ (⊤ : ℕ∞) (deriv f.f.f0) := (contDiff_infty_iff_deriv.mp f.f0_smooth).2
+    -- Term 4: deriv f₀ ∘ g₀ is smooth
+    have h4 : ContDiff ℝ (⊤ : ℕ∞) (fun z => deriv f.f.f0 (g.f.f0 z)) := h3.comp g.f0_smooth
+    -- Product and sum of smooth functions is smooth
+    exact (h1.mul h2).add (h4.mul h2)
 
 end Supermanifolds.Helpers

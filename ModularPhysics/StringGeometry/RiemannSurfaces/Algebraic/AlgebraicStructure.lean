@@ -58,14 +58,12 @@ structure AlgebraicStructureOn (RS : RiemannSurface) where
   valuation : RS.carrier → FunctionField → ℤ
   /-- v_p(0) = 0 (by convention) -/
   valuation_zero : ∀ p, valuation p 0 = 0
-  /-- v_p(1) = 0 -/
-  valuation_one : ∀ p, valuation p 1 = 0
   /-- v_p(fg) = v_p(f) + v_p(g) for f, g ≠ 0 -/
   valuation_mul : ∀ p (f g : FunctionField), f ≠ 0 → g ≠ 0 →
     valuation p (f * g) = valuation p f + valuation p g
-  /-- v_p(f⁻¹) = -v_p(f) for f ≠ 0 -/
-  valuation_inv : ∀ p (f : FunctionField), f ≠ 0 →
-    valuation p f⁻¹ = -valuation p f
+  /-- Ultrametric inequality: v_p(f + g) ≥ min(v_p(f), v_p(g)) when f + g ≠ 0 -/
+  valuation_add_min : ∀ p (f g : FunctionField), f + g ≠ 0 →
+    valuation p (f + g) ≥ min (valuation p f) (valuation p g)
   /-- Finite support: only finitely many points have nonzero valuation -/
   valuation_finiteSupport : ∀ (f : FunctionField), f ≠ 0 →
     Set.Finite { p | valuation p f ≠ 0 }
@@ -99,15 +97,29 @@ theorem support_finite (f : A.FunctionField) (hf : f ≠ 0) :
     Set.Finite (A.support f) :=
   A.valuation_finiteSupport f hf
 
+/-- v_p(1) = 0. DERIVED from valuation_mul. -/
+theorem valuation_one (p : RS.carrier) : A.valuation p 1 = 0 := by
+  have h1_ne : (1 : A.FunctionField) ≠ 0 := one_ne_zero
+  have h := A.valuation_mul p 1 1 h1_ne h1_ne
+  simp only [mul_one] at h
+  omega
+
+/-- v_p(f⁻¹) = -v_p(f) for f ≠ 0. DERIVED from valuation_mul + valuation_one. -/
+theorem valuation_inv (p : RS.carrier) (f : A.FunctionField) (hf : f ≠ 0) :
+    A.valuation p f⁻¹ = -A.valuation p f := by
+  have hf_inv_ne : f⁻¹ ≠ 0 := inv_ne_zero hf
+  have h := A.valuation_mul p f f⁻¹ hf hf_inv_ne
+  rw [mul_inv_cancel₀ hf, A.valuation_one] at h
+  omega
+
 /-- Convert to AlgebraicCurve structure -/
 def toAlgebraicCurve : AlgebraicCurve where
   Point := RS.carrier
   FunctionField := A.FunctionField
   valuation := A.valuation
   valuation_zero := A.valuation_zero
-  valuation_one := A.valuation_one
   valuation_mul := A.valuation_mul
-  valuation_inv := A.valuation_inv
+  valuation_add_min := A.valuation_add_min
   valuation_finiteSupport := A.valuation_finiteSupport
 
 end AlgebraicStructureOn
@@ -123,10 +135,33 @@ For compact Riemann surfaces, we additionally have the argument principle.
     Includes the genus and the argument principle. -/
 structure CompactAlgebraicStructureOn (CRS : CompactRiemannSurface) extends
     AlgebraicStructureOn CRS.toRiemannSurface where
+  /-- The ℂ-algebra structure on the function field -/
+  algebraInst : Algebra ℂ FunctionField
+  /-- Constant functions have valuation 0 -/
+  valuation_algebraMap : ∀ (p : CRS.carrier) (c : ℂ), c ≠ 0 →
+    valuation p (algebraMap ℂ FunctionField c) = 0
   /-- The argument principle: degree of any principal divisor is zero -/
   argumentPrinciple : ∀ (f : FunctionField) (hf : f ≠ 0),
     (toAlgebraicStructureOn.valuation_finiteSupport f hf).toFinset.sum
       (fun p => toAlgebraicStructureOn.valuation p f) = 0
+  /-- Regular functions are constant (properness) -/
+  regularIsConstant : ∀ (f : FunctionField), (∀ p : CRS.carrier, 0 ≤ valuation p f) →
+    ∃ (c : ℂ), f = algebraMap ℂ FunctionField c
+  /-- Local parameter at each point -/
+  localParameter : CRS.carrier → FunctionField
+  /-- Local parameter has valuation 1 at its point -/
+  localParameter_valuation : ∀ p, valuation p (localParameter p) = 1
+  /-- Local parameter has non-positive valuation elsewhere (no additional zeros).
+      By argument principle, Σ v_q(t_p) = 0 with v_p(t_p) = 1, so t_p has poles elsewhere. -/
+  localParameter_nonpos_away : ∀ p q, p ≠ q → valuation q (localParameter p) ≤ 0
+  /-- Leading coefficient uniqueness (DVR property) -/
+  leadingCoefficientUniqueness : ∀ (p : CRS.carrier) (f g : FunctionField),
+      f ≠ 0 → g ≠ 0 →
+      valuation p f = valuation p g →
+      valuation p f < 0 →
+      ∃ (c : ℂ), c ≠ 0 ∧
+        (g - algebraMap ℂ FunctionField c * f = 0 ∨
+         valuation p (g - algebraMap ℂ FunctionField c * f) > valuation p g)
 
 namespace CompactAlgebraicStructureOn
 
@@ -168,21 +203,31 @@ theorem zeros_eq_poles (f : CA.FunctionField) (hf : f ≠ 0) :
   rw [hsplit] at h
   linarith
 
+/-- The FunctionFieldAlgebra instance for the underlying algebraic curve -/
+def toFunctionFieldAlgebra : FunctionFieldAlgebra CA.toAlgebraicStructureOn.toAlgebraicCurve where
+  algebraInst := CA.algebraInst
+  valuation_algebraMap := CA.valuation_algebraMap
+
 /-- Convert to CompactAlgebraicCurve structure -/
 def toCompactAlgebraicCurve : CompactAlgebraicCurve where
   Point := CRS.toRiemannSurface.carrier
   FunctionField := CA.FunctionField
   valuation := CA.valuation
   valuation_zero := CA.valuation_zero
-  valuation_one := CA.valuation_one
   valuation_mul := CA.valuation_mul
-  valuation_inv := CA.valuation_inv
+  valuation_add_min := CA.valuation_add_min
   valuation_finiteSupport := CA.valuation_finiteSupport
+  algebraInst := CA.toFunctionFieldAlgebra
   genus := CRS.genus
   argumentPrinciple := fun f hf => by
     unfold AlgebraicCurve.orderSum AlgebraicCurve.divisorOf AlgebraicCurve.Divisor.degree
     simp only
     exact CA.argumentPrinciple f hf
+  regularIsConstant := CA.regularIsConstant
+  localParameter := CA.localParameter
+  localParameter_valuation := CA.localParameter_valuation
+  localParameter_nonpos_away := CA.localParameter_nonpos_away
+  leadingCoefficientUniqueness := CA.leadingCoefficientUniqueness
 
 end CompactAlgebraicStructureOn
 

@@ -309,11 +309,22 @@ Both paths need:
 | `connectingHomomorphism` | LongExactSequence.lean:384-387 | δ : Hⁿ(F'') → Hⁿ⁺¹(F') |
 | `connectingH` | LongExactSequence.lean:419 | General connecting map |
 | `inducedCochainMap_comm_cechDiff` | LongExactSequence.lean:234-255 | Naturality of differential |
-| **Skyscraper Sheaf** | `GAGA/Cohomology/ExactSequence.lean` | ✅ Defined |
-| `SkyscraperSection` | ExactSequence.lean:91-95 | Sections of ℂ_p |
-| `ShortExactSeq` | ExactSequence.lean:62-71 | For coherent sheaves |
+| **Skyscraper Sheaf** | `GAGA/Cohomology/ExactSequence.lean` | ✅ **FULLY PROVEN** |
+| `SkyscraperSection` | ExactSequence.lean:91-298 | Full sheaf structure |
+| `skyscraperSheaf` | ExactSequence.lean:311-517 | CoherentSheaf instance ✅ |
+| `skyscraperH0` | ExactSequence.lean:537-544 | H⁰(ℂ_p) = ℂ ✅ PROVEN |
+| `skyscraperHi` | ExactSequence.lean:549-557 | H^i(ℂ_p) = 0 for i ≥ 1 ✅ PROVEN |
+| `h0_skyscraper_eq_one` | ExactSequence.lean:560 | h⁰(ℂ_p) = 1 ✅ PROVEN |
+| `skyscraper_euler_char` | ExactSequence.lean:569 | χ(ℂ_p) = 1 ✅ PROVEN |
+| **Long Exact Sequence (Abstract)** | `GAGA/Cohomology/ExactSequence.lean` | ✅ Complete |
+| `LongExactSequence` | ExactSequence.lean:630-664 | Structure with exactness conditions |
+| `eulerChar_additive` | ExactSequence.lean:683-733 | χ(F) = χ(F') + χ(F'') ✅ PROVEN |
+| **Point Exact Proof** | `GAGA/Cohomology/PointExactProof.lean` | ✅ **NEW** |
+| `PointExactData` | PointExactProof.lean:48-78 | Packages LES for 0→O(D-p)→O(D)→ℂ_p→0 |
+| `point_exact` | PointExactProof.lean:112-127 | χ(D) - χ(D-p) = 1 ✅ PROVEN (modulo data) |
 | **Čech Cohomology Groups** | `Topology/Sheaves/CechCohomology.lean` | ✅ Complete |
 | `CechCocycles`, `CechCoboundaries` | CechCohomology.lean | Kernel/image of differential |
+| `cechDiff_comp_zero` | CechCohomology.lean:425-490 | d² = 0 ✅ PROVEN |
 | `CechH`, `CechH0`, `CechHSucc` | CechCohomology.lean | H^n groups |
 | **Divisor Theory** | `Algebraic/Core/Divisors.lean` | ✅ Complete |
 | `Core.Divisor` | Divisors.lean | Divisors on AlgebraicCurve |
@@ -322,13 +333,13 @@ Both paths need:
 
 ### Infrastructure to be Developed
 
-| Component | Location | Priority |
-|-----------|----------|----------|
-| `RiemannRochSubmodule` | AlgebraicCech.lean | HIGH - for proper h0 definition |
-| `FunctionField.instComplexAlgebra` | FunctionField.lean | HIGH - ℂ-algebra structure |
-| `properness_regular_constant` | New file? | HIGH - for h⁰(O) = 1 |
-| `skyscraper_h0`, `skyscraper_h1` | ExactSequence.lean | HIGH - H⁰(ℂ_p)=ℂ, H¹(ℂ_p)=0 |
-| `euler_char_alternating_sum` | ExactSequence.lean | HIGH - for χ(D) - χ(D-p) = 1 |
+| Component | Location | Priority | Notes |
+|-----------|----------|----------|-------|
+| `pointExactData_exists` | PointExactProof.lean:180 | **HIGH** | Single remaining sorry for point exact |
+| `RiemannRochSubmodule` | AlgebraicCech.lean | HIGH | For proper h0 definition |
+| `FunctionField.instComplexAlgebra` | FunctionField.lean | MEDIUM | ℂ-algebra structure (partial) |
+| ~~`skyscraper_h0`, `skyscraper_h1`~~ | ExactSequence.lean | ~~HIGH~~ ✅ DONE | Now proven |
+| ~~`euler_char_alternating_sum`~~ | ExactSequence.lean | ~~HIGH~~ ✅ DONE | Now `eulerChar_additive` |
 
 ---
 
@@ -443,7 +454,7 @@ GAGA proves that algebraic and analytic coherent sheaf categories are equivalent
 | `Cohomology/AlgebraicCech.lean` | `h1_zero_large_degree` | sorry | Serre duality |
 | `Core/Divisors.lean` | `argumentPrinciple` (in toCompactAlgebraicCurve) | sorry | Needs analytic argument principle |
 
-### GAGA/ (7 sorrys)
+### GAGA/ (9 sorrys)
 
 | File | Definition/Theorem | Type | Notes |
 |------|-------------------|------|-------|
@@ -453,7 +464,14 @@ GAGA proves that algebraic and analytic coherent sheaf categories are equivalent
 | `Cohomology/CechTheory.lean` | `h1_structure_cech` | sorry | Genus definition |
 | `Cohomology/CechTheory.lean` | `point_exact_cech` | sorry | Long exact sequence |
 | `Cohomology/SerreDuality.lean` | Various | sorry | Serre duality proofs |
+| `Cohomology/PointExactProof.lean` | `pointExactData_exists` | sorry | **KEY** - single remaining sorry for point exact |
+| `Cohomology/PointExactProof.lean` | `point_exact_cech_proof` | sorry | Uses pointExactData_exists |
 | `Basic.lean` | `period_matrix_exists` | sorry | Needs integration theory |
+
+**Note on PointExactProof.lean:** This new file provides the proof structure:
+- `PointExactData` packages the LES for 0 → O(D-p) → O(D) → ℂ_p → 0
+- `PointExactData.point_exact` proves χ(D) - χ(D-p) = 1 ✅ (given data)
+- `pointExactData_exists` is the single sorry: constructing the concrete data
 
 ### GAGA/ (additional)
 
@@ -702,10 +720,11 @@ RiemannSurfaces/
     └── Cohomology/               # RS-based cohomology infrastructure
         ├── Basic.lean            # SheafCohomologyGroup, LineBundleSheafAssignment
         ├── CechTheory.lean       # Core Čech cohomology, Euler characteristic, Riemann-Roch
-        ├── ExactSequence.lean    # Long exact sequence infrastructure
+        ├── ExactSequence.lean    # Skyscraper sheaf ✅, LongExactSequence ✅, eulerChar_additive ✅
         ├── ExactSequenceHelpers.lean  # Helper lemmas for exact sequences
         ├── GeneralCechBridge.lean     # Bridge to abstract Čech cohomology
         ├── MathlibBridge.lean    # Mathlib compatibility layer
+        ├── PointExactProof.lean  # **NEW** χ(D) - χ(D-p) = 1 proof structure
         ├── SerreDuality.lean     # Serre duality: h¹(D) = h⁰(K-D)
         └── Sheaves.lean          # Sheaf definitions and constructions
 ```

@@ -799,4 +799,15 @@ theorem SuperMatrix.UDL_factorization {k : Type*} [Field k] [CharZero k] {Λ : G
     simp only [Matrix.one_mul, Matrix.zero_mul, add_zero, Matrix.mul_one, Matrix.mul_zero, zero_add]
   ext <;> simp only [hA_eq, hB_eq, hC_eq, hD_eq]
 
+/-- Congruence lemma for Berezinian: when matrices are equal, their Berezinians are equal.
+    This allows proof transport when we have M = N proven but different syntactic forms
+    for the invertibility and parity hypotheses. -/
+theorem SuperMatrix.ber_congr {k : Type*} [Field k] [CharZero k] {Λ : GrassmannAlgebra k}
+    {n m : ℕ} (M N : SuperMatrix Λ n m) (hMN : M = N)
+    (hMD : Λ.IsInvertible M.D_lifted.det)
+    (hBDinvM : ∀ i j, (M.Bblock * M.D_inv_carrier) i j ∈ Λ.odd) :
+    M.ber hMD hBDinvM = N.ber (hMN ▸ hMD) (hMN ▸ hBDinvM) := by
+  subst hMN
+  rfl
+
 end Supermanifolds.Helpers

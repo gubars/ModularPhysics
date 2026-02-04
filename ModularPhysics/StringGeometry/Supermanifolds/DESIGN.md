@@ -69,19 +69,29 @@ This is why:
 ### Core Algebraic Files
 - `Superalgebra.lean`: Basic ℤ/2-graded algebra structure, parity, GrassmannAlgebra
 - `SuperRingCat.lean`: Bundled category of supercommutative algebras
-- `SuperDomainAlgebra.lean`: Ring/Algebra instances for SuperDomainFunction (NEW)
+- `SuperDomainAlgebra.lean`: Ring/Algebra instances for SuperDomainFunction
+- `SuperJacobian.lean`: Super Jacobian matrices for coordinate transformations
 
 ### Sheaf and Geometry Files
 - `Sheaves/SuperSheafBasic.lean`: Structure sheaf of super domains, SuperSection
-- `Supermanifolds.lean`: Main supermanifold definitions, charts, transitions
+- `Supermanifolds.lean`: Main supermanifold definitions, charts, transitions, Berezin integration axioms
 
-### Integration and Helpers
-- `BerezinIntegration.lean`: Berezin integral and integration theory
-- `Helpers/SuperMatrix.lean`: Super matrices and Berezinian computation
-- `Helpers/OddDerivations.lean`: Odd derivations for super Riemann surfaces
+### Integration Theory
+- `BerezinIntegration.lean`: Berezin integral, partition of unity, global integration
+  - Imports chain rule infrastructure from Helpers/SuperChainRule.lean
+
+### Helper Infrastructure
+- `Helpers/SuperMatrix.lean`: Super matrices with ℤ/2-grading, multiplication
+- `Helpers/Berezinian.lean`: Berezinian (superdeterminant) computation
+- `Helpers/BerezinianMul.lean`: Berezinian multiplicativity theorem (2900+ lines)
+- `Helpers/FiniteGrassmann.lean`: Finite Grassmann algebra Λ_q with Ring instance
+- `Helpers/SuperChainRule.lean`: Chain rule infrastructure for Berezinian cocycle
+- `Helpers/PartialOddLeibniz.lean`: Sign lemmas for graded Leibniz rule
+- `PartialOddDerivation.lean`: Odd derivations satisfy graded Leibniz rule
 
 ## Completed Work
 
+### Algebraic Foundations
 - [x] SuperAlgebra with parity, even/odd subspaces
 - [x] SuperCommutative class with supercommutation property
 - [x] SuperDomainFunction with coefficients indexed by Finset (Fin q)
@@ -89,19 +99,53 @@ This is why:
 - [x] **supercommutative' theorem** - Koszul sign rule for homogeneous elements
 - [x] **mul_assoc'** - Associativity of super multiplication
 - [x] Ring and Algebra instances for SuperDomainFunction
-- [x] SuperMatrix with block structure (A, B; C, D)
-- [x] Berezinian computation using Schur complement
+- [x] FiniteGrassmannCarrier with Field instance (for q generators)
+- [x] **finiteGrassmannAlgebra_superCommutative** - SuperCommutative instance
 
-## TODO
+### Super Matrices and Berezinian
+- [x] SuperMatrix with block structure (A, B; C, D) and proper ℤ/2-grading
+- [x] Berezinian computation using Schur complement: Ber(M) = det(A - BD⁻¹C) / det(D)
+- [x] **SuperMatrix.ber_mul** - Berezinian multiplicativity (2900+ line proof)
+- [x] **SuperMatrix.ber_congr** - Congruence lemma for proof transport
 
-- [ ] Define SuperMap with Grassmann-valued coefficients for transition maps
+### Super Jacobian and Coordinate Transformations
+- [x] SuperJacobian structure with proper block parities
+- [x] SuperJacobian.toSuperMatrixAt - Evaluation at a point
+- [x] SuperJacobian.berezinianAt - Berezinian at a point
+- [x] SuperTransition.toSuperJacobian - Jacobian from coordinate transition
+
+### Chain Rule and Cocycle Conditions
+- [x] **body_jacobian_cocycle** - Body Jacobians satisfy J_αγ = J_βγ · J_αβ
+- [x] **berezinian_cocycle_from_chain_rule** - Full Berezinian cocycle theorem
+- [x] ChainRuleHypotheses - Structure packaging chain rule equations
+- [x] FullSuperCocycle - Composition condition using SuperDomainFunction.compose
+
+### Derivatives and Partial Derivatives
+- [x] partialEven derivative is smooth (ContDiff.fderiv_right)
+- [x] **partialOdd_odd_derivation'** - Graded Leibniz rule for odd derivatives
+- [x] partialEven_compBody_chain_rule - Chain rule for body composition
+
+### Integration Theory
+- [x] Berezin integral as top θ-coefficient extraction
+- [x] berezin_fubini - Integration commutes with body integration
+- [x] GlobalIntegralForm structure with cocycle condition
+- [x] SuperPartitionOfUnity with proper sum_eq_one, support conditions
+
+## In Progress / Remaining
+
+### Integration Theorems (documented proofs, technical sorrys)
+- [ ] partition_of_unity_exists - Needs connection to Mathlib infrastructure
+- [ ] globalBerezinIntegral_independent - Proof outline documented
+- [ ] berezin_change_of_variables_formula - Needs IntegralForm.pullback
+
+### Chain Rule Infrastructure
+- [ ] SuperDomainFunction.compose - Full coefficient computation (simplified placeholder)
+- [ ] full_cocycle_implies_chain_rule - Derive chain rule from composition (sorrys)
+
+### Future Work
 - [ ] Connect to Mathlib's ExteriorAlgebra for ∧(ℝ^q) structure
-- [ ] Implement proper sheaf gluing conditions using Mathlib's TopCat.Sheaf
-- [ ] Prove stalks are local superrings
-- [ ] Define supermanifold as locally super-ringed space
-- [ ] Prove partialEven derivative is smooth
-- [ ] Prove partialOdd satisfies graded Leibniz rule
-- [ ] Fill in SuperChart and SuperTransition placeholders
+- [ ] Super Stokes theorem
+- [ ] Batchelor theorem (classification of supermanifolds)
 
 ## References
 

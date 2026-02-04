@@ -5,6 +5,7 @@ Released under Apache 2.0 license.
 import ModularPhysics.StringGeometry.Supermanifolds.Superalgebra
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
 import ModularPhysics.StringGeometry.Supermanifolds.SuperJacobian
+import ModularPhysics.StringGeometry.Supermanifolds.SuperDomainAlgebra
 import ModularPhysics.StringGeometry.Supermanifolds.Helpers.SuperMatrix
 
 /-!
@@ -375,6 +376,60 @@ theorem reorderSign_swap_even {I J : Finset (Fin q)} (h : I ∩ J = ∅)
       exact Nat.even_iff.mp this
     omega
   -- Now use that (-1)^n2 = (-1)^n1 since n2 = #{i<j} and #{i<j} % 2 = n1 % 2
+  calc (-1 : ℤ) ^ n2
+      = (-1 : ℤ) ^ ((I ×ˢ J).filter (fun p => p.1 < p.2)).card := by rw [hn2_eq]
+    _ = (-1 : ℤ) ^ n1 := neg_one_pow_eq_of_mod_eq h_mod.symm
+
+/-- When |I| is even, sign(I,J) = sign(J,I) regardless of J's parity.
+    This is because |I| × |J| is even when |I| is even. -/
+theorem reorderSign_swap_I_even {I J : Finset (Fin q)} (h : I ∩ J = ∅)
+    (hI : I.card % 2 = 0) :
+    reorderSign J I = reorderSign I J := by
+  unfold reorderSign
+  have hJI : J ∩ I = ∅ := by rw [Finset.inter_comm]; exact h
+  simp only [h, hJI, ↓reduceIte]
+  let n1 := ((I ×ˢ J).filter (fun p => p.2 < p.1)).card
+  let n2 := ((J ×ˢ I).filter (fun p => p.2 < p.1)).card
+  have hn2_eq : n2 = ((I ×ˢ J).filter (fun p => p.1 < p.2)).card := by
+    apply Finset.card_bij (fun ⟨j, i⟩ _ => (i, j))
+    · intro ⟨j, i⟩ hmem
+      simp only [Finset.mem_filter, Finset.mem_product] at hmem ⊢
+      exact ⟨⟨hmem.1.2, hmem.1.1⟩, hmem.2⟩
+    · intro ⟨j1, i1⟩ _ ⟨j2, i2⟩ _ heq
+      simp only [Prod.mk.injEq] at heq
+      exact Prod.ext heq.2 heq.1
+    · intro ⟨i, j⟩ hmem
+      simp only [Finset.mem_filter, Finset.mem_product] at hmem
+      exact ⟨(j, i), by simp only [Finset.mem_filter, Finset.mem_product]; exact ⟨⟨hmem.1.2, hmem.1.1⟩, hmem.2⟩, rfl⟩
+  have hsum : n1 + ((I ×ˢ J).filter (fun p => p.1 < p.2)).card = I.card * J.card := by
+    have hcover : (I ×ˢ J) = ((I ×ˢ J).filter (fun p => p.2 < p.1)) ∪
+                             ((I ×ˢ J).filter (fun p => p.1 < p.2)) := by
+      ext ⟨i, j⟩
+      simp only [Finset.mem_product, Finset.mem_union, Finset.mem_filter]
+      constructor
+      · intro ⟨hi, hj⟩
+        by_cases hij : j < i
+        · left; exact ⟨⟨hi, hj⟩, hij⟩
+        · right
+          have hne : i ≠ j := by
+            intro heq; rw [heq] at hi
+            have hmem : j ∈ I ∩ J := Finset.mem_inter.mpr ⟨hi, hj⟩
+            rw [h] at hmem; exact absurd hmem (Finset.notMem_empty j)
+          exact ⟨⟨hi, hj⟩, lt_of_le_of_ne (Nat.le_of_not_lt hij) hne⟩
+      · intro hx; cases hx with | inl h' => exact h'.1 | inr h' => exact h'.1
+    have hdisj : Disjoint ((I ×ˢ J).filter (fun p => p.2 < p.1))
+                          ((I ×ˢ J).filter (fun p => p.1 < p.2)) := by
+      rw [Finset.disjoint_iff_inter_eq_empty]
+      ext ⟨i, j⟩
+      simp only [Finset.mem_inter, Finset.mem_filter, Finset.notMem_empty, iff_false]
+      intro ⟨⟨_, h1⟩, ⟨_, h2⟩⟩
+      exact absurd h1 (not_lt.mpr (le_of_lt h2))
+    rw [← Finset.card_union_of_disjoint hdisj, ← hcover, Finset.card_product]
+  have h_mod : n1 % 2 = ((I ×ˢ J).filter (fun p => p.1 < p.2)).card % 2 := by
+    have hN_even : (I.card * J.card) % 2 = 0 := by
+      have : Even (I.card * J.card) := Even.mul_right (Nat.even_iff.mpr hI) J.card
+      exact Nat.even_iff.mp this
+    omega
   calc (-1 : ℤ) ^ n2
       = (-1 : ℤ) ^ ((I ×ˢ J).filter (fun p => p.1 < p.2)).card := by rw [hn2_eq]
     _ = (-1 : ℤ) ^ n1 := neg_one_pow_eq_of_mod_eq h_mod.symm
@@ -1001,6 +1056,9 @@ def isOdd (x : FiniteGrassmannCarrier q) : Prop :=
 /-- Zero is even -/
 theorem zero_isEven : isEven (0 : FiniteGrassmannCarrier q) := fun _ _ => rfl
 
+/-- Zero is also odd (0 has all coefficients zero) -/
+theorem zero_isOdd : isOdd (0 : FiniteGrassmannCarrier q) := fun _ _ => rfl
+
 /-- One is even -/
 theorem one_isEven : isEven (1 : FiniteGrassmannCarrier q) := by
   intro I hI
@@ -1603,6 +1661,129 @@ noncomputable def finiteGrassmannAlgebra (q : ℕ) : GrassmannAlgebra ℝ where
         simp only [hb J hJ_odd, mul_zero]
     · rfl
 
+/-- One is in the even submodule of finiteGrassmannAlgebra -/
+theorem finiteGrassmannAlgebra_one_even (q : ℕ) :
+    (1 : (finiteGrassmannAlgebra q).carrier) ∈ (finiteGrassmannAlgebra q).even :=
+  FiniteGrassmannCarrier.one_isEven
+
+/-- Zero is in the even submodule of finiteGrassmannAlgebra -/
+theorem finiteGrassmannAlgebra_zero_even (q : ℕ) :
+    (0 : (finiteGrassmannAlgebra q).carrier) ∈ (finiteGrassmannAlgebra q).even :=
+  FiniteGrassmannCarrier.zero_isEven
+
+/-- Zero is in the odd submodule of finiteGrassmannAlgebra -/
+theorem finiteGrassmannAlgebra_zero_odd (q : ℕ) :
+    (0 : (finiteGrassmannAlgebra q).carrier) ∈ (finiteGrassmannAlgebra q).odd :=
+  FiniteGrassmannCarrier.zero_isOdd
+
+/-- Even elements commute with all elements in the Grassmann algebra.
+    For even a and any b: a * b = b * a. -/
+theorem even_mul_comm {q : ℕ} (a b : FiniteGrassmannCarrier q)
+    (ha : FiniteGrassmannCarrier.isEven a) :
+    a * b = b * a := by
+  funext K
+  simp only [FiniteGrassmannCarrier.mul_apply]
+  -- Reindex the sum: swap I ↔ J
+  conv_rhs => rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro I _
+  apply Finset.sum_congr rfl
+  intro J _
+  by_cases hIJ : I ∪ J = K ∧ I ∩ J = ∅
+  · have hJI : J ∪ I = K ∧ J ∩ I = ∅ := by
+      obtain ⟨hIJ_eq, hIJ_disj⟩ := hIJ
+      exact ⟨by rw [Finset.union_comm]; exact hIJ_eq, by rw [Finset.inter_comm]; exact hIJ_disj⟩
+    rw [if_pos hIJ, if_pos hJI]
+    by_cases hI_odd : I.card % 2 = 1
+    · -- I has odd cardinality, so a I = 0 (a is even)
+      simp only [ha I hI_odd, mul_zero, zero_mul]
+    · -- I has even cardinality, use reorderSign_swap_I_even
+      have hI_even : I.card % 2 = 0 := by omega
+      -- sign(J,I) = sign(I,J) when |I| is even
+      rw [FiniteGrassmannCarrier.reorderSign_swap_I_even hIJ.2 hI_even]
+      ring
+  · have hJI : ¬(J ∪ I = K ∧ J ∩ I = ∅) := by
+      intro ⟨hJI_eq, hJI_disj⟩
+      apply hIJ
+      exact ⟨by rw [Finset.union_comm]; exact hJI_eq, by rw [Finset.inter_comm]; exact hJI_disj⟩
+    rw [if_neg hIJ, if_neg hJI]
+
+/-- Odd elements anticommute in the Grassmann algebra.
+    For odd a and odd b: a * b = -(b * a). -/
+theorem odd_mul_anticomm {q : ℕ} (a b : FiniteGrassmannCarrier q)
+    (ha : FiniteGrassmannCarrier.isOdd a) (hb : FiniteGrassmannCarrier.isOdd b) :
+    a * b = -(b * a) := by
+  funext K
+  simp only [FiniteGrassmannCarrier.mul_apply, FiniteGrassmannCarrier.neg_apply]
+  -- Goal: ∑_I ∑_J sign(I,J)*a_I*b_J = -(∑_I ∑_J sign(I,J)*b_I*a_J)
+  -- Reindex RHS: swap I ↔ J to get -∑_J ∑_I sign(J,I)*b_J*a_I
+  conv_rhs => rw [Finset.sum_comm]
+  -- Now show: ∑_I ∑_J sign(I,J)*a_I*b_J = -∑_I ∑_J sign(I,J)*b_I*a_J
+  rw [eq_neg_iff_add_eq_zero]
+  rw [← Finset.sum_add_distrib]
+  apply Finset.sum_eq_zero
+  intro I _
+  rw [← Finset.sum_add_distrib]
+  apply Finset.sum_eq_zero
+  intro J _
+  by_cases hIJ : I ∪ J = K ∧ I ∩ J = ∅
+  · have hJI : J ∪ I = K ∧ J ∩ I = ∅ := by
+      obtain ⟨hIJ_eq, hIJ_disj⟩ := hIJ
+      exact ⟨by rw [Finset.union_comm]; exact hIJ_eq, by rw [Finset.inter_comm]; exact hIJ_disj⟩
+    rw [if_pos hIJ, if_pos hJI]
+    by_cases hI_even : I.card % 2 = 0
+    · -- I has even cardinality, so a I = 0 (a is odd)
+      simp only [ha I hI_even, mul_zero, zero_mul, add_zero]
+    · by_cases hJ_even : J.card % 2 = 0
+      · -- J has even cardinality, so b J = 0 (b is odd)
+        simp only [hb J hJ_even, mul_zero, zero_mul, zero_add]
+      · -- Both I and J have odd cardinality
+        have hI_odd : I.card % 2 = 1 := by omega
+        have hJ_odd : J.card % 2 = 1 := by omega
+        -- Use reorderSign_swap_odd: sign(J,I) = -sign(I,J) for odd |I|, |J|
+        rw [FiniteGrassmannCarrier.reorderSign_swap_odd hIJ.2 hI_odd hJ_odd]
+        -- Goal: sign(I,J) * a_I * b_J + a_I * b_J * (-sign(I,J)) = 0
+        simp only [Int.cast_neg, neg_mul, mul_neg]
+        -- Now: sign(I,J) * a_I * b_J + -(a_I * b_J * sign(I,J)) = 0
+        ring
+  · have hJI : ¬(J ∪ I = K ∧ J ∩ I = ∅) := by
+      intro ⟨hJI_eq, hJI_disj⟩
+      apply hIJ
+      exact ⟨by rw [Finset.union_comm]; exact hJI_eq, by rw [Finset.inter_comm]; exact hJI_disj⟩
+    rw [if_neg hIJ, if_neg hJI, add_zero]
+
+/-- The finite Grassmann algebra is supercommutative -/
+instance finiteGrassmannAlgebra_superCommutative (q : ℕ) :
+    SuperCommutative (finiteGrassmannAlgebra q).toSuperAlgebra where
+  super_comm := fun a b pa pb ha hb => by
+    cases pa with
+    | even =>
+      cases pb with
+      | even =>
+        -- Even × Even: koszulSign = 1, so a * b = b * a
+        have ha' : a ∈ (finiteGrassmannAlgebra q).even := by simpa using ha
+        simp only [Parity.koszulSign, one_zsmul]
+        exact even_mul_comm a b ha'
+      | odd =>
+        -- Even × Odd: koszulSign = 1, so a * b = b * a
+        have ha' : a ∈ (finiteGrassmannAlgebra q).even := by simpa using ha
+        simp only [Parity.koszulSign, one_zsmul]
+        exact even_mul_comm a b ha'
+    | odd =>
+      cases pb with
+      | even =>
+        -- Odd × Even: koszulSign = 1, so a * b = b * a
+        have hb' : b ∈ (finiteGrassmannAlgebra q).even := by simpa using hb
+        simp only [Parity.koszulSign, one_zsmul]
+        -- b * a = a * b by even_mul_comm, so a * b = b * a
+        exact (even_mul_comm b a hb').symm
+      | odd =>
+        -- Odd × Odd: koszulSign = -1, so a * b = -(b * a)
+        have ha' : a ∈ (finiteGrassmannAlgebra q).odd := by simpa using ha
+        have hb' : b ∈ (finiteGrassmannAlgebra q).odd := by simpa using hb
+        simp only [Parity.koszulSign, neg_one_zsmul]
+        exact odd_mul_anticomm a b ha' hb'
+
 end Supermanifolds.Helpers
 
 /-!
@@ -1778,6 +1959,561 @@ noncomputable def SuperTransition.berezinianAt {dim : SuperDimension} {M : Super
         (finiteGrassmannAlgebra dim.odd).odd) :
     (finiteGrassmannAlgebra dim.odd).evenCarrier :=
   t.toSuperJacobian.berezinianAt x hD hBDinv
+
+/-!
+## Super Chain Rule Infrastructure
+
+For coordinate transformations (x,θ) → (x',θ') → (x'',θ''), the super Jacobians multiply:
+  J_{αγ}(x) = J_{αβ}(x) · J_{βγ}(body_αβ(x))
+
+where the product is block matrix multiplication:
+- A_αγ = A_αβ · A_βγ(body_αβ) + B_αβ · C_βγ(body_αβ)
+- B_αγ = A_αβ · B_βγ(body_αβ) + B_αβ · D_βγ(body_αβ)
+- C_αγ = C_αβ · A_βγ(body_αβ) + D_αβ · C_βγ(body_αβ)
+- D_αγ = C_αβ · B_βγ(body_αβ) + D_αβ · D_βγ(body_αβ)
+
+The key point: the second Jacobian is composed with the body map of the first transition.
+
+**Connection to Berezinian multiplicativity**:
+Once the super chain rule is established, the cocycle condition follows from
+`SuperMatrix.ber_mul` (proven in BerezinianMul.lean):
+  Ber(J₁ · J₂) = Ber(J₁) · Ber(J₂)
+-/
+
+/-- Compose a SuperDomainFunction with a body map.
+
+    Given f ∈ C^∞(ℝ^p) ⊗ Λ_q and body_map : ℝ^p → ℝ^p,
+    returns f ∘ body_map (composition on the smooth function part). -/
+noncomputable def SuperDomainFunction.compBody {p q : ℕ}
+    (f : SuperDomainFunction p q)
+    (body_map : (Fin p → ℝ) → (Fin p → ℝ))
+    (hSmooth : ContDiff ℝ ⊤ body_map) :
+    SuperDomainFunction p q where
+  coefficients I := {
+    toFun := fun x => (f.coefficients I).toFun (body_map x)
+    smooth := (f.coefficients I).smooth.comp hSmooth
+  }
+
+/-- Evaluation of composed function equals composition of evaluations. -/
+theorem SuperDomainFunction.evalAtPoint_compBody {p q : ℕ}
+    (f : SuperDomainFunction p q)
+    (body_map : (Fin p → ℝ) → (Fin p → ℝ))
+    (hSmooth : ContDiff ℝ ⊤ body_map)
+    (x : Fin p → ℝ) :
+    (f.compBody body_map hSmooth).evalAtPoint x = f.evalAtPoint (body_map x) := by
+  unfold evalAtPoint compBody
+  funext I
+  rfl
+
+/-- Chain rule for partialEven applied to a composed body map.
+
+    For f : SuperDomainFunction and a smooth body_map:
+      ∂/∂xⱼ(f ∘ body_map) = Σ_k (∂f/∂y_k)(body_map) · (∂body_map_k/∂xⱼ)
+
+    This is the fundamental chain rule that underlies the super Jacobian multiplication.
+
+    Note: This is a simplification for the case where we only compose with the body map.
+    The full super chain rule also involves odd coordinates. -/
+theorem partialEven_compBody_chain_rule {p q : ℕ}
+    (f : SuperDomainFunction p q)
+    (body_map : (Fin p → ℝ) → (Fin p → ℝ))
+    (hSmooth : ContDiff ℝ ⊤ body_map)
+    (hDiff : Differentiable ℝ body_map)
+    (j : Fin p) (x : Fin p → ℝ) :
+    (partialEven j (f.compBody body_map hSmooth)).evalAtPoint x =
+    Finset.univ.sum fun k =>
+      -- (∂f/∂y_k)(body_map(x)) scaled by the Jacobian entry (∂body_map_k/∂xⱼ)(x)
+      (fderiv ℝ (fun y => body_map y k) x (Pi.single j 1)) •
+      (partialEven k f).evalAtPoint (body_map x) := by
+  -- The proof uses the multivariate chain rule
+  funext I
+  simp only [partialEven, SuperDomainFunction.evalAtPoint, SuperDomainFunction.compBody]
+
+  -- LHS: fderiv of (f.coefficients I ∘ body_map) at x, applied to e_j
+  -- RHS: Σ_k J_kj * fderiv of (f.coefficients I) at body_map(x), applied to e_k
+
+  -- Differentiability of f.coefficients I ∘ body_map
+  have hDiff_comp : DifferentiableAt ℝ (fun y => (f.coefficients I).toFun (body_map y)) x := by
+    exact (f.coefficients I).smooth.differentiable (by decide) (body_map x) |>.comp x (hDiff x)
+
+  -- Differentiability of f.coefficients I
+  have hDiff_f : DifferentiableAt ℝ (f.coefficients I).toFun (body_map x) :=
+    (f.coefficients I).smooth.differentiable (by decide) (body_map x)
+
+  -- Chain rule: fderiv (g ∘ f) x = (fderiv g (f x)).comp (fderiv f x)
+  have hChain : fderiv ℝ (fun y => (f.coefficients I).toFun (body_map y)) x =
+      (fderiv ℝ (f.coefficients I).toFun (body_map x)).comp (fderiv ℝ body_map x) :=
+    fderiv_comp x hDiff_f (hDiff x)
+
+  rw [hChain, ContinuousLinearMap.comp_apply]
+
+  -- Now decompose (fderiv body_map x) (Pi.single j 1) using fderiv_pi
+  have hDiff_k : ∀ k, DifferentiableAt ℝ (fun y => body_map y k) x := fun k => by
+    have h := (ContinuousLinearMap.proj k).differentiableAt.comp x (hDiff x)
+    convert h using 1
+
+  have h_fderiv_pi : fderiv ℝ body_map x = ContinuousLinearMap.pi fun k => fderiv ℝ (fun y => body_map y k) x :=
+    fderiv_pi hDiff_k
+
+  -- The vector (fderiv body_map x) (Pi.single j 1) = fun k => J_kj
+  -- where J_kj = fderiv (body_map · k) x (e_j)
+  have hfderiv_vec : (fderiv ℝ body_map x) (Pi.single j 1) =
+      fun k => (fderiv ℝ (fun y => body_map y k) x) (Pi.single j 1) := by
+    rw [h_fderiv_pi]
+    rfl
+
+  rw [hfderiv_vec]
+
+  -- Now apply linearity of fderiv (f.coefficients I).toFun at body_map x
+  -- fderiv g y (Σ_k c_k e_k) = Σ_k c_k * fderiv g y e_k
+  have hvec : (fun k => (fderiv ℝ (fun y => body_map y k) x) (Pi.single j 1)) =
+      Finset.univ.sum fun k => (fderiv ℝ (fun y => body_map y k) x (Pi.single j 1)) • Pi.single k 1 := by
+    ext m
+    simp only [Finset.sum_apply, Pi.smul_apply, Pi.single_apply, smul_eq_mul, mul_ite, mul_one, mul_zero]
+    rw [Finset.sum_eq_single m]
+    · simp
+    · intro k _ hkm
+      simp only [hkm.symm, ↓reduceIte]
+    · intro hm
+      exact (hm (Finset.mem_univ m)).elim
+
+  rw [hvec, map_sum]
+
+  -- Now show: (fderiv g y) (Σ_k c_k e_k) at index I = Σ_k c_k * (fderiv g y e_k)
+  -- and this equals Σ_k c_k * (partialEven k f).evalAtPoint (body_map x) I
+  simp only [ContinuousLinearMap.map_smul, smul_eq_mul]
+
+  -- RHS: (∑ k, c_k • (partialEven k f).evalAtPoint (body_map x)) I
+  -- where c_k = J_kj = fderiv (body_map · k) x (e_j)
+  -- This equals ∑ k, c_k * ((partialEven k f).evalAtPoint (body_map x) I)
+  -- = ∑ k, c_k * (fderiv (f.coefficients I) (body_map x)) (e_k)
+
+  -- Goal now: ∑_k J_kj * (fderiv (f.coefficients I) (body_map x)) e_k =
+  --           (∑_k J_kj • (partialEven k f).evalAtPoint (body_map x)) I
+  -- Note: partialEven is expanded in the goal, so we work directly with the structure
+
+  -- Transform to show LHS = RHS where both are sums with same terms
+  -- Use convert to allow definitional equality - this closes all goals
+  convert (Finset.sum_apply (s := Finset.univ) I (fun k =>
+    (fderiv ℝ (fun y => body_map y k) x (Pi.single j 1)) •
+    (partialEven k f).evalAtPoint (body_map x))).symm using 1
+
+/-- Evaluation of partialEven distributes over evalAtPoint. -/
+theorem partialEven_evalAtPoint {p q : ℕ}
+    (f : SuperDomainFunction p q) (j : Fin p) (x : Fin p → ℝ) :
+    (partialEven j f).evalAtPoint x =
+    fun I => fderiv ℝ (f.coefficients I).toFun x (Pi.single j 1) := by
+  unfold partialEven SuperDomainFunction.evalAtPoint
+  rfl
+
+/-- The super chain rule at a point: composed transitions give multiplied matrices.
+
+    For transitions t_αβ and t_βγ with composition t_αγ = t_βγ ∘ t_αβ:
+      J_αγ(x) = J_βγ(body_αβ(x)) · J_αβ(x)
+
+    as SuperMatrices, where · is block matrix multiplication.
+
+    Combined with `SuperMatrix.ber_mul` from BerezinianMul.lean, this gives:
+      Ber(J_αγ)(x) = Ber(J_βγ)(body_αβ(x)) · Ber(J_αβ)(x)
+
+    which is the Berezinian cocycle condition.
+
+    **Note**: The hypotheses include the super chain rule equations for each block.
+    These express that the transitions compose correctly at the Grassmann level,
+    not just at the body level. Proving these equations from first principles
+    requires SuperDomainFunction composition infrastructure. -/
+theorem super_chain_rule_at_point {dim : SuperDimension} {M : Supermanifold dim}
+    {chart_α chart_β chart_γ : SuperChart M}
+    (t_αβ : SuperTransition chart_α chart_β)
+    (t_βγ : SuperTransition chart_β chart_γ)
+    (t_αγ : SuperTransition chart_α chart_γ)
+    (x : Fin dim.even → ℝ)
+    -- Define the body map for convenience
+    (body_αβ : (Fin dim.even → ℝ) → (Fin dim.even → ℝ) :=
+        fun y => fun j => (t_αβ.evenTransition j).body y)
+    -- Super chain rule hypotheses for even-even derivatives (A block)
+    -- ∂x''_i/∂x_j = Σ_k (∂x''_i/∂x'_k)(∂x'_k/∂x_j) + Σ_a (∂x''_i/∂θ'_a)(∂θ'_a/∂x_j)
+    (hChain_A : ∀ i j, (partialEven j (t_αγ.evenTransition i)).evalAtPoint x =
+      Finset.univ.sum (fun k =>
+        (partialEven k (t_βγ.evenTransition i)).evalAtPoint (body_αβ x) *
+        (partialEven j (t_αβ.evenTransition k)).evalAtPoint x) +
+      Finset.univ.sum (fun a =>
+        (partialOdd a (t_βγ.evenTransition i)).evalAtPoint (body_αβ x) *
+        (partialEven j (t_αβ.oddTransition a)).evalAtPoint x))
+    -- Super chain rule for even-odd derivatives (B block)
+    -- ∂x''_i/∂θ_b = Σ_k (∂x''_i/∂x'_k)(∂x'_k/∂θ_b) + Σ_a (∂x''_i/∂θ'_a)(∂θ'_a/∂θ_b)
+    (hChain_B : ∀ i b, (partialOdd b (t_αγ.evenTransition i)).evalAtPoint x =
+      Finset.univ.sum (fun k =>
+        (partialEven k (t_βγ.evenTransition i)).evalAtPoint (body_αβ x) *
+        (partialOdd b (t_αβ.evenTransition k)).evalAtPoint x) +
+      Finset.univ.sum (fun a =>
+        (partialOdd a (t_βγ.evenTransition i)).evalAtPoint (body_αβ x) *
+        (partialOdd b (t_αβ.oddTransition a)).evalAtPoint x))
+    -- Super chain rule for odd-even derivatives (C block)
+    -- ∂θ''_a/∂x_j = Σ_k (∂θ''_a/∂x'_k)(∂x'_k/∂x_j) + Σ_b (∂θ''_a/∂θ'_b)(∂θ'_b/∂x_j)
+    (hChain_C : ∀ a j, (partialEven j (t_αγ.oddTransition a)).evalAtPoint x =
+      Finset.univ.sum (fun k =>
+        (partialEven k (t_βγ.oddTransition a)).evalAtPoint (body_αβ x) *
+        (partialEven j (t_αβ.evenTransition k)).evalAtPoint x) +
+      Finset.univ.sum (fun b =>
+        (partialOdd b (t_βγ.oddTransition a)).evalAtPoint (body_αβ x) *
+        (partialEven j (t_αβ.oddTransition b)).evalAtPoint x))
+    -- Super chain rule for odd-odd derivatives (D block)
+    -- ∂θ''_a/∂θ_c = Σ_k (∂θ''_a/∂x'_k)(∂x'_k/∂θ_c) + Σ_b (∂θ''_a/∂θ'_b)(∂θ'_b/∂θ_c)
+    (hChain_D : ∀ a c, (partialOdd c (t_αγ.oddTransition a)).evalAtPoint x =
+      Finset.univ.sum (fun k =>
+        (partialEven k (t_βγ.oddTransition a)).evalAtPoint (body_αβ x) *
+        (partialOdd c (t_αβ.evenTransition k)).evalAtPoint x) +
+      Finset.univ.sum (fun b =>
+        (partialOdd b (t_βγ.oddTransition a)).evalAtPoint (body_αβ x) *
+        (partialOdd c (t_αβ.oddTransition b)).evalAtPoint x)) :
+    let M_αβ := t_αβ.toSuperJacobian.toSuperMatrixAt x
+    let M_βγ := t_βγ.toSuperJacobian.toSuperMatrixAt (body_αβ x)
+    let M_αγ := t_αγ.toSuperJacobian.toSuperMatrixAt x
+    -- Block matrix multiplication: J_αγ = J_βγ · J_αβ (chain rule: dz/dx = dz/dy · dy/dx)
+    -- Note: M_βγ is evaluated at the intermediate point body_αβ(x)
+    M_αγ.Ablock = M_βγ.Ablock * M_αβ.Ablock + M_βγ.Bblock * M_αβ.Cblock ∧
+    M_αγ.Bblock = M_βγ.Ablock * M_αβ.Bblock + M_βγ.Bblock * M_αβ.Dblock ∧
+    M_αγ.Cblock = M_βγ.Cblock * M_αβ.Ablock + M_βγ.Dblock * M_αβ.Cblock ∧
+    M_αγ.Dblock = M_βγ.Cblock * M_αβ.Bblock + M_βγ.Dblock * M_αβ.Dblock := by
+  intro M_αβ M_βγ M_αγ
+  constructor
+  · -- A block: A_αγ = A_βγ · A_αβ + B_βγ · C_αβ
+    ext i j
+    simp only [M_αγ, M_αβ, M_βγ, SuperJacobian.toSuperMatrixAt, SuperTransition.toSuperJacobian,
+      Matrix.add_apply, Matrix.mul_apply]
+    exact hChain_A i j
+  constructor
+  · -- B block: B_αγ = A_βγ · B_αβ + B_βγ · D_αβ
+    ext i b
+    simp only [M_αγ, M_αβ, M_βγ, SuperJacobian.toSuperMatrixAt, SuperTransition.toSuperJacobian,
+      Matrix.add_apply, Matrix.mul_apply]
+    exact hChain_B i b
+  constructor
+  · -- C block: C_αγ = C_βγ · A_αβ + D_βγ · C_αβ
+    ext a j
+    simp only [M_αγ, M_αβ, M_βγ, SuperJacobian.toSuperMatrixAt, SuperTransition.toSuperJacobian,
+      Matrix.add_apply, Matrix.mul_apply]
+    exact hChain_C a j
+  · -- D block: D_αγ = C_βγ · B_αβ + D_βγ · D_αβ
+    ext a c
+    simp only [M_αγ, M_αβ, M_βγ, SuperJacobian.toSuperMatrixAt, SuperTransition.toSuperJacobian,
+      Matrix.add_apply, Matrix.mul_apply]
+    exact hChain_D a c
+
+/-!
+## Taylor Expansion and Composition Infrastructure
+
+To prove the super chain rule, we need to extend smooth functions to Grassmann-valued inputs
+and define composition of SuperDomainFunctions.
+
+### Key Idea
+For a finite Grassmann algebra Λ_q with q generators, any element x can be written as:
+  x = body(x) + soul(x)
+where body(x) ∈ ℝ and soul(x) is nilpotent (soul^(q+1) = 0).
+
+A smooth function f : ℝ → ℝ extends to f̃ : Λ_q → Λ_q via Taylor expansion:
+  f̃(x) = f(body(x)) + f'(body(x)) · soul(x) + (1/2) f''(body(x)) · soul(x)² + ...
+This terminates because soul is nilpotent.
+-/
+
+/-- The body (real part) of a Grassmann element. -/
+def grassmannBody {q : ℕ} (x : FiniteGrassmannCarrier q) : ℝ := x ∅
+
+/-- The soul (nilpotent part) of a Grassmann element. -/
+def grassmannSoul {q : ℕ} (x : FiniteGrassmannCarrier q) : FiniteGrassmannCarrier q :=
+  fun I => if I = ∅ then 0 else x I
+
+/-- Scalar embedding into Grassmann algebra. -/
+def grassmannScalar {q : ℕ} (r : ℝ) : FiniteGrassmannCarrier q :=
+  fun I => if I = ∅ then r else 0
+
+/-- Scalar embedding gives the constant coefficient. -/
+@[simp]
+theorem grassmannScalar_coeff_empty {q : ℕ} (r : ℝ) :
+    (grassmannScalar r : FiniteGrassmannCarrier q) ∅ = r := by
+  simp [grassmannScalar]
+
+@[simp]
+theorem grassmannScalar_coeff_nonempty {q : ℕ} (r : ℝ) {I : Finset (Fin q)}
+    (hI : I ≠ ∅) : (grassmannScalar (q := q) r) I = 0 := by
+  simp [grassmannScalar, hI]
+
+/-- The body as a Grassmann element (scalar embedding). -/
+def grassmannBodyEmbed {q : ℕ} (x : FiniteGrassmannCarrier q) : FiniteGrassmannCarrier q :=
+  grassmannScalar (grassmannBody x)
+
+/-- The body plus soul decomposition. -/
+theorem grassmann_body_soul_decomp {q : ℕ} (x : FiniteGrassmannCarrier q) :
+    x = grassmannBodyEmbed x + grassmannSoul x := by
+  funext I
+  show x I = (grassmannBodyEmbed x + grassmannSoul x) I
+  rw [Pi.add_apply]
+  unfold grassmannBodyEmbed grassmannScalar grassmannBody grassmannSoul
+  by_cases hI : I = ∅
+  · simp [hI]
+  · simp [hI]
+
+/-- The soul has zero coefficient for the empty set. -/
+@[simp]
+theorem grassmannSoul_empty {q : ℕ} (x : FiniteGrassmannCarrier q) :
+    grassmannSoul x ∅ = 0 := by
+  simp [grassmannSoul]
+
+/-- Elements with zero empty-set coefficient only have non-zero coefficients for non-empty sets.
+    This is a key property for nilpotency. -/
+def hasNoConstant {q : ℕ} (f : FiniteGrassmannCarrier q) : Prop := f ∅ = 0
+
+/-- The soul has no constant term. -/
+theorem grassmannSoul_hasNoConstant {q : ℕ} (x : FiniteGrassmannCarrier q) :
+    hasNoConstant (grassmannSoul x) := grassmannSoul_empty x
+
+/-- Product of elements with no constant term has no constant term. -/
+theorem mul_hasNoConstant {q : ℕ} {f g : FiniteGrassmannCarrier q}
+    (hf : hasNoConstant f) (hg : hasNoConstant g) : hasNoConstant (f * g) := by
+  unfold hasNoConstant at *
+  show (f * g) ∅ = 0
+  -- For K = ∅, we need I ∪ J = ∅ with I ∩ J = ∅, so I = J = ∅
+  apply Finset.sum_eq_zero
+  intro I _
+  apply Finset.sum_eq_zero
+  intro J _
+  split_ifs with h
+  · obtain ⟨hIJ, _⟩ := h
+    -- I ∪ J = ∅ implies I = ∅ and J = ∅
+    have hI : I = ∅ := Finset.subset_empty.mp (hIJ ▸ Finset.subset_union_left)
+    have hJ : J = ∅ := Finset.subset_empty.mp (hIJ ▸ Finset.subset_union_right)
+    rw [hI, hf, hJ, hg]
+    ring
+  · rfl
+
+/-- Power of an element with no constant term has no constant term. -/
+theorem pow_hasNoConstant {q : ℕ} {f : FiniteGrassmannCarrier q} (hf : hasNoConstant f)
+    (n : ℕ) (hn : n ≥ 1) : hasNoConstant (f ^ n) := by
+  induction n with
+  | zero => omega
+  | succ k ih =>
+    cases k with
+    | zero =>
+      simp only [Nat.succ_eq_add_one, zero_add, pow_one]
+      exact hf
+    | succ m =>
+      rw [pow_succ]
+      have hk : m + 1 ≥ 1 := by omega
+      exact mul_hasNoConstant (ih hk) hf
+
+-- Key lemma: Products of elements with no constant term only have non-zero coefficients
+-- for sets large enough. Specifically, f^n for n ≥ 1 only has non-zero coefficients for
+-- sets of cardinality ≥ n when f has no constant term and no "gaps" (like the soul).
+-- For the soul specifically, we use a direct argument about index set sizes.
+
+/-- The soul is nilpotent: soul^n = 0 for n > q.
+    (The soul lives in the span of θ^I with I ≠ ∅, and products of more than q generators vanish.) -/
+theorem grassmann_soul_nilpotent {q : ℕ} (x : FiniteGrassmannCarrier q) :
+    ∃ n : ℕ, n ≤ q + 1 ∧ (grassmannSoul x ^ n) = 0 := by
+  use q + 1
+  constructor
+  · linarith
+  · -- The soul^(q+1) = 0 because:
+    -- 1. Each factor of soul has zero coefficient at ∅
+    -- 2. Multiplying elements with no constant term produces elements with no constant term
+    -- 3. Moreover, the minimum cardinality of non-zero coefficients increases by at least 1 per multiplication
+    -- 4. After q+1 multiplications, we'd need sets of size ≥ q+1, but Fin q only has q elements
+
+    -- We prove directly that (soul^(q+1)) I = 0 for all I
+    funext I
+    -- The coefficient at I comes from sums over decompositions I = I₁ ∪ ... ∪ I_{q+1}
+    -- with disjoint non-empty sets I_k. Since I ⊆ Fin q with |I| ≤ q < q+1,
+    -- no such decomposition exists.
+
+    -- Key: For soul^n, non-zero contributions require decompositions into n disjoint non-empty sets
+    -- When n > |I|, this is impossible
+    have hI : I.card ≤ q := by
+      have := Finset.card_le_card (Finset.subset_univ I)
+      simp only [Finset.card_fin] at this
+      exact this
+    -- We need to show that in the expansion of soul^(q+1), every term has a factor
+    -- where the soul is evaluated at ∅, making it 0.
+
+    -- Approach: Induction showing soul^n has zero coefficient at any I with |I| < n
+    -- For n = q+1 and any I ⊆ Fin q, we have |I| ≤ q < q+1, so coefficient is 0.
+
+    -- Direct computation: soul^(q+1) K = Σ ... (product of q+1 soul factors)
+    -- Each factor soul(I_k) is 0 if I_k = ∅, and non-zero only if I_k ≠ ∅
+    -- For product to be non-zero, all I_k ≠ ∅, meaning each |I_k| ≥ 1
+    -- With q+1 disjoint sets, total cardinality ≥ q+1, but K has ≤ q elements
+    -- So the sum is 0.
+
+    -- Formalize this using strong induction on n
+    suffices h : ∀ (n : ℕ) (K : Finset (Fin q)), K.card < n → (grassmannSoul x ^ n) K = 0 by
+      apply h
+      omega
+
+    intro n
+    induction n with
+    | zero =>
+      intro K hK
+      omega  -- K.card < 0 is false
+    | succ m ih =>
+      intro K hK
+      rw [pow_succ]
+      -- Expand multiplication definition directly
+      change (Finset.univ.sum fun I => Finset.univ.sum fun J =>
+        if I ∪ J = K ∧ I ∩ J = ∅ then reorderSign I J * (grassmannSoul x ^ m) I * grassmannSoul x J else 0) = 0
+      apply Finset.sum_eq_zero
+      intro I _
+      apply Finset.sum_eq_zero
+      intro J _
+      split_ifs with hIJ
+      · obtain ⟨hK_eq, hDisj⟩ := hIJ
+        -- If I ∪ J = K with I ∩ J = ∅, then |K| = |I| + |J|
+        have hCard : K.card = I.card + J.card := by
+          rw [← hK_eq]
+          exact Finset.card_union_of_disjoint (Finset.disjoint_iff_inter_eq_empty.mpr hDisj)
+        -- Since |K| < m + 1, either |I| < m or J = ∅
+        by_cases hJ : J = ∅
+        · -- J = ∅, so grassmannSoul x J = 0
+          rw [hJ, grassmannSoul_empty]
+          ring
+        · -- J ≠ ∅, so |J| ≥ 1
+          have hJcard : J.card ≥ 1 := Finset.one_le_card.mpr (Finset.nonempty_iff_ne_empty.mpr hJ)
+          have hIcard : I.card < m := by omega
+          -- By induction hypothesis, soul^m I = 0
+          rw [ih I hIcard]
+          ring
+      · rfl
+
+/-- Extend a smooth function f : ℝ^p → ℝ to Grassmann-valued inputs.
+
+    For Grassmann-valued y = (y₁, ..., yₚ) with yₖ = body(yₖ) + soul(yₖ),
+    the extension is via Taylor series:
+      f̃(y) = Σ_α (1/α!) (∂^α f/∂x^α)(body(y)) · soul(y)^α
+
+    Since each soul(yₖ) is nilpotent, this terminates.
+
+    This is a fundamental tool for composing super functions. -/
+noncomputable def SmoothFunction.extendToGrassmann {p q : ℕ}
+    (f : SmoothFunction p)
+    (y : Fin p → FiniteGrassmannCarrier q) : FiniteGrassmannCarrier q :=
+  -- For now, use a first-order approximation:
+  -- f̃(y) ≈ f(body(y)) + Σ_k (∂f/∂xₖ)(body(y)) · soul(yₖ)
+  -- The full Taylor expansion requires higher derivatives
+  let body_y : Fin p → ℝ := fun k => grassmannBody (y k)
+  let f_body := f.toFun body_y
+  let df_body := fun k => fderiv ℝ f.toFun body_y (Pi.single k 1)
+  -- First order: f(body) + Σ_k (∂f/∂xₖ)(body) · soul(yₖ)
+  grassmannScalar f_body +
+    Finset.univ.sum (fun k => (df_body k) • grassmannSoul (y k))
+
+/-- The extension of a constant function. -/
+theorem SmoothFunction.extendToGrassmann_const {p q : ℕ} (c : ℝ)
+    (y : Fin p → FiniteGrassmannCarrier q) :
+    (⟨fun _ => c, contDiff_const⟩ : SmoothFunction p).extendToGrassmann y =
+    grassmannScalar (q := q) c := by
+  simp only [extendToGrassmann]
+  -- fderiv of constant is 0
+  have h : ∀ k, fderiv ℝ (fun _ : Fin p → ℝ => c) (fun k => grassmannBody (y k)) (Pi.single k 1) = 0 := fun k => by
+    have hconst : (fun _ : Fin p → ℝ => c) = Function.const (Fin p → ℝ) c := rfl
+    rw [hconst, fderiv_const]
+    simp
+  simp only [h, zero_smul, Finset.sum_const_zero, add_zero]
+
+/-- Full composition of SuperDomainFunctions.
+
+    Given:
+    - f : SuperDomainFunction p' q' (a function of intermediate coordinates (y, θ))
+    - g : Fin p' → SuperDomainFunction p q (even coordinate functions)
+    - h : Fin q' → SuperDomainFunction p q (odd coordinate functions)
+
+    Returns f(g(x, φ), h(x, φ)) : SuperDomainFunction p q
+
+    This is the fundamental operation for proving the super chain rule.
+
+    **Note**: This definition uses a simplified approximation. The full
+    composition formula involves Taylor expansion over the Grassmann algebra
+    and careful bookkeeping of multi-indices. -/
+noncomputable def SuperDomainFunction.compose {p p' q q' : ℕ}
+    (f : SuperDomainFunction p' q')
+    (g : Fin p' → SuperDomainFunction p q)
+    (h : Fin q' → SuperDomainFunction p q)
+    (_hg_even : ∀ k, (g k).isEven)  -- g gives even coordinates
+    (_hh_odd : ∀ a, (h a).isOdd)   -- h gives odd coordinates
+    : SuperDomainFunction p q where
+  coefficients J := {
+    toFun := fun x =>
+      -- The coefficient of φ^J in f(g(x, φ), h(x, φ))
+      -- Simplified: use body composition for now
+      let g_body : Fin p' → ℝ := fun k => (g k).body x
+      -- For the constant term (J = ∅), use body of f at body of g
+      -- For higher terms, this is a placeholder that needs the full computation
+      if J = ∅ then
+        -- Body of f evaluated at body of g, plus first-order corrections
+        (f.coefficients ∅).toFun g_body +
+        Finset.univ.sum (fun k =>
+          fderiv ℝ (f.coefficients ∅).toFun g_body (Pi.single k 1) *
+          ((g k).evalAtPoint x ∅ - (g k).body x))
+      else
+        -- Higher Grassmann coefficients - simplified placeholder
+        -- Full formula: collect contributions from f_I(g) · h^I
+        (f.coefficients ∅).toFun g_body * 0  -- Placeholder
+    smooth := by
+      -- Smoothness follows from composition of smooth functions
+      -- This is a placeholder proof - the full compose definition needs completion
+      -- The expression involves:
+      -- - Composition of smooth functions (smooth)
+      -- - Finite sums of smooth functions (smooth)
+      -- - Products of smooth functions (smooth)
+      -- - fderiv of smooth functions (smooth)
+      split_ifs with hJ
+      · -- Case J = ∅: body of f composed with body of g, plus corrections
+        -- The body composition f(g_body) is smooth
+        -- The correction terms involve fderiv which is smooth for C^∞ functions
+        sorry  -- Composition smoothness - requires detailed contDiff lemmas
+      · -- Case J ≠ ∅: placeholder returns 0 · f_body(g_body) = 0
+        -- Multiplication by 0 makes this smooth (it's the zero function)
+        simp only [mul_zero]
+        exact contDiff_const
+  }
+
+/-- For coordinate transitions that compose correctly, the chain rule holds.
+
+    **Theorem Statement**: If transitions compose at the super level, then
+    the chain rule hypotheses in `super_chain_rule_at_point` are satisfied.
+
+    The actual proof requires the full composition infrastructure and
+    differentiation rules for `compose`. This is marked as a placeholder
+    that documents the intended mathematical content. -/
+theorem SuperTransition.chain_rule_holds {dim : SuperDimension} {M : Supermanifold dim}
+    {chart_α chart_β chart_γ : SuperChart M}
+    (t_αβ : SuperTransition chart_α chart_β)
+    (t_βγ : SuperTransition chart_β chart_γ)
+    (t_αγ : SuperTransition chart_α chart_γ)
+    -- Hypothesis: body maps compose correctly (this we have from cocycle)
+    (hBodyCocycle : ∀ x : Fin dim.even → ℝ,
+        (fun i => (t_αγ.evenTransition i).body x) =
+        (fun i => (t_βγ.evenTransition i).body (fun j => (t_αβ.evenTransition j).body x)))
+    -- Hypothesis: full super transitions compose (stronger condition)
+    (hSuperCompose : ∀ (i : Fin dim.even) (x : Fin dim.even → ℝ),
+        (t_αγ.evenTransition i).evalAtPoint x =
+        ((t_βγ.evenTransition i).compose
+          t_αβ.evenTransition t_αβ.oddTransition
+          t_αβ.evenTransition_even t_αβ.oddTransition_odd).evalAtPoint x)
+    (x : Fin dim.even → ℝ) :
+    -- Then the A-block chain rule hypothesis holds
+    ∀ i j, (partialEven j (t_αγ.evenTransition i)).evalAtPoint x =
+      Finset.univ.sum (fun k =>
+        (partialEven k (t_βγ.evenTransition i)).evalAtPoint
+          (fun j => (t_αβ.evenTransition j).body x) *
+        (partialEven j (t_αβ.evenTransition k)).evalAtPoint x) +
+      Finset.univ.sum (fun a =>
+        (partialOdd a (t_βγ.evenTransition i)).evalAtPoint
+          (fun j => (t_αβ.evenTransition j).body x) *
+        (partialEven j (t_αβ.oddTransition a)).evalAtPoint x) := by
+  -- The proof uses differentiation of hSuperCompose
+  -- ∂/∂x_j [f ∘ (g, h)] = Σ_k (∂f/∂y_k) · (∂g_k/∂x_j) + Σ_a (∂f/∂θ_a) · (∂h_a/∂x_j)
+  intro i j
+  -- This requires the chain rule for compose, which we state as sorry
+  sorry
 
 end Supermanifolds
 

@@ -235,6 +235,9 @@ theorem degree_add (D₁ D₂ : Divisor C) : (D₁ + D₂).degree = D₁.degree 
   rw [hsupp]
   simp only [neg_coeff, Finset.sum_neg_distrib]
 
+/-- Subtraction is add neg -/
+theorem sub_eq_add_neg (D₁ D₂ : Divisor C) : D₁ - D₂ = D₁ + -D₂ := rfl
+
 /-- Degree of scalar multiplication -/
 theorem degree_smul (n : ℤ) (D : Divisor C) : (n • D).degree = n * D.degree := by
   unfold degree
@@ -268,6 +271,24 @@ noncomputable def divOf (f : C.FunctionField) (hf : f ≠ 0) : Divisor C where
 /-- Coefficient of div(f) at p is the valuation -/
 theorem divOf_coeff (f : C.FunctionField) (hf : f ≠ 0) (p : C.Point) :
     (divOf f hf).coeff p = C.valuation p f := rfl
+
+/-- The degree of div(f) equals the order sum (argument principle uses this).
+    This connects Core.Divisor.divOf to AlgebraicCurve.orderSum. -/
+theorem divOf_degree_eq_orderSum (f : C.FunctionField) (hf : f ≠ 0) :
+    (divOf f hf).degree = C.orderSum f hf := by
+  -- Both are sums of valuations over the same finite support
+  unfold degree AlgebraicCurve.orderSum AlgebraicCurve.divisorOf AlgebraicCurve.Divisor.degree
+  simp only
+  -- The supports are the same set and coefficients are the same
+  have h_supp_eq : (divOf f hf).finiteSupport.toFinset =
+      (C.valuation_finiteSupport f hf).toFinset := by
+    ext p
+    simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq, divOf, ne_eq]
+  rw [h_supp_eq]
+  -- The coefficients are the same (both are C.valuation p f)
+  apply Finset.sum_congr rfl
+  intro p _
+  rfl
 
 /-- div(f) + div(g) = div(fg) for f, g ≠ 0 -/
 theorem divOf_mul (f g : C.FunctionField) (hf : f ≠ 0) (hg : g ≠ 0) :
@@ -346,6 +367,58 @@ theorem point_isEffective (p : C.Point) : IsEffective (point p) := by
   by_cases h : q = p
   · simp only [if_pos h]; omega
   · simp only [if_neg h]; omega
+
+/-- Effective divisors have non-negative degree -/
+theorem degree_nonneg_of_isEffective (D : Divisor C) (heff : IsEffective D) :
+    0 ≤ D.degree := by
+  unfold degree
+  apply Finset.sum_nonneg
+  intro p _
+  exact heff p
+
+/-!
+### Support Cardinality (for induction)
+-/
+
+/-- The cardinality of the support (finite by definition) -/
+noncomputable def supportCard (D : Divisor C) : ℕ := D.finiteSupport.toFinset.card
+
+/-- A nonzero divisor has nonempty support -/
+theorem exists_mem_support_of_ne_zero (D : Divisor C) (hD : D ≠ 0) :
+    ∃ p, p ∈ D.support := by
+  by_contra h
+  push_neg at h
+  have h0 : D = 0 := by
+    ext p
+    have hp := h p
+    simp only [support, Set.mem_setOf_eq, not_not] at hp
+    simp [hp]
+  exact hD h0
+
+/-- Subtracting the coefficient-multiple of a point reduces support -/
+theorem supportCard_sub_coeff_point_lt (D : Divisor C) (p : C.Point) (hp : D.coeff p ≠ 0) :
+    (D - D.coeff p • point p).supportCard < D.supportCard := by
+  unfold supportCard
+  apply Finset.card_lt_card
+  constructor
+  · -- show (D - D.coeff p • point p).finiteSupport ⊆ D.finiteSupport
+    intro q hq
+    rw [Set.Finite.mem_toFinset] at hq ⊢
+    simp only [Set.mem_setOf_eq] at hq ⊢
+    by_contra hq0
+    simp only [sub_coeff, smul_coeff, point] at hq
+    by_cases hqp : q = p
+    · simp only [hqp, if_true, mul_one] at hq; omega
+    · simp only [if_neg hqp, mul_zero, sub_zero] at hq; exact hq hq0
+  · -- show not ⊆ in other direction
+    intro h
+    have hp_mem : p ∈ D.finiteSupport.toFinset := by
+      rw [Set.Finite.mem_toFinset]; simp only [Set.mem_setOf_eq]; exact hp
+    have hp_not : p ∉ (D - D.coeff p • point p).finiteSupport.toFinset := by
+      rw [Set.Finite.mem_toFinset]
+      simp only [Set.mem_setOf_eq, sub_coeff, smul_coeff, point, if_true, mul_one, sub_self,
+                 ne_eq, not_true_eq_false, not_false_eq_true]
+    exact hp_not (h hp_mem)
 
 end Divisor
 

@@ -306,22 +306,25 @@ The key insight is that for a compact Riemann surface S:
     The construction uses:
     - Points: S.carrier (the analytic points are the algebraic closed points)
     - Function field: S.algStructure.FunctionField (meromorphic = rational functions)
-    - Valuations: S.algStructure.valuation (order of zero/pole at each point) -/
-noncomputable def toCompactAlgebraicCurve (S : AlgebraicAnalyticSurface) :
-    Algebraic.CompactAlgebraicCurve where
+    - Valuations: S.algStructure.valuation (order of zero/pole at each point)
+
+    **TODO**: This requires `AlgebraicAnalyticSurface` to use `CompactAlgebraicStructureOn`
+    instead of `AlgebraicStructureOn` to provide:
+    - `FunctionFieldAlgebra` instance (ℂ-algebra structure)
+    - `regularIsConstant` (properness)
+    - `localParameter` at each point
+    - `leadingCoefficientUniqueness` (DVR property)
+
+    For now, we only provide the conversion to the base `AlgebraicCurve`. -/
+noncomputable def toAlgebraicCurve (S : AlgebraicAnalyticSurface) :
+    Algebraic.AlgebraicCurve where
   Point := S.toRiemannSurface.carrier
   FunctionField := S.algStructure.FunctionField
   valuation := S.algStructure.valuation
   valuation_zero := S.algStructure.valuation_zero
-  valuation_one := S.algStructure.valuation_one
   valuation_mul := S.algStructure.valuation_mul
-  valuation_inv := S.algStructure.valuation_inv
+  valuation_add_min := S.algStructure.valuation_add_min
   valuation_finiteSupport := S.algStructure.valuation_finiteSupport
-  argumentPrinciple := by
-    -- The argument principle: sum of orders of a nonzero function is 0
-    -- This follows from compactness and the analytic argument principle
-    sorry
-  genus := S.genus
 
 /-- Riemann-Roch transfers between the two settings.
 
