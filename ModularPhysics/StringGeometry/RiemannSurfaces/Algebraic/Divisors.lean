@@ -1,5 +1,5 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.Meromorphic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.AlgebraicStructure
 import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.Int.Basic
 import Mathlib.GroupTheory.QuotientGroup.Basic
@@ -41,9 +41,16 @@ Each divisor D determines a holomorphic line bundle L(D):
 
 * `Divisor` - Formal sum of points with integer coefficients
 * `Divisor.degree` - Sum of coefficients
-* `PrincipalDivisor` - Divisor of a meromorphic function
+* `PrincipalDivisor` - Divisor of a meromorphic function (requires algebraic structure)
 * `DivisorClass` - Equivalence class in Pic(Σ)
 * `LinearSystem` - The space L(D)
+
+## Design Note
+
+Principal divisors and related operations require an `AlgebraicStructureOn RS`
+to provide the function field and valuations. This is mathematically correct:
+a divisor is a purely topological/set-theoretic object (formal sum of points),
+but the *principal* divisor of a function requires the algebraic structure.
 
 ## References
 
@@ -317,115 +324,158 @@ end Divisor
 ## Principal Divisors
 
 A principal divisor is the divisor of a meromorphic function.
-The meromorphic function infrastructure is provided by `Algebraic.Helpers.Meromorphic`.
+
+**Important**: Principal divisor operations require an `AlgebraicStructureOn RS`
+to provide the function field K(Σ) and the discrete valuations v_p.
 -/
 
-/-- The divisor of a meromorphic function -/
-noncomputable def divisorOf {RS : RiemannSurface} (f : MeromorphicFunction RS) :
-    Divisor RS where
-  coeff := orderAt f
-  finiteSupport := orderFiniteSupport f
+/-- The divisor of a meromorphic function.
 
-/-- A divisor is principal if it's the divisor of some meromorphic function -/
-def IsPrincipal {RS : RiemannSurface} (D : Divisor RS) : Prop :=
-  ∃ f : MeromorphicFunction RS, divisorOf f = D
+    **Requires algebraic structure** to define the order v_p(f) at each point.
 
-/-- The degree of a divisor equals the orderSum of the corresponding function -/
-theorem divisorOf_degree_eq_orderSum {RS : RiemannSurface} (f : MeromorphicFunction RS) :
-    (divisorOf f).degree = orderSum f := by
-  unfold Divisor.degree divisorOf orderSum orderAt
-  -- Both are sums over the same finset with the same summand
+    div(f) = Σ_p v_p(f) · [p]
+
+    where v_p(f) is the discrete valuation (order of vanishing/pole) at p. -/
+noncomputable def divisorOf {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (f : A.FunctionField) (hf : f ≠ 0) : Divisor RS where
+  coeff := fun p => A.valuation p f
+  finiteSupport := A.valuation_finiteSupport f hf
+
+/-- A divisor is principal if it's the divisor of some nonzero meromorphic function.
+
+    D ∈ Prin(Σ) iff D = div(f) for some f ∈ K(Σ)* -/
+def IsPrincipal {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D : Divisor RS) : Prop :=
+  ∃ (f : A.FunctionField) (hf : f ≠ 0), divisorOf A f hf = D
+
+/-- The degree of div(f) equals the sum of orders (orderSum). -/
+theorem divisorOf_degree_eq_orderSum {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (f : A.FunctionField) (hf : f ≠ 0) :
+    (divisorOf A f hf).degree = (A.valuation_finiteSupport f hf).toFinset.sum (A.valuation · f) := by
+  unfold Divisor.degree divisorOf
   rfl
 
 /-- Principal divisors have degree 0 on compact surfaces.
-    Proof: For a meromorphic function, #{zeros} = #{poles} by the argument principle. -/
-theorem principal_degree_zero (CRS : CompactRiemannSurface) (D : Divisor CRS.toRiemannSurface)
-    (hD : IsPrincipal D) :
+
+    **Proof**: By the argument principle, Σ_p v_p(f) = 0 for any nonzero
+    meromorphic function f on a compact Riemann surface. -/
+theorem principal_degree_zero {CRS : CompactRiemannSurface}
+    (CA : CompactAlgebraicStructureOn CRS)
+    (D : Divisor CRS.toRiemannSurface)
+    (hD : IsPrincipal CA.toAlgebraicStructureOn D) :
     D.degree = 0 := by
-  -- D is principal, so D = divisorOf f for some meromorphic function f
-  obtain ⟨f, hf⟩ := hD
+  -- D is principal, so D = divisorOf f for some meromorphic function f ≠ 0
+  obtain ⟨f, hf, hfeq⟩ := hD
   -- Rewrite D as divisorOf f
-  rw [← hf]
-  -- The degree of divisorOf f equals orderSum f
+  rw [← hfeq]
+  -- The degree of divisorOf f equals the sum of orders
   rw [divisorOf_degree_eq_orderSum]
-  -- By the argument principle, orderSum f = 0
-  exact argumentPrinciple CRS f
+  -- By the argument principle, this sum is 0
+  exact CA.argumentPrinciple f hf
 
 /-!
 ## Divisor Classes and Picard Group
+
+**Note**: All operations involving principal divisors require an algebraic structure
+`A : AlgebraicStructureOn RS` to provide the function field and valuations.
 -/
 
-/-- Two divisors are linearly equivalent if their difference is principal -/
-def LinearlyEquivalent {RS : RiemannSurface} (D₁ D₂ : Divisor RS) : Prop :=
-  IsPrincipal (D₁ - D₂)
+/-- Two divisors are linearly equivalent if their difference is principal.
 
-/-- The zero divisor is principal (divisor of constant 1) -/
-theorem zero_isPrincipal {RS : RiemannSurface} : IsPrincipal (0 : Divisor RS) := by
-  use 1  -- The constant function 1
+    D₁ ~ D₂ iff D₁ - D₂ = div(f) for some nonzero f ∈ K(Σ) -/
+def LinearlyEquivalent {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D₁ D₂ : Divisor RS) : Prop :=
+  IsPrincipal A (D₁ - D₂)
+
+/-- The zero divisor is principal: 0 = div(1).
+
+    Since v_p(1) = 0 for all p, the constant function 1 has divisor 0. -/
+theorem zero_isPrincipal {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :
+    IsPrincipal A (0 : Divisor RS) := by
+  use 1, one_ne_zero
   ext p
-  simp only [divisorOf, orderAt_one]
+  simp only [divisorOf]
+  exact A.valuation_one p
+
+/-- Negation of a principal divisor is principal: if D = div(f), then -D = div(f⁻¹). -/
+theorem neg_isPrincipal {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    {D : Divisor RS} (hD : IsPrincipal A D) : IsPrincipal A (-D) := by
+  obtain ⟨f, hf, hfeq⟩ := hD
+  use f⁻¹, inv_ne_zero hf
+  ext p
+  simp only [divisorOf, Neg.neg, Divisor.neg]
+  rw [A.valuation_inv p f hf]
+  rw [← hfeq]
   rfl
 
-/-- Negation of a principal divisor is principal -/
-theorem neg_isPrincipal {RS : RiemannSurface} {D : Divisor RS}
-    (hD : IsPrincipal D) : IsPrincipal (-D) := by
-  obtain ⟨f, hf⟩ := hD
-  use f⁻¹
+/-- Sum of principal divisors is principal: if D₁ = div(f), D₂ = div(g), then D₁ + D₂ = div(fg). -/
+theorem add_isPrincipal {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    {D₁ D₂ : Divisor RS} (hD₁ : IsPrincipal A D₁) (hD₂ : IsPrincipal A D₂) :
+    IsPrincipal A (D₁ + D₂) := by
+  obtain ⟨f, hf, hfeq⟩ := hD₁
+  obtain ⟨g, hg, hgeq⟩ := hD₂
+  use f * g, mul_ne_zero hf hg
   ext p
-  simp only [divisorOf, Neg.neg, Divisor.neg, orderAt_inv]
-  rw [← hf]
+  -- (D₁ + D₂).coeff p = D₁.coeff p + D₂.coeff p by definition
+  show A.valuation p (f * g) = (D₁ + D₂).coeff p
+  rw [A.valuation_mul p f g hf hg]
+  -- Need to show v_p(f) + v_p(g) = (D₁ + D₂).coeff p
+  -- But D₁.coeff p = v_p(f) and D₂.coeff p = v_p(g) by hfeq and hgeq
+  have h1 : D₁.coeff p = A.valuation p f := by rw [← hfeq]; rfl
+  have h2 : D₂.coeff p = A.valuation p g := by rw [← hgeq]; rfl
+  -- Goal: v_p(f) + v_p(g) = (D₁ + D₂).coeff p = D₁.coeff p + D₂.coeff p
+  rw [← h1, ← h2]
   rfl
 
-/-- Sum of principal divisors is principal -/
-theorem add_isPrincipal {RS : RiemannSurface} {D₁ D₂ : Divisor RS}
-    (hD₁ : IsPrincipal D₁) (hD₂ : IsPrincipal D₂) : IsPrincipal (D₁ + D₂) := by
-  obtain ⟨f, hf⟩ := hD₁
-  obtain ⟨g, hg⟩ := hD₂
-  use f * g
-  ext p
-  simp only [divisorOf, orderAt_mul]
-  rw [← hf, ← hg]
-  rfl
+/-- The subgroup of principal divisors Prin(Σ) ⊆ Div(Σ).
 
-/-- The subgroup of principal divisors Prin(Σ) ⊆ Div(Σ) -/
-def PrincipalDivisors (RS : RiemannSurface) : AddSubgroup (Divisor RS) where
-  carrier := { D | IsPrincipal D }
-  zero_mem' := zero_isPrincipal
-  add_mem' := fun ha hb => add_isPrincipal ha hb
-  neg_mem' := fun ha => neg_isPrincipal ha
+    Prin(Σ) = { div(f) : f ∈ K(Σ)* } -/
+def PrincipalDivisors {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :
+    AddSubgroup (Divisor RS) where
+  carrier := { D | IsPrincipal A D }
+  zero_mem' := zero_isPrincipal A
+  add_mem' := fun ha hb => add_isPrincipal A ha hb
+  neg_mem' := fun ha => neg_isPrincipal A ha
 
 /-- Linear equivalence is an equivalence relation -/
-theorem linearlyEquivalent_equivalence (RS : RiemannSurface) :
-    Equivalence (@LinearlyEquivalent RS) := by
+theorem linearlyEquivalent_equivalence {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :
+    Equivalence (LinearlyEquivalent A) := by
   constructor
-  · intro D; unfold LinearlyEquivalent; simp only [sub_self]; exact zero_isPrincipal
+  · intro D; unfold LinearlyEquivalent; simp only [sub_self]; exact zero_isPrincipal A
   · intro D₁ D₂ h; unfold LinearlyEquivalent at *
     have h' : D₂ - D₁ = -(D₁ - D₂) := by
       ext p
       show (D₂.coeff p - D₁.coeff p) = -(D₁.coeff p - D₂.coeff p)
       ring
-    rw [h']; exact neg_isPrincipal h
+    rw [h']; exact neg_isPrincipal A h
   · intro D₁ D₂ D₃ h₁ h₂; unfold LinearlyEquivalent at *
     have h' : D₁ - D₃ = (D₁ - D₂) + (D₂ - D₃) := by
       ext p
       show (D₁.coeff p - D₃.coeff p) = (D₁.coeff p - D₂.coeff p) + (D₂.coeff p - D₃.coeff p)
       ring
-    rw [h']; exact add_isPrincipal h₁ h₂
+    rw [h']; exact add_isPrincipal A h₁ h₂
 
 /-- The setoid for linear equivalence -/
-def linearEquivalentSetoid (RS : RiemannSurface) : Setoid (Divisor RS) :=
-  ⟨LinearlyEquivalent, linearlyEquivalent_equivalence RS⟩
+def linearEquivalentSetoid {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :
+    Setoid (Divisor RS) :=
+  ⟨LinearlyEquivalent A, linearlyEquivalent_equivalence A⟩
 
-/-- The Picard group Pic(Σ) = Div(Σ) / Prin(Σ) -/
-def PicardGroup (RS : RiemannSurface) := Divisor RS ⧸ PrincipalDivisors RS
+/-- The Picard group Pic(Σ) = Div(Σ) / Prin(Σ).
+
+    **Requires algebraic structure** to define Prin(Σ). -/
+def PicardGroup {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :=
+  Divisor RS ⧸ PrincipalDivisors A
 
 /-- Pic(Σ) is an abelian group (quotient of AddCommGroup by AddSubgroup) -/
-noncomputable instance (RS : RiemannSurface) : AddCommGroup (PicardGroup RS) :=
-  QuotientAddGroup.Quotient.addCommGroup (PrincipalDivisors RS)
+noncomputable instance {RS : RiemannSurface} (A : AlgebraicStructureOn RS) :
+    AddCommGroup (PicardGroup A) :=
+  QuotientAddGroup.Quotient.addCommGroup (PrincipalDivisors A)
 
 /-- Linear equivalence coincides with the quotient relation -/
-theorem linearlyEquivalent_iff_quotient {RS : RiemannSurface} (D₁ D₂ : Divisor RS) :
-    LinearlyEquivalent D₁ D₂ ↔ (QuotientAddGroup.mk D₁ : PicardGroup RS) = QuotientAddGroup.mk D₂ := by
+theorem linearlyEquivalent_iff_quotient {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D₁ D₂ : Divisor RS) :
+    LinearlyEquivalent A D₁ D₂ ↔
+    (QuotientAddGroup.mk D₁ : PicardGroup A) = QuotientAddGroup.mk D₂ := by
   rw [QuotientAddGroup.eq]
   unfold LinearlyEquivalent
   constructor
@@ -439,7 +489,7 @@ theorem linearlyEquivalent_iff_quotient {RS : RiemannSurface} (D₁ D₂ : Divis
       simp only [Divisor.add, Divisor.neg, Divisor.sub]
       ring
     rw [h']
-    exact neg_isPrincipal h
+    exact neg_isPrincipal A h
   · intro h
     -- -D₁ + D₂ ∈ PrincipalDivisors means IsPrincipal(-D₁ + D₂)
     -- We need IsPrincipal(D₁ - D₂) = IsPrincipal(-(- D₁ + D₂))
@@ -449,21 +499,22 @@ theorem linearlyEquivalent_iff_quotient {RS : RiemannSurface} (D₁ D₂ : Divis
       simp only [Divisor.add, Divisor.neg, Divisor.sub]
       ring
     rw [h']
-    exact neg_isPrincipal h
+    exact neg_isPrincipal A h
 
 /-- Degree is well-defined on the quotient for compact surfaces.
     If D₁ - D₂ ∈ Prin(Σ), then deg(D₁) = deg(D₂).
 
     **Note**: This requires compactness because the proof uses the argument principle,
     which states that principal divisors have degree 0 on compact surfaces. -/
-theorem degree_well_defined_quotient_compact (CRS : CompactRiemannSurface)
+theorem degree_well_defined_quotient_compact {CRS : CompactRiemannSurface}
+    (CA : CompactAlgebraicStructureOn CRS)
     (D₁ D₂ : Divisor CRS.toRiemannSurface)
-    (h : D₁ - D₂ ∈ PrincipalDivisors CRS.toRiemannSurface) :
+    (h : D₁ - D₂ ∈ PrincipalDivisors CA.toAlgebraicStructureOn) :
     D₁.degree = D₂.degree := by
   -- h says D₁ - D₂ is principal
-  have hprinc : IsPrincipal (D₁ - D₂) := h
+  have hprinc : IsPrincipal CA.toAlgebraicStructureOn (D₁ - D₂) := h
   -- By the argument principle, deg(D₁ - D₂) = 0
-  have hdeg0 : (D₁ - D₂).degree = 0 := principal_degree_zero CRS (D₁ - D₂) hprinc
+  have hdeg0 : (D₁ - D₂).degree = 0 := principal_degree_zero CA (D₁ - D₂) hprinc
   -- D₁ - D₂ = D₁ + (-D₂), so deg(D₁ - D₂) = deg(D₁) + deg(-D₂) = deg(D₁) - deg(D₂)
   have hsub : D₁ - D₂ = D₁ + (-D₂) := sub_eq_add_neg D₁ D₂
   rw [hsub, Divisor.degree_add, Divisor.degree_neg] at hdeg0
@@ -472,8 +523,9 @@ theorem degree_well_defined_quotient_compact (CRS : CompactRiemannSurface)
 /-- Degree is well-defined on the quotient: if D₁ - D₂ ∈ Prin(Σ), then deg(D₁) = deg(D₂).
     For general Riemann surfaces, this follows from the argument principle on any
     compactification, but we state it separately for type-theoretic reasons. -/
-theorem degree_well_defined_quotient (RS : RiemannSurface) (D₁ D₂ : Divisor RS)
-    (h : D₁ - D₂ ∈ PrincipalDivisors RS) :
+theorem degree_well_defined_quotient {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D₁ D₂ : Divisor RS)
+    (h : D₁ - D₂ ∈ PrincipalDivisors A) :
     D₁.degree = D₂.degree := by
   -- For general Riemann surfaces, this requires more infrastructure
   -- (compactification or direct algebraic argument)
@@ -481,17 +533,19 @@ theorem degree_well_defined_quotient (RS : RiemannSurface) (D₁ D₂ : Divisor 
   sorry
 
 /-- Degree is well-defined on linear equivalence classes (principal divisors have degree 0) -/
-theorem degree_well_defined (RS : RiemannSurface) (D₁ D₂ : Divisor RS)
-    (h : LinearlyEquivalent D₁ D₂) :
+theorem degree_well_defined {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D₁ D₂ : Divisor RS)
+    (h : LinearlyEquivalent A D₁ D₂) :
     D₁.degree = D₂.degree := by
   apply degree_well_defined_quotient
   -- LinearlyEquivalent D₁ D₂ means IsPrincipal (D₁ - D₂)
   exact h
 
 /-- The degree map Pic(Σ) → ℤ (well-defined since principal divisors have degree 0) -/
-noncomputable def PicardGroup.degree {RS : RiemannSurface} (c : PicardGroup RS) : ℤ :=
+noncomputable def PicardGroup.degree {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (c : PicardGroup A) : ℤ :=
   Quotient.liftOn' c Divisor.degree (fun D₁ D₂ h => by
-    -- h : -D₁ + D₂ ∈ PrincipalDivisors RS (from QuotientAddGroup.leftRel)
+    -- h : -D₁ + D₂ ∈ PrincipalDivisors A (from QuotientAddGroup.leftRel)
     rw [QuotientAddGroup.leftRel_eq] at h
     -- We have -D₁ + D₂ ∈ Prin, need D₂ - D₁ ∈ Prin
     -- Note: D₂ - D₁ = -D₁ + D₂ in an abelian group
@@ -501,7 +555,7 @@ noncomputable def PicardGroup.degree {RS : RiemannSurface} (c : PicardGroup RS) 
       simp only [Divisor.sub, Divisor.add, Divisor.neg]
       ring
     rw [← h'] at h
-    exact (degree_well_defined_quotient RS D₂ D₁ h).symm)
+    exact (degree_well_defined_quotient A D₂ D₁ h).symm)
 
 /-!
 ## Line Bundles from Divisors
@@ -512,13 +566,18 @@ noncomputable def PicardGroup.degree {RS : RiemannSurface} (c : PicardGroup RS) 
     The linear system is a finite-dimensional complex vector space.
     Its dimension l(D) = dim L(D) = h⁰(O(D)) is included as data.
 
+    **Requires algebraic structure** to define divisors of meromorphic functions.
+
     **Riemann-Roch** (see `Algebraic/RiemannRoch.lean`):
       l(D) - l(K - D) = deg(D) - g + 1 -/
-structure LinearSystem {RS : RiemannSurface} (D : Divisor RS) where
-  /-- Functions in L(D) -/
-  functions : Set (MeromorphicFunction RS)
-  /-- Defining property: div(f) + D ≥ 0 for all f ∈ L(D) -/
-  property : ∀ f ∈ functions, Divisor.Effective (divisorOf f + D)
+structure LinearSystem {RS : RiemannSurface} (A : AlgebraicStructureOn RS)
+    (D : Divisor RS) where
+  /-- Functions in L(D): nonzero elements f of K(Σ) with div(f) + D ≥ 0, plus zero -/
+  functions : Set A.FunctionField
+  /-- Zero is always in L(D) -/
+  zero_mem : (0 : A.FunctionField) ∈ functions
+  /-- Defining property: div(f) + D ≥ 0 for all nonzero f ∈ L(D) -/
+  property : ∀ f ∈ functions, (hf : f ≠ 0) → Divisor.Effective (divisorOf A f hf + D)
   /-- Dimension of the linear system: l(D) = dim L(D).
       This is finite-dimensional for any divisor on a Riemann surface.
       The dimension is computed via cohomology: l(D) = h⁰(O(D)). -/
@@ -531,7 +590,7 @@ The function l(D) = dim L(D) = dim H⁰(O(D)) is the dimension of the Riemann-Ro
 This requires sheaf cohomology infrastructure and is developed in:
 
 - **`Algebraic/Cohomology/Basic.lean`**: Defines `h_i` (dimension function for cohomology groups)
-- **`Algebraic/RiemannRoch.lean`**: Full Riemann-Roch theorem using `CompactCohomologyTheory`
+- **`Algebraic/RiemannRoch.lean`**: Full Riemann-Roch theorem using Čech cohomology
 
 The key results (proved in RiemannRoch.lean):
 - `riemann_roch_classical`: h⁰(D) - h¹(D) = deg(D) - g + 1

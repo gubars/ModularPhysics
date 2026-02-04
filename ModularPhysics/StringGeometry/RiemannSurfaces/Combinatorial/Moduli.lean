@@ -1,5 +1,4 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.RibbonGraph
 
 /-!
@@ -168,8 +167,6 @@ structure PennerMap (τ : TopologicalType) where
   map : source → (Γ : CombinatorialCell τ) × PositiveOrthant Γ.dimension
   /-- Bijectivity of the map -/
   bijective : Function.Bijective map
-  /-- Continuity (placeholder - requires topology on both spaces) -/
-  continuous : Prop
 
 /-- Penner's theorem: The Penner map is a homeomorphism.
 
@@ -444,10 +441,8 @@ over M_{g,n}. The cell decomposition makes this explicit.
 structure ModuliForm (g n : ℕ) (degree : ℕ) where
   /-- The form's contribution on each ribbon graph cell -/
   cellContribution : RibbonGraph → (Fin degree → ℝ) → ℝ
-  /-- The degree matches the claimed degree -/
+  /-- The degree is bounded by the dimension -/
   degreeMatch : degree ≤ 6 * g - 6 + 2 * n
-  /-- The form is smooth on each cell -/
-  smooth : ∀ Γ : RibbonGraph, Γ.numEdges ≥ degree → True
 
 /-- A top form on M_{g,n} (degree = real dimension) -/
 def ModuliForm.isTop (ω : ModuliForm g n degree) : Prop :=

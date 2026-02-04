@@ -183,115 +183,19 @@ def chi (C : LineBundleCohomology RS O L D) : ℤ := eulerCharacteristic C.H0 C.
 end LineBundleCohomology
 
 /-!
-## Compact Riemann Surface Cohomology
+## Čech Cohomology Integration
 
-For compact Riemann surfaces, cohomology has additional structure.
-The theory is parameterized by a line bundle sheaf assignment D ↦ O(D),
-which must be provided externally (e.g., via GAGA).
+The actual cohomology theory is constructed in `CechTheory.lean` using Čech cohomology.
+This file provides the data structures; CechTheory provides the theorems.
+
+Key properties (PROVED in CechTheory, not axiomatized here):
+- Vanishing: H^i = 0 for i ≥ 2 (cohomological dimension 1)
+- h⁰(O) = 1 (only constants - maximum principle)
+- h¹(O) = g (genus definition)
+- Point recursion: χ(D) - χ(D-p) = 1 (long exact sequence)
+- Negative degree vanishing: deg(D) < 0 → h⁰(D) = 0 (argument principle)
+- Serre duality: h¹(D) = h⁰(K-D) (cup product + residue)
 -/
-
-/-- Cohomology theory for a compact Riemann surface.
-
-    This bundles together:
-    - A line bundle sheaf assignment D ↦ O(D)
-    - Cohomology groups H^i(F) for all coherent sheaves F
-    - The key properties (vanishing, h⁰(O) = 1, h¹(O) = g)
-
-    **No placeholder constructions:** The sheaf assignment is an input, not a construction.
-    This ensures mathematical soundness. -/
-structure CompactCohomologyTheory (CRS : CompactRiemannSurface)
-    (O : StructureSheaf CRS.toRiemannSurface) where
-  /-- The line bundle sheaf assignment D ↦ O(D) -/
-  lineBundleSheaves : LineBundleSheafAssignment CRS.toRiemannSurface O
-
-  /-- H^i(F) for each coherent sheaf F and degree i -/
-  cohomology : (F : CoherentSheaf CRS.toRiemannSurface O) → (i : ℕ) →
-    SheafCohomologyGroup CRS.toRiemannSurface F i
-
-  /-- **Vanishing**: H^i = 0 for i ≥ 2 (cohomological dimension 1) -/
-  vanishing : ∀ F i, i ≥ 2 → h_i (cohomology F i) = 0
-
-  /-- **H^0 of structure sheaf**: h^0(O) = 1 (only constants) -/
-  h0_structure : h_i (cohomology (lineBundleSheaves.sheafOf 0) 0) = 1
-
-  /-- **H^1 of structure sheaf**: h^1(O) = g (genus) -/
-  h1_structure : h_i (cohomology (lineBundleSheaves.sheafOf 0) 1) = CRS.genus
-
-  /-- **Point exact sequence recursion**: χ(D) - χ(D - p) = 1 for any point p.
-
-      This follows from the long exact sequence induced by:
-        0 → O(D-p) → O(D) → ℂ_p → 0
-
-      Combined with χ(ℂ_p) = 1 (skyscraper sheaves are acyclic with h⁰ = 1).
-
-      This is a fundamental property of any sheaf cohomology theory on curves. -/
-  point_recursion : ∀ (D : Divisor CRS.toRiemannSurface) (p : CRS.toRiemannSurface.carrier),
-    let H0D := cohomology (lineBundleSheaves.sheafOf D) 0
-    let H1D := cohomology (lineBundleSheaves.sheafOf D) 1
-    let H0Dp := cohomology (lineBundleSheaves.sheafOf (D - Divisor.point p)) 0
-    let H1Dp := cohomology (lineBundleSheaves.sheafOf (D - Divisor.point p)) 1
-    eulerCharacteristic H0D H1D - eulerCharacteristic H0Dp H1Dp = 1
-
-  /-- **Negative degree vanishing**: h⁰(D) = 0 when deg(D) < 0.
-
-      Line bundles of negative degree have no global sections. This follows from:
-      - A section f ∈ H⁰(O(D)) corresponds to a meromorphic function with (f) + D ≥ 0
-      - If f ≠ 0, then (f) + D is effective, so deg((f) + D) ≥ 0
-      - But deg((f)) = 0 (principal divisors have degree 0 on compact surfaces)
-      - So deg(D) = deg((f) + D) ≥ 0, contradiction
-
-      This is a fundamental property of coherent sheaf cohomology on curves. -/
-  negative_degree_vanishing : ∀ (D : Divisor CRS.toRiemannSurface),
-    D.degree < 0 → h_i (cohomology (lineBundleSheaves.sheafOf D) 0) = 0
-
-  /-- **Large degree h¹ vanishing**: h¹(D) = 0 when deg(D) > 2g - 2.
-
-      This follows from Serre duality combined with negative degree vanishing:
-      - h¹(D) = h⁰(K - D) by Serre duality (where deg(K) = 2g - 2)
-      - deg(K - D) = (2g - 2) - deg(D) < 0 when deg(D) > 2g - 2
-      - h⁰(K - D) = 0 by negative degree vanishing
-      - Therefore h¹(D) = 0
-
-      This is a fundamental property derived from Serre duality on curves. -/
-  large_degree_h1_vanishing : ∀ (D : Divisor CRS.toRiemannSurface),
-    D.degree > 2 * (CRS.genus : ℤ) - 2 → h_i (cohomology (lineBundleSheaves.sheafOf D) 1) = 0
-
-  /-- **Serre duality (dimension form)**: h¹(D) = h⁰(K - D) where K is a canonical divisor.
-
-      For any divisor K with deg(K) = 2g - 2 (i.e., K is a canonical divisor):
-        h¹(D) = h⁰(K - D)
-
-      This is the fundamental duality theorem for coherent sheaf cohomology on curves.
-      It follows from the perfect pairing H⁰(K-D) × H¹(D) → H¹(K) ≅ ℂ induced by
-      cup product and the residue map.
-
-      **Proof sketch**:
-      1. The cup product H⁰(K-D) ⊗ H¹(D) → H¹(K) exists
-      2. Composing with residue: H¹(K) → ℂ gives a pairing H⁰(K-D) × H¹(D) → ℂ
-      3. This pairing is perfect (non-degenerate)
-      4. Perfect pairing between finite-dim spaces implies equal dimensions -/
-  serre_duality_dim : ∀ (D K : Divisor CRS.toRiemannSurface),
-    K.degree = 2 * (CRS.genus : ℤ) - 2 →
-    h_i (cohomology (lineBundleSheaves.sheafOf D) 1) =
-    h_i (cohomology (lineBundleSheaves.sheafOf (K - D)) 0)
-
-namespace CompactCohomologyTheory
-
-variable {CRS : CompactRiemannSurface} {O : StructureSheaf CRS.toRiemannSurface}
-
-/-- Line bundle cohomology from the full theory -/
-noncomputable def lineBundleCohomology (T : CompactCohomologyTheory CRS O)
-    (D : Divisor CRS.toRiemannSurface) :
-    LineBundleCohomology CRS.toRiemannSurface O T.lineBundleSheaves D where
-  H0 := T.cohomology (T.lineBundleSheaves.sheafOf D) 0
-  H1 := T.cohomology (T.lineBundleSheaves.sheafOf D) 1
-
-/-- Euler characteristic of O(D) from the theory -/
-noncomputable def chi (T : CompactCohomologyTheory CRS O)
-    (D : Divisor CRS.toRiemannSurface) : ℤ :=
-  (T.lineBundleCohomology D).chi
-
-end CompactCohomologyTheory
 
 /-!
 ## Coherent Sheaf of a Divisor
@@ -304,37 +208,38 @@ This is provided by a `LineBundleSheafAssignment`.
 
     This requires a line bundle sheaf assignment L that specifies how to construct O(D)
     for each divisor D. The sheaf O(D) is the sheaf of meromorphic functions with
-    poles bounded by D.
-
-    **Usage**: Pass the `lineBundleSheaves` field from a `CompactCohomologyTheory`. -/
+    poles bounded by D. -/
 def coherentSheafOfDivisor (RS : RiemannSurface) (O : StructureSheaf RS)
     (L : LineBundleSheafAssignment RS O) (D : Divisor RS) : CoherentSheaf RS O :=
   L.sheafOf D
 
-/-- Simplified version for compact surfaces with a cohomology theory.
+/-!
+## The Canonical Divisor
 
-    This extracts the line bundle assignment from the theory. -/
-def coherentSheafOfDivisor' {CRS : CompactRiemannSurface}
-    {O : StructureSheaf CRS.toRiemannSurface}
-    (T : CompactCohomologyTheory CRS O) (D : Divisor CRS.toRiemannSurface) :
-    CoherentSheaf CRS.toRiemannSurface O :=
-  T.lineBundleSheaves.sheafOf D
+The canonical divisor K is fundamental for Serre duality and Riemann-Roch.
+-/
+
+/-- The canonical divisor K with deg(K) = 2g - 2.
+
+    This is the divisor of any meromorphic 1-form.
+    For Serre duality, K determines the dualizing sheaf.
+
+    **Properties**:
+    - deg(K) = 2g - 2 (Riemann-Hurwitz)
+    - O(K) = Ω¹ (sheaf of holomorphic 1-forms)
+    - H¹(O) ≅ H⁰(K) (Serre duality for structure sheaf) -/
+structure CanonicalDivisorData (CRS : CompactRiemannSurface) where
+  /-- The canonical divisor -/
+  divisor : Divisor CRS.toRiemannSurface
+  /-- deg(K) = 2g - 2 -/
+  degree_eq : divisor.degree = 2 * (CRS.genus : ℤ) - 2
 
 /-!
-## Notes on Existence
+## Notes on Čech Cohomology
 
-The existence of a `CompactCohomologyTheory` requires:
-1. A construction of line bundle sheaves D ↦ O(D) (algebraic or analytic)
-2. Sheaf cohomology theory (Čech or derived functors)
-3. The fundamental properties (vanishing, structure sheaf cohomology)
-
-This is established by:
-- **Algebraic approach:** Construct O(D) as coherent sheaves on the algebraic curve
-- **Analytic approach:** Construct O(D) as holomorphic line bundles
-- **GAGA:** Shows these agree for compact Riemann surfaces
-
-We do not prove existence here - it requires substantial infrastructure.
-Instead, we take the cohomology theory as input when needed.
+The actual cohomology computations are done via Čech cohomology in `CechTheory.lean`.
+All key properties (vanishing, Riemann-Roch recursion, Serre duality) are PROVED
+there from first principles, not axiomatized.
 -/
 
 end RiemannSurfaces.Algebraic.Cohomology

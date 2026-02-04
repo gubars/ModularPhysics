@@ -1,5 +1,4 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Moduli
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.SimpleCurves
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.PantsDecomposition

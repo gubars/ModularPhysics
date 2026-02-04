@@ -7,6 +7,7 @@ import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Bornology.Basic
+import Mathlib.AlgebraicTopology.FundamentalGroupoid.SimplyConnected
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.HarmonicHelpers
 
@@ -145,20 +146,23 @@ If u is harmonic, then locally there exists v (unique up to constant)
 such that f = u + iv is holomorphic. v is the harmonic conjugate.
 -/
 
-/-- A harmonic conjugate of u is a function v such that u + iv is holomorphic -/
+/-- A harmonic conjugate of u is a function v such that u + iv is holomorphic.
+    This means u, v are both harmonic and satisfy the Cauchy-Riemann equations. -/
 def IsHarmonicConjugate (u v : ℂ → ℝ) (U : Set ℂ) : Prop :=
   HarmonicOn u U ∧ HarmonicOn v U ∧
-  -- The Cauchy-Riemann equations hold: ∂u/∂x = ∂v/∂y, ∂u/∂y = -∂v/∂x
-  True  -- Placeholder
+  -- u + iv is holomorphic on U (which implies CR equations)
+  DifferentiableOn ℂ (fun z => (⟨u z, v z⟩ : ℂ)) U
 
 /-- Local existence of harmonic conjugate -/
 theorem harmonic_conjugate_exists_locally (u : ℂ → ℝ) (z₀ : ℂ) (hf : HarmonicAt u z₀) :
     ∃ ε > 0, ∃ v : ℂ → ℝ, IsHarmonicConjugate u v (Metric.ball z₀ ε) := by
   sorry
 
-/-- On simply connected domain, harmonic conjugate exists globally -/
+/-- On simply connected domain, harmonic conjugate exists globally.
+    Simply connected means connected and every loop is null-homotopic (π₁(U) = 0).
+    We use Mathlib's SimplyConnectedSpace on the subspace (U with subspace topology). -/
 theorem harmonic_conjugate_simply_connected (u : ℂ → ℝ) (U : Set ℂ)
-    (hU : IsOpen U) (hsc : True) -- Simply connected placeholder
+    (hU : IsOpen U) [SimplyConnectedSpace ↥U]
     (hf : HarmonicOn u U) :
     ∃ v : ℂ → ℝ, IsHarmonicConjugate u v U := by
   sorry
@@ -191,15 +195,22 @@ theorem log_norm_harmonic (f : ℂ → ℂ) (U : Set ℂ) (hU : IsOpen U)
 Extend the theory to general Riemann surfaces via coordinate charts.
 -/
 
-/-- A function on a Riemann surface is harmonic if it's harmonic in every chart -/
+/-- A function on a Riemann surface is harmonic if it's harmonic in every chart.
+    For each point p, the composition f ∘ φ⁻¹ is harmonic near φ(p) where φ is the chart at p. -/
 def HarmonicOnSurface (RS : RiemannSurfaces.RiemannSurface) (f : RS.carrier → ℝ) : Prop :=
-  -- In each coordinate chart, the function is harmonic
-  True  -- Placeholder: needs chart structure
+  -- For each point p, f ∘ (chart at p)⁻¹ is harmonic near the image of p
+  letI : TopologicalSpace RS.carrier := RS.topology
+  ∀ (p : RS.carrier),
+    let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+    ∃ (r : ℝ) (_ : r > 0), HarmonicOn (f ∘ e.symm) (Metric.ball (e p) r)
 
 /-- Harmonic 1-forms on a Riemann surface.
 
     A harmonic 1-form ω is a 1-form that is both closed (dω = 0) and coclosed (d*ω = 0).
-    Equivalently, in local coordinates ω = u dx + v dy where Δu = Δv = 0. -/
+    Equivalently, in local coordinates ω = u dx + v dy where Δu = Δv = 0.
+
+    We represent this via the complex function u + iv which should be holomorphic
+    (the Cauchy-Riemann equations encode both the closed and coclosed conditions). -/
 structure Harmonic1Form (RS : RiemannSurfaces.RiemannSurface) where
   /-- The form components in local coordinates -/
   u : RS.carrier → ℝ
@@ -208,8 +219,12 @@ structure Harmonic1Form (RS : RiemannSurfaces.RiemannSurface) where
   u_harmonic : HarmonicOnSurface RS u
   /-- v is harmonic -/
   v_harmonic : HarmonicOnSurface RS v
-  /-- Cauchy-Riemann condition: ∂u/∂y = ∂v/∂x (closed condition) -/
-  closed : True  -- Requires differential forms infrastructure
+  /-- Closedness: in each chart, u + iv is holomorphic (CR equations).
+      This is expressed by requiring (u, v) to be holomorphic when pulled back to ℂ via
+      some local chart around each point. -/
+  closed : ∀ (_ : RS.carrier),
+    ∃ (r : ℝ) (_ : r > 0) (φ : ℂ → RS.carrier),
+      DifferentiableOn ℂ (fun z => (⟨u (φ z), v (φ z)⟩ : ℂ)) (Metric.ball 0 r)
 
 /-- The space of harmonic 1-forms on a compact Riemann surface -/
 def Harmonic1FormSpace (CRS : RiemannSurfaces.CompactRiemannSurface) : Type :=

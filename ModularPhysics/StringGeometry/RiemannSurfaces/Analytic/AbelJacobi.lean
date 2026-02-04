@@ -137,19 +137,36 @@ structure IntegrationResult {RS : RiemannSurfaces.RiemannSurface} where
   /-- The value of the integral -/
   value : ℂ
 
-/-- The period of a 1-form over a cycle.
+/-- Period data: the values of period integrals for a basis of 1-forms.
+
+    This bundles the data needed to compute period integrals without
+    requiring full integration infrastructure. The periods are provided
+    as input and must satisfy the Riemann bilinear relations. -/
+structure PeriodData (CRS : RiemannSurfaces.CompactRiemannSurface) where
+  /-- A-periods: ∫_{a_j} ω_i, stored as matrix (should be identity for normalized basis) -/
+  aPeriods : Matrix (Fin CRS.genus) (Fin CRS.genus) ℂ
+  /-- B-periods: ∫_{b_j} ω_i, this is the period matrix Ω -/
+  bPeriods : Matrix (Fin CRS.genus) (Fin CRS.genus) ℂ
+  /-- Normalization: a-periods form identity matrix -/
+  a_normalized : aPeriods = 1
+  /-- Riemann bilinear relations: Ω is symmetric -/
+  b_symmetric : bPeriods.transpose = bPeriods
+
+/-- The period of a 1-form over a cycle, given period data.
 
     Periods are the fundamental data for constructing the Jacobian.
     The a-periods are normalized to the identity matrix;
-    the b-periods form the period matrix Ω. -/
+    the b-periods form the period matrix Ω.
+
+    **Note**: Actual period computation requires integration on Riemann surfaces.
+    We take the periods as input data rather than computing them. -/
 noncomputable def period {CRS : RiemannSurfaces.CompactRiemannSurface}
-    (_ : Holomorphic1Form CRS.toRiemannSurface)
-    (_ : SymplecticBasis CRS)
-    (i : Fin CRS.genus)
+    (pd : PeriodData CRS)
+    (formIndex : Fin CRS.genus)
+    (cycleIndex : Fin CRS.genus)
     (isACycle : Bool) : ℂ :=
-  -- The actual value depends on integration theory
-  -- For normalized basis: a-periods are δ_{ij}, b-periods form Ω
-  if isACycle then (if i.val = 0 then 1 else 0) else 0  -- Placeholder
+  if isACycle then pd.aPeriods formIndex cycleIndex
+  else pd.bPeriods formIndex cycleIndex
 
 /-!
 ## Period Matrix
@@ -275,9 +292,8 @@ noncomputable def abelJacobiMap (CRS : RiemannSurfaces.CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) (_ : D.degree = 0) :
     J.points :=
   -- Sum over support: Σᵢ nᵢ · μ(pᵢ)
-  -- Since we don't have finite sum infrastructure over the support,
-  -- we use the projection of a representative
-  J.proj (fun _ => 0)  -- Placeholder: actual implementation needs finite sum
+  -- Use the finite support to compute the sum
+  D.finiteSupport.toFinset.sum (fun p => D.coeff p • ajData.pointMap p)
 
 /-- Abel-Jacobi map on a single point (relative to base point).
 
@@ -315,22 +331,28 @@ A degree-0 divisor is principal iff its Abel-Jacobi image is 0.
     It says the kernel of the Abel-Jacobi map is exactly the principal divisors.
 
     **Statement:** For D ∈ Div⁰(Σ):
-      D is principal ↔ abelJacobiMap(D) = 0 in J(Σ) -/
+      D is principal ↔ abelJacobiMap(D) = 0 in J(Σ)
+
+    Note: Requires an algebraic structure to define principal divisors. -/
 theorem abel_theorem' (CRS : RiemannSurfaces.CompactRiemannSurface)
+    (A : AlgebraicStructureOn CRS.toRiemannSurface)
     (J : Jacobian' CRS) (ajData : AbelJacobiData CRS J)
     (D : Divisor CRS.toRiemannSurface) (hdeg : D.degree = 0) :
-    IsPrincipal D ↔ abelJacobiMap CRS J ajData D hdeg = 0 := by
+    IsPrincipal A D ↔ abelJacobiMap CRS J ajData D hdeg = 0 := by
   sorry  -- Deep theorem requiring: integration, Riemann bilinear relations
 
 /-- Corollary: Pic⁰(Σ) ≅ J(Σ).
 
     The degree-0 Picard group (divisors mod principal) is isomorphic to the Jacobian.
     This follows from Abel's theorem: the Abel-Jacobi map descends to an isomorphism
-    Div⁰/Prin ≅ J. -/
+    Div⁰/Prin ≅ J.
+
+    Note: Requires an algebraic structure to define principal divisors. -/
 theorem pic0_isomorphic_jacobian (CRS : RiemannSurfaces.CompactRiemannSurface)
+    (A : AlgebraicStructureOn CRS.toRiemannSurface)
     (J : Jacobian' CRS) (ajData : AbelJacobiData CRS J) :
     ∃ (φ : { D : Divisor CRS.toRiemannSurface // D.degree = 0 } → J.points),
-      (∀ D₁ D₂, IsPrincipal (D₁.val - D₂.val) → φ D₁ = φ D₂) ∧
+      (∀ D₁ D₂, IsPrincipal A (D₁.val - D₂.val) → φ D₁ = φ D₂) ∧
       Function.Surjective φ := by
   sorry  -- Follows from Abel's theorem
 

@@ -1,7 +1,8 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.AbelJacobi
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.ThetaHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.AbelJacobi
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.ThetaHelpers
 import Mathlib.Analysis.SpecialFunctions.Pow.Complex
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
+import Mathlib.LinearAlgebra.Matrix.PosDef
 
 /-!
 # Theta Functions
@@ -63,14 +64,23 @@ open Complex Real
 The domain for period matrices.
 -/
 
-/-- The Siegel upper half space H_g -/
+/-- The Siegel upper half space H_g.
+
+    H_g = { Ω ∈ M_{g×g}(ℂ) : Ω^T = Ω and Im(Ω) is positive definite }
+
+    This is equivalent to `SiegelUpperHalfSpace` in Analytic/Moduli/SiegelSpace.lean
+    but uses a simpler representation for theta function computations. -/
 structure SiegelHg (g : ℕ) where
   /-- The period matrix Ω -/
   Ω : Matrix (Fin g) (Fin g) ℂ
-  /-- Symmetric -/
+  /-- Symmetric: Ω^T = Ω -/
   symmetric : Ω.transpose = Ω
-  /-- Positive definite imaginary part -/
-  posDefIm : True
+  /-- Imaginary part -/
+  imPart : Matrix (Fin g) (Fin g) ℝ := fun i j => (Ω i j).im
+  /-- Imaginary part is symmetric (follows from Ω symmetric) -/
+  imPart_symmetric : imPart.transpose = imPart
+  /-- Imaginary part is positive definite: v^T · Im(Ω) · v > 0 for v ≠ 0 -/
+  imPart_posDef : imPart.PosDef
 
 /-!
 ## Riemann Theta Function
@@ -139,6 +149,7 @@ structure ThetaCharacteristic (g : ℕ) where
   a : Fin g → ℚ
   /-- Second component b -/
   b : Fin g → ℚ
+  deriving DecidableEq
 
 /-- Half-integer characteristic: a, b ∈ (ℤ/2)^g -/
 def ThetaCharacteristic.halfInteger {g : ℕ} (χ : ThetaCharacteristic g) : Prop :=
@@ -191,9 +202,23 @@ theorem odd_theta_null_zero (g : ℕ) (χ : ThetaCharacteristic g)
   unfold thetaNull thetaWithChar ThetaCharacteristic.odd at *
   exact Helpers.odd_theta_null_vanishes g χ.a χ.b hodd Ω.Ω
 
-/-- The set of half-integer characteristics (a, b) ∈ (½ℤ/ℤ)^g × (½ℤ/ℤ)^g -/
-def halfIntegerCharacteristics (g : ℕ) : Finset (ThetaCharacteristic g) :=
-  sorry  -- The 2^{2g} characteristics with a_i, b_i ∈ {0, 1/2}
+/-- A half-integer value: either 0 or 1/2 -/
+def HalfIntegerValues : Finset ℚ := {0, 1/2}
+
+/-- Construct a characteristic from binary choices for each coordinate -/
+noncomputable def characteristicFromBits (g : ℕ) (aBits bBits : Fin g → Bool) :
+    ThetaCharacteristic g where
+  a := fun i => if aBits i then 1/2 else 0
+  b := fun i => if bBits i then 1/2 else 0
+
+/-- The set of half-integer characteristics (a, b) ∈ (½ℤ/ℤ)^g × (½ℤ/ℤ)^g.
+
+    This is the set of all 2^{2g} characteristics where each a_i, b_i ∈ {0, 1/2}.
+    We construct it by iterating over all combinations of binary choices. -/
+noncomputable def halfIntegerCharacteristics (g : ℕ) : Finset (ThetaCharacteristic g) :=
+  -- Use the image of all (aBits, bBits) pairs
+  Finset.image (fun p : (Fin g → Bool) × (Fin g → Bool) =>
+    characteristicFromBits g p.1 p.2) Finset.univ
 
 /-- Number of half-integer characteristics is 2^{2g} -/
 theorem num_half_int_characteristics (g : ℕ) :

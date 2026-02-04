@@ -70,9 +70,11 @@ ModularPhysics/
 │   ├── RiemannSurfaces/
 │   │   ├── Algebraic/
 │   │   │   ├── Cohomology/
-│   │   │   └── Helpers/
+│   │   │   ├── Helpers/
+│   │   │   └── Moduli/
 │   │   ├── Analytic/
-│   │   │   └── Helpers/
+│   │   │   ├── Helpers/
+│   │   │   └── Moduli/
 │   │   ├── Combinatorial/
 │   │   │   └── Helpers/
 │   │   ├── GAGA/

@@ -297,43 +297,105 @@ theorem closed_surface_genus (Γ : RibbonGraph) (_ : Γ.numBoundaryComponents = 
 ## Graph Operations
 -/
 
+/-- Two vertices are adjacent if they share an edge.
+
+    u and v are adjacent iff there exist half-edges h₁, h₂ with:
+    - h₁ at u, h₂ at v
+    - h₁ and h₂ are paired (form an edge) -/
+def adjacent (Γ : RibbonGraph) (u v : ℕ) : Prop :=
+  ∃ h₁ ∈ Γ.halfEdges, ∃ h₂ ∈ Γ.halfEdges,
+    Γ.vertexOf h₁ = u ∧ Γ.vertexOf h₂ = v ∧ Γ.pair h₁ = h₂
+
 /-- A ribbon graph is connected if all vertices are reachable from each other.
-    A vertex v is reachable from u if there's a path of edges connecting them.
-    For simplicity, we define this as: the graph is connected if it has at most
-    one connected component (either empty or all vertices reachable). -/
+
+    **Definition**: Γ is connected iff for any two vertices u, v ∈ V,
+    there exists a path u = w₀ -- w₁ -- ... -- wₖ = v of adjacent vertices.
+
+    **Implementation**: We use the transitive closure of the adjacency relation.
+    The graph is connected iff the reflexive-transitive closure of `adjacent`
+    relates all pairs of vertices. For empty or single-vertex graphs, connected is true. -/
 def connected (Γ : RibbonGraph) : Prop :=
   Γ.vertices.card ≤ 1 ∨
-  ∀ u ∈ Γ.vertices, ∀ v ∈ Γ.vertices, True  -- Placeholder: proper definition needs path existence
+  ∀ u ∈ Γ.vertices, ∀ v ∈ Γ.vertices, Relation.ReflTransGen (Γ.adjacent) u v
 
 /-- Contract an edge in a ribbon graph.
+
     Edge contraction merges the two endpoints of an edge into a single vertex,
     removing the edge and updating the cyclic orderings accordingly.
 
-    Placeholder: returns the original graph (proper definition needs careful handling). -/
+    **Construction:**
+    Let e = {h, pair(h)} be the edge to contract, with h at vertex u and pair(h) at v.
+    1. Create new vertex w to replace u and v
+    2. Remove half-edges h and pair(h)
+    3. Merge cyclic orderings: splice the cycles at u and v into one at w
+    4. Update vertexOf for all half-edges from u or v to now point to w -/
 noncomputable def contractEdge (Γ : RibbonGraph) (h : HalfEdge) (_ : h ∈ Γ.halfEdges) :
-    RibbonGraph := Γ  -- Placeholder
+    RibbonGraph where
+  vertices := sorry
+  halfEdges := Γ.halfEdges.erase h |>.erase (Γ.pair h)
+  pair := sorry
+  pair_involution := sorry
+  pair_mem := sorry
+  cyclicOrderAt := sorry
+  vertexOf := sorry
+  cyclic_order_correct := sorry
 
 /-- Delete an edge from a ribbon graph.
-    Edge deletion removes an edge while keeping its endpoints as separate vertices.
 
-    Placeholder: returns the original graph (proper definition needs edge removal). -/
+    Edge deletion removes an edge while keeping its endpoints as separate vertices.
+    This can disconnect the graph or create new boundary components.
+
+    **Construction:**
+    Let e = {h, pair(h)} be the edge to delete.
+    1. Remove half-edges h and pair(h) from halfEdges
+    2. Update cyclic orderings at both endpoints to skip the removed half-edges
+    3. Vertices remain unchanged -/
 noncomputable def deleteEdge (Γ : RibbonGraph) (h : HalfEdge) (_ : h ∈ Γ.halfEdges) :
-    RibbonGraph := Γ  -- Placeholder
+    RibbonGraph where
+  vertices := Γ.vertices
+  halfEdges := Γ.halfEdges.erase h |>.erase (Γ.pair h)
+  pair := sorry
+  pair_involution := sorry
+  pair_mem := sorry
+  cyclicOrderAt := sorry
+  vertexOf := Γ.vertexOf
+  cyclic_order_correct := sorry
 
 /-- The dual ribbon graph (vertices ↔ faces).
-    In the dual graph:
-    - Each face of Γ becomes a vertex
-    - Each vertex of Γ becomes a face
-    - Edges are preserved (connecting adjacent faces/vertices)
 
-    Placeholder: returns the original graph (proper definition is complex). -/
-noncomputable def dual (Γ : RibbonGraph) : RibbonGraph := Γ  -- Placeholder
+    In the dual graph Γ*:
+    - Each face of Γ becomes a vertex of Γ*
+    - Each vertex of Γ becomes a face of Γ*
+    - Edges are preserved (an edge separates two faces in Γ, connects them in Γ*)
+    - The edge pairing is the same
+    - The cyclic ordering at a vertex of Γ* corresponds to the boundary of a face of Γ
+
+    **Properties:**
+    - (Γ*)* = Γ (duality is an involution)
+    - V(Γ*) = F(Γ), F(Γ*) = V(Γ), E(Γ*) = E(Γ)
+    - χ(Γ*) = χ(Γ), hence genus(Γ*) = genus(Γ) -/
+noncomputable def dual (Γ : RibbonGraph) : RibbonGraph where
+  vertices := Finset.range Γ.numFaces
+  halfEdges := Γ.halfEdges
+  pair := Γ.pair
+  pair_involution := Γ.pair_involution
+  pair_mem := Γ.pair_mem
+  cyclicOrderAt := sorry
+  vertexOf := sorry
+  cyclic_order_correct := sorry
 
 /-- Genus is preserved under duality.
+
     The dual operation swaps V and F while keeping E fixed.
-    Since χ = V - E + F and g depends only on χ and n,
-    and duality preserves n, we have g(Γ*) = g(Γ). -/
-theorem dual_genus (Γ : RibbonGraph) : Γ.dual.genus = Γ.genus := by rfl
+    Since χ = V - E + F and genus depends only on χ,
+    we have genus(Γ*) = genus(Γ).
+
+    **Proof sketch:**
+    - V(Γ*) = F(Γ), F(Γ*) = V(Γ), E(Γ*) = E(Γ)
+    - χ(Γ*) = V(Γ*) - E(Γ*) + F(Γ*) = F(Γ) - E(Γ) + V(Γ) = χ(Γ)
+    - genus(Γ*) = 1 - χ(Γ*)/2 = 1 - χ(Γ)/2 = genus(Γ) -/
+theorem dual_genus (Γ : RibbonGraph) : Γ.dual.genus = Γ.genus := by
+  sorry  -- Requires showing χ(Γ*) = χ(Γ)
 
 /-!
 ## Automorphisms

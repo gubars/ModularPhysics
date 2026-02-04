@@ -130,12 +130,38 @@ theorem disjoint_self (α : SimpleCurve) : disjoint data α α := by
 def fill (α β : SimpleCurve) : Prop :=
   α ≠ β ∧ intersectionNumber data α β > 0
 
-/-- A curve is separating if it disconnects the surface -/
-def separating (_ : SimpleCurve) : Prop :=
-  True  -- Placeholder: needs surface data
+/-- Data for which curves are separating on a surface.
 
-/-- A curve is non-separating if the surface minus the curve is connected -/
-def nonSeparating (α : SimpleCurve) : Prop := ¬α.separating
+    A curve α is **separating** if Σ \ α has two connected components.
+    A curve is **non-separating** if Σ \ α is connected.
+
+    **Examples:**
+    - On a torus, every essential curve is non-separating
+    - On a genus-2 surface, a curve around one handle is separating
+
+    **Property:** On a genus g surface, α is separating iff
+    Σ \ α consists of two subsurfaces of genera g₁, g₂ with g₁ + g₂ = g. -/
+structure SeparatingData where
+  /-- Predicate for whether a curve is separating -/
+  isSeparating : SimpleCurve → Bool
+  /-- A separating curve has two complementary components -/
+  separating_components : ∀ α, isSeparating α = true →
+    ∃ (g₁ g₂ : ℕ), g₁ + g₂ ≥ 0  -- Placeholder for proper component data
+
+/-- A curve is separating if it disconnects the surface.
+
+    This requires surface data specifying which curves are separating.
+    On a surface of genus g, a separating curve divides it into two
+    subsurfaces of genera g₁ + g₂ = g. -/
+def separating (sd : SeparatingData) (α : SimpleCurve) : Prop :=
+  sd.isSeparating α = true
+
+/-- A curve is non-separating if the surface minus the curve is connected.
+
+    Most essential curves on higher genus surfaces are non-separating.
+    On a torus (genus 1), all essential curves are non-separating. -/
+def nonSeparating (sd : SeparatingData) (α : SimpleCurve) : Prop :=
+  sd.isSeparating α = false
 
 /-- The Dehn twist around a curve -/
 structure DehnTwist where
