@@ -5,44 +5,27 @@ import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Helpers.ResidueTh
 /-!
 # Infrastructure for the Point Exact Sequence
 
-This file develops the infrastructure needed to prove χ(D) - χ(D-p) = 1.
+## ⚠️ DEPRECATED ⚠️
 
-## Mathematical Background
+**This file uses a deprecated proof approach and is kept only for reference.**
 
-The short exact sequence of sheaves 0 → O(D-p) → O(D) → ℂ_p → 0 gives rise to a
-long exact sequence in cohomology:
+The case analysis approach (proving `a + b = 1` by ruling out (0,0) and (1,1)) is
+**NOT** the correct way to prove Riemann-Roch. The correct proof uses the
+**abstract LES exactness** from sheaf cohomology directly:
 
-  0 → H⁰(D-p) → H⁰(D) → H⁰(ℂ_p) → H¹(D-p) → H¹(D) → H¹(ℂ_p) → 0
+1. The SES `0 → O(D-p) → O(D) → ℂ_p → 0` gives an LES in cohomology
+2. The alternating sum formula for exact sequences gives `χ(D) - χ(D-p) = χ(ℂ_p) = 1`
+3. This is a **consequence** of exactness, not something requiring case analysis
 
-With:
-- H⁰(D) = L(D) (global sections)
-- H⁰(ℂ_p) = ℂ (skyscraper sheaf)
-- H¹(ℂ_p) = 0 (skyscraper is acyclic)
-- H¹(D) ≅ L(K-D)* (Serre duality)
+See `Cohomology/RiemannRoch.lean` for the correct approach.
 
-This gives the 6-term exact sequence:
-  0 → L(D-p) → L(D) →^{eval} ℂ →^δ L(K-D+p)* → L(K-D)* → 0
+## Original Documentation (Deprecated)
 
-The alternating sum formula gives:
-  h⁰(D-p) - h⁰(D) + 1 - h⁰(K-D+p) + h⁰(K-D) = 0
+This file develops infrastructure for the point exact sequence, but the main theorem
+`quotient_dim_sum_eq_one` uses an unnecessary case analysis approach that requires
+the residue theorem. This is mathematically valid but overly complicated.
 
-Which rearranges to: a + b = 1 where
-  a = h⁰(D) - h⁰(D-p) = dim(L(D)/L(D-p))
-  b = h⁰(K-D+p) - h⁰(K-D) = dim(L(K-D+p)/L(K-D))
-
-## Proof Strategy
-
-We prove a + b = 1 by case analysis:
-- Case a = 1: Show b = 0 using the structure of exact sequences
-- Case a = 0: Show b = 1 using the connecting homomorphism
-
-The key insight is that the evaluation map and connecting homomorphism satisfy
-exactness conditions that constrain the dimensions.
-
-## References
-
-* Hartshorne "Algebraic Geometry" Chapter III
-* Griffiths, Harris "Principles of Algebraic Geometry" Section 0.5
+The DVR helper lemmas (localParameter, valuation) may still be useful for other purposes.
 -/
 
 namespace RiemannSurfaces.Algebraic.PointExactInfra
@@ -1481,8 +1464,22 @@ noncomputable def connectingHom (c : ℂ) : (Cohomology.RiemannRochSubmodule C (
             rw [hrx_eq, valuation_smul C p r x.val hr]; exact hvx
           simp only [hvx, hvrx, mul_zero, ite_false]
 
+end RiemannSurfaces.Algebraic.PointExactInfra
+
 /-!
-## Exactness at ℂ
+## ⚠️ DEPRECATED CODE BELOW ⚠️
+
+The code below uses case analysis (ruling out (0,0) and (1,1)) which depends on
+ResidueTheory functions. This approach is **NOT** needed for Riemann-Roch.
+The correct proof uses abstract LES exactness directly.
+
+The code below is commented out via `#exit` but preserved for historical reference.
+-/
+
+#exit
+
+/-!
+## Exactness at ℂ (DEPRECATED)
 
 The key exactness condition is: ker(δ) = im(eval).
 
@@ -1648,7 +1645,7 @@ theorem delta_injective_when_eval_zero
     exact RiemannSurfaces.Algebraic.not_both_quotients_trivial_aux C ha_trivial hb_trivial
 
 /-!
-## The Dimension Constraint
+## The Dimension Constraint (DEPRECATED)
 
 The exactness conditions imply dim(im δ) = 1 - a.
 By exactness at L(K-D+p)*: dim(im δ) = dim(ker(dual map)) = b.

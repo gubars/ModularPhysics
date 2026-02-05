@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.LocalRings
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.ConstantValuation
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.FunctionField
 
 /-!
@@ -98,25 +99,20 @@ noncomputable def toAlgebraicCurve : Algebraic.AlgebraicCurve where
 
     **Implementation note:**
     The `valuation_algebraMap` field requires proving that constants have
-    valuation 0 everywhere. This is mathematically true because:
+    valuation 0 everywhere. This is proven in `ConstantValuation.lean`:
     - Constants embed via `constantsEmbed : ℂ →+* K(C)`
-    - Constants are units in every local ring O_{C,p}
-    - Units in a DVR have valuation 0
+    - Constants factor through stalks as units (see `constantsEmbed_eq_algebraMap_unit`)
+    - Units in a DVR have valuation 0 (see `extendedVal_unit`)
 
-    The proof requires `constantsEmbed` to be implemented (currently sorry'd),
-    so this also remains sorry'd. See `Basic.lean` for the `constantsEmbed`
-    implementation discussion. -/
+    This is a PROPER DEFINITION (no sorry). -/
 noncomputable instance toAlgebraicCurveFunctionFieldAlgebra :
     Algebraic.FunctionFieldAlgebra C.toAlgebraicCurve where
   algebraInst := C.functionFieldAlgebra
   valuation_algebraMap := fun p c hc => by
-    -- Mathematical proof:
-    -- 1. c embeds as constantsEmbed c ∈ K(C)
-    -- 2. Constants are units in every local ring O_{C,p}
-    -- 3. For DVR: units have addVal = 0
-    -- 4. Therefore valuationAt p (constantsEmbed c) = 0
-    -- Requires constantsEmbed implementation
-    sorry
+    -- algebraMap ℂ C.FunctionFieldType = C.constantsEmbed (by definition of functionFieldAlgebra)
+    -- Use valuationAt_constant' from ConstantValuation.lean
+    show C.valuationAt p (C.constantsEmbed c) = 0
+    exact C.valuationAt_constant' p c hc
 
 /-!
 ## Step 3: Construct the full CompactAlgebraicCurve

@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.ValuationExtension
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.StalkDVR
 import Mathlib.RingTheory.Valuation.Basic
 import Mathlib.RingTheory.DiscreteValuationRing.Basic
 import Mathlib.AlgebraicGeometry.FunctionField
@@ -80,39 +81,31 @@ noncomputable instance stalkFractionFieldField (x : C.PointType) : Field (C.stal
     - v_p(f) < 0 means f has a pole of order -v_p(f) at p
     - v_p(f) = 0 means f is a unit in O_{C,p}
 
-    This is DERIVED from the DVR structure, not assumed.
+    This is DERIVED from the DVR structure via `DVRValuation.extendedVal`.
 
-    **Implementation status: DEFINITION WITH SORRY**
+    **Implementation:**
+    Uses `DVRValuation.extendedVal` which extends the DVR valuation on O_{C,p}
+    to its fraction field K(C). Requires:
+    - `IsDiscreteValuationRing (StalkType x)` from `stalkIsDVR`
+    - `IsFractionRing (StalkType x) FunctionFieldType` from Mathlib
+    - `Field FunctionFieldType` from Mathlib
 
-    ⚠️ **AUDIT NOTE**: This definition uses sorry, which violates CLAUDE.md guidelines.
-    The implementation is blocked by `stalkIsDVR` (a deep theorem).
-
-    **Implementation approach (documented):**
-    The proper implementation would use `DVRValuation.extendedVal`, which extends
-    the DVR valuation on O_{C,p} to its fraction field K(C).
-
-    Key facts from Mathlib (available for integral schemes):
-    - `IsFractionRing (stalk x) (functionField)` - FunctionField.lean:165
-    - `IsDomain (stalk x)` - FunctionField.lean:180 ✅ (we derive this)
-    - `Field (functionField)` - FunctionField.lean:51 ✅ (we derive this)
-
-    **Blocking dependency:**
-    `IsDiscreteValuationRing (StalkType x)` from `stalkIsDVR` - this is a deep theorem
-    requiring: smooth ⟹ regular + dimension 1 ⟹ DVR
-
-    **When stalkIsDVR is proven, implementation would be:**
-    ```
-    haveI : IsDiscreteValuationRing (C.StalkType x) := C.stalkIsDVR x
-    haveI : IsFractionRing (C.StalkType x) C.FunctionFieldType := inferInstance
-    exact DVRValuation.extendedVal
-    ```
-
-    **Impact**: This affects all valuation theorems in this file and the bridge. -/
-noncomputable def valuationAt (x : C.PointType) : C.FunctionFieldType → ℤ := by
-  -- Construction: v_p(f) = valuation of f in the DVR O_{C,p}
-  -- via DVRValuation.extendedVal applied to the IsFractionRing instance
-  -- that makes K(C) the fraction field of the DVR stalk O_{C,p}
-  sorry
+    This is a PROPER DEFINITION (no sorry). -/
+noncomputable def valuationAt (x : C.PointType) : C.FunctionFieldType → ℤ :=
+  -- Use the DVR valuation extension from ValuationExtension.lean
+  -- The stalk is a DVR (from stalkIsDVR), and the function field is its fraction ring
+  --
+  -- Note: We use the underlying Mathlib types directly rather than our type aliases
+  -- to ensure instance resolution works correctly.
+  @DVRValuation.extendedVal
+    (C.toScheme.presheaf.stalk x)  -- R = stalk
+    (C.toScheme.functionField)      -- K = function field
+    _  -- CommRing R
+    _  -- IsDomain R
+    (C.stalkIsDVR x)               -- IsDiscreteValuationRing R
+    _  -- Field K
+    _  -- Algebra R K
+    _  -- IsFractionRing R K
 
 /-- Convention: v_p(0) = 0.
 
@@ -120,7 +113,11 @@ noncomputable def valuationAt (x : C.PointType) : C.FunctionFieldType → ℤ :=
     to avoid `WithTop ℤ`. All meaningful valuation axioms only apply
     to nonzero elements. -/
 theorem valuationAt_zero (x : C.PointType) : C.valuationAt x 0 = 0 := by
-  sorry
+  unfold valuationAt
+  exact @DVRValuation.extendedVal_zero
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _
 
 /-- v_p(fg) = v_p(f) + v_p(g) for f, g ≠ 0.
 
@@ -130,7 +127,11 @@ theorem valuationAt_zero (x : C.PointType) : C.valuationAt x 0 = 0 := by
 theorem valuationAt_mul (x : C.PointType) (f g : C.FunctionFieldType)
     (hf : f ≠ 0) (hg : g ≠ 0) :
     C.valuationAt x (f * g) = C.valuationAt x f + C.valuationAt x g := by
-  sorry
+  unfold valuationAt
+  exact @DVRValuation.extendedVal_mul
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _ f g hf hg
 
 /-- v_p(f + g) ≥ min(v_p(f), v_p(g)) when f + g ≠ 0 (ultrametric inequality).
 
@@ -141,7 +142,11 @@ theorem valuationAt_mul (x : C.PointType) (f g : C.FunctionFieldType)
 theorem valuationAt_add_min (x : C.PointType) (f g : C.FunctionFieldType)
     (hfg : f + g ≠ 0) :
     C.valuationAt x (f + g) ≥ min (C.valuationAt x f) (C.valuationAt x g) := by
-  sorry
+  unfold valuationAt
+  exact @DVRValuation.extendedVal_add_min
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _ f g hfg
 
 /-- For f ≠ 0, only finitely many points have v_p(f) ≠ 0.
 
@@ -165,29 +170,37 @@ These follow from the basic valuation axioms.
 
 /-- v_p(1) = 0 (derived from valuationAt_mul). -/
 theorem valuationAt_one (x : C.PointType) : C.valuationAt x 1 = 0 := by
-  -- Proof: v(1) = v(1·1) = v(1) + v(1), so v(1) = 0
-  sorry
+  unfold valuationAt
+  exact @DVRValuation.extendedVal_one
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _
 
 /-- v_p(f⁻¹) = -v_p(f) for f ≠ 0 (derived from valuationAt_mul).
 
-    Note: This requires a Field instance on FunctionFieldType. The function field
-    of an integral scheme is indeed a field (proven in Basic.lean via sorry). -/
-theorem valuationAt_inv (x : C.PointType) (f : C.FunctionFieldType)
-    [Field C.FunctionFieldType] (hf : f ≠ 0) :
+    Note: The function field of an integral scheme has a canonical Field instance
+    from Mathlib (`instFieldCarrierFunctionField`). -/
+theorem valuationAt_inv (x : C.PointType) (f : C.FunctionFieldType) (hf : f ≠ 0) :
     C.valuationAt x f⁻¹ = -C.valuationAt x f := by
-  -- Proof: v(f) + v(f⁻¹) = v(f · f⁻¹) = v(1) = 0
-  sorry
+  unfold valuationAt
+  exact @DVRValuation.extendedVal_inv
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _ f hf
 
-/-- Constants (from the embedding ℂ → K(C)) have valuation 0 everywhere.
+/-!
+### Constants Have Valuation Zero
 
-    **Mathematical content:**
-    Constants are units in every local ring O_{C,p}, so they have
-    no zeros or poles. This uses the embedding from the structure morphism. -/
-theorem valuationAt_constant (x : C.PointType) (c : C.FunctionFieldType)
-    (hConst : ∃ z : ℂ, c = C.constantsEmbed z) (hc : c ≠ 0) :
-    C.valuationAt x c = 0 := by
-  -- Constants are units in every local ring O_{C,p}
-  sorry
+The theorem that constants have valuation 0 is proven in
+`Helpers/ConstantValuation.lean` as `SmoothProjectiveCurve.valuationAt_constant'`.
+
+The proof uses the key insight that:
+1. Constants factor through stalks via the scalar tower Γ(C, ⊤) → O_{C,x} → K(C)
+2. Nonzero constants are units in stalks (their residue is nonzero by residueFieldIsComplex)
+3. Units in a DVR have valuation 0 (by extendedVal_unit)
+
+Import `Helpers.ConstantValuation` for the full theorem.
+-/
 
 /-!
 ## Local Parameters
@@ -203,8 +216,23 @@ Such elements exist because O_{C,p} is a DVR.
     The uniformizer satisfies v(π) = 1 by definition of the normalized valuation. -/
 theorem exists_localParameter (x : C.PointType) :
     ∃ t : C.FunctionFieldType, C.valuationAt x t = 1 := by
-  -- From DVR structure: maximal ideal is principal
-  sorry
+  -- Get a uniformizer from the DVR structure
+  letI : IsDiscreteValuationRing (C.toScheme.presheaf.stalk x) := C.stalkIsDVR x
+  obtain ⟨π, hπ⟩ := IsDiscreteValuationRing.exists_irreducible (C.toScheme.presheaf.stalk x)
+  -- Embed π into the function field
+  use algebraMap (C.toScheme.presheaf.stalk x) (C.toScheme.functionField) π
+  -- The uniformizer has addVal = 1
+  have hval : IsDiscreteValuationRing.addVal (C.toScheme.presheaf.stalk x) π = 1 :=
+    IsDiscreteValuationRing.addVal_uniformizer hπ
+  -- Therefore extendedVal = 1
+  unfold valuationAt
+  have hπ_ne : π ≠ 0 := hπ.ne_zero
+  rw [@DVRValuation.extendedVal_algebraMap
+    (C.toScheme.presheaf.stalk x)
+    (C.toScheme.functionField)
+    _ _ (C.stalkIsDVR x) _ _ _ π hπ_ne]
+  -- addValNat π = toNat(1) = 1
+  simp only [DVRValuation.addValNat, hval, ENat.toNat_one, Nat.cast_one]
 
 /-- Local parameters have no extra zeros: v_q(t_p) ≤ 0 for q ≠ p.
 

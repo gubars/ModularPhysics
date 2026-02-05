@@ -1,38 +1,30 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.FunctionField
 import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Core.Divisors
+import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Cohomology.AlgebraicCech
 
 /-!
 # Algebraic Residue Theory for Compact Algebraic Curves
 
-This file develops the algebraic residue theory needed for the point exact sequence.
+## ⚠️ DEPRECATED FOR RIEMANN-ROCH ⚠️
 
-## Main Results
+**This file was developed for a deprecated proof approach to Riemann-Roch.**
 
-* `not_both_quotients_nontrivial` - L(D)/L(D-p) and L(K-D+p)/L(K-D) cannot both be nontrivial
-* `not_both_quotients_trivial` - L(D)/L(D-p) and L(K-D+p)/L(K-D) cannot both be trivial
+The case analysis approach (proving `a + b = 1` by ruling out (0,0) and (1,1) via the
+residue theorem) is **NOT** needed for Riemann-Roch. The correct proof uses
+**abstract LES exactness** from sheaf cohomology directly.
 
-## Mathematical Background
+The theorems here may still be interesting for other applications of residue theory,
+but they are not used in the main Riemann-Roch proof.
 
-The point exact sequence 0 → O(D-p) → O(D) → ℂ_p → 0 gives rise to a long exact sequence
-in cohomology. The key constraint is that χ(D) - χ(D-p) = 1, which translates to:
+See `Cohomology/RiemannRoch.lean` for the correct approach to Riemann-Roch.
 
-  dim(L(D)/L(D-p)) + dim(L(K-D+p)/L(K-D)) = 1
+## Original Documentation
 
-Since both quotients have dimension at most 1, this means exactly one is nontrivial.
+This file develops algebraic residue theory. The main results relate to the dimension
+constraints on quotient spaces L(D)/L(D-p), but these follow more directly from
+LES exactness without needing explicit residue computations.
 
-## Proof Strategy
-
-**For (1,1) impossible:**
-If both quotients are nontrivial, we can construct f ∈ L(D)\L(D-p) and g ∈ L(K-D+p)\L(K-D).
-The product fg ∈ L(K+point(p)) has valuation exactly -(K(p)+1) at p.
-By the residue theorem for 1-forms, this leads to a contradiction.
-
-**For (0,0) impossible:**
-If both quotients are trivial, the connecting homomorphism δ: ℂ → H¹(D-p) would be injective
-(since a = 0 means eval = 0, so ker(δ) = im(eval) = 0). But then dim(im δ) = 1, which
-by exactness equals b = 0, contradiction.
-
-We implement these arguments using the algebraic structure of CompactAlgebraicCurve.
+The helper lemmas about valuations, products, and divisors may still be useful.
 -/
 
 namespace RiemannSurfaces.Algebraic
@@ -132,8 +124,23 @@ theorem product_in_Kp {D K : Core.Divisor C.toAlgebraicCurve}
     simp only [val] at hvfg
     linarith
 
+end RiemannSurfaces.Algebraic
+
 /-!
-## The Key Non-existence Result for (1,1) Case
+## ⚠️ DEPRECATED CODE BELOW ⚠️
+
+The theorems below (`not_both_quotients_nontrivial_aux`, `not_both_quotients_trivial_aux`,
+`quotient_sum_eq_one`) use case analysis to prove the dimension constraint a + b = 1.
+This approach is **NOT** needed for Riemann-Roch - the correct proof uses abstract LES
+exactness directly.
+
+The code below is commented out via `#exit` but preserved for historical reference.
+-/
+
+#exit
+
+/-!
+## The Key Non-existence Result for (1,1) Case (DEPRECATED)
 
 We show that both quotients cannot be simultaneously nontrivial.
 The proof uses the argument principle and properties of the canonical divisor.

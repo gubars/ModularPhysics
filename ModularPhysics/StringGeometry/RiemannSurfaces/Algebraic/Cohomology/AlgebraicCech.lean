@@ -151,7 +151,12 @@ theorem RiemannRochSpace_sub_point_subset (D : Core.Divisor C) (p : C.Point) :
     The degree property deg(K) = 2g - 2 must be proved via Riemann-Hurwitz (see
     `canonical_divisor_degree_algebraic`), NOT assumed as a structure field.
 
-    Similarly, h⁰(K) = g must be proved (see `h0_canonical_eq_genus`), not assumed. -/
+    Similarly, h⁰(K) = g must be proved (see `h0_canonical_eq_genus`), not assumed.
+
+    **Note on the Residue Theorem:** The property L(K + point(p)) = L(K) for all p
+    is a THEOREM (the residue theorem: no 1-form has exactly one simple pole), not
+    a defining property. It should NOT be bundled here - see `NoExtraPole` in
+    ResidueTheory.lean for the explicit hypothesis when needed. -/
 structure CanonicalDivisor (C : Algebraic.CompactAlgebraicCurve) where
   K : Core.Divisor C.toAlgebraicCurve
 

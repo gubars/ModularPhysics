@@ -79,8 +79,14 @@ structure SmoothProjectiveCurve where
   toScheme : Scheme
   /-- The structure morphism to Spec ℂ -/
   structureMorphism : toScheme ⟶ SpecComplex
-  /-- Smooth over ℂ: local rings are regular, morphism is locally of finite presentation -/
-  [smooth : IsSmooth structureMorphism]
+  /-- Smooth of relative dimension 1 over ℂ.
+
+      This encodes that C is a "curve" (dimension 1) and is smooth.
+      The relative dimension 1 is part of the DEFINITION of being a curve,
+      not a computed result.
+
+      `IsSmoothOfRelativeDimension 1` implies `IsSmooth`. -/
+  [smooth : IsSmoothOfRelativeDimension 1 structureMorphism]
   /-- Proper over ℂ: universally closed, separated, of finite type -/
   [proper : IsProper structureMorphism]
   /-- The scheme is irreducible (connected in the Zariski sense).
@@ -103,6 +109,16 @@ attribute [instance] SmoothProjectiveCurve.smooth
 attribute [instance] SmoothProjectiveCurve.proper
 attribute [instance] SmoothProjectiveCurve.irreducible
 attribute [instance] SmoothProjectiveCurve.reduced
+
+namespace SmoothProjectiveCurve
+
+variable (C : SmoothProjectiveCurve)
+
+/-- Derive IsSmooth from IsSmoothOfRelativeDimension 1. -/
+instance toSchemeIsSmooth : IsSmooth C.structureMorphism :=
+  IsSmoothOfRelativeDimension.isSmooth (n := 1) (f := C.structureMorphism)
+
+end SmoothProjectiveCurve
 
 namespace SmoothProjectiveCurve
 
@@ -146,6 +162,13 @@ noncomputable def FunctionFieldType : Type _ := (C.FunctionFieldCat : Type _)
 noncomputable instance functionFieldCommRing : CommRing C.FunctionFieldType :=
   inferInstanceAs (CommRing C.FunctionFieldCat)
 
+/-- The function field is a field (from integrality of the scheme).
+
+    For an integral scheme X, the function field K(X) is a field.
+    This uses Mathlib's `instFieldCarrierFunctionField`. -/
+noncomputable instance functionFieldField : Field C.FunctionFieldType :=
+  inferInstanceAs (Field (C.toScheme.functionField : Type _))
+
 /-- The stalk of the structure sheaf at a point (as a type). -/
 noncomputable def StalkType (x : C.PointType) : Type _ := (C.toScheme.presheaf.stalk x : Type _)
 
@@ -182,19 +205,12 @@ noncomputable instance stalkIsLocalRing (x : C.PointType) : IsLocalRing (C.Stalk
 instance stalkIsDomain (x : C.PointType) : IsDomain (C.StalkType x) :=
   inferInstanceAs (IsDomain (C.toScheme.presheaf.stalk x))
 
-/-- For a smooth curve, local rings are regular of dimension 1, hence DVRs.
+/-- Instance: The top open (as a type) is nonempty (follows from IrreducibleSpace).
 
-    **Mathematical content:**
-    - Smooth implies local rings are regular (Jacobian criterion)
-    - Dimension 1 + regular + local domain = DVR
-
-    This is a THEOREM derived from the structure properties. -/
-theorem stalkIsDVR (x : C.PointType) : IsDiscreteValuationRing (C.StalkType x) := by
-  -- Proof sketch:
-  -- 1. Smooth ⟹ local rings are regular local rings
-  -- 2. Curve ⟹ Krull dimension is 1
-  -- 3. Regular local ring of dimension 1 = DVR
-  sorry
+    This is needed for `germToFunctionField` which requires `Nonempty ↑U`. -/
+noncomputable instance topOpenSetNonempty : Nonempty (⊤ : C.toScheme.Opens) := by
+  haveI : Nonempty C.toScheme := C.toSchemeNonempty
+  exact ⟨⟨Classical.arbitrary C.toScheme, trivial⟩⟩
 
 /-- The embedding of constants ℂ into the function field.
 
@@ -203,31 +219,20 @@ theorem stalkIsDVR (x : C.PointType) : IsDiscreteValuationRing (C.StalkType x) :
     For a proper variety, this is injective (no nilpotents in ℂ)
     and its image is exactly the global constants.
 
-    **Implementation status: DEFINITION WITH SORRY**
+    **Construction:**
+    This is the composition of three maps:
+    1. ℂ → Γ(Spec ℂ, ⊤)  via ΓSpecIso inverse
+    2. Γ(Spec ℂ, ⊤) → Γ(C, ⊤)  via structureMorphism.appTop
+    3. Γ(C, ⊤) → K(C)  via germToFunctionField
 
-    ⚠️ **AUDIT NOTE**: This definition uses sorry, which violates CLAUDE.md guidelines.
-    However, the proper implementation requires Mathlib infrastructure that is not
-    yet readily available:
-
-    1. `Scheme.Spec.appTop` - The ring isomorphism Γ(Spec R, O) ≅ R
-    2. `Scheme.Hom.app` - The induced map on global sections from a morphism
-    3. `germToFunctionField` - The localization map Γ(C, O) → K(C)
-
-    **Proper implementation would be:**
-    ```
-    let specIso : Γ(SpecComplex, ⊤) ≃+* ℂ := ...  -- from Spec adjunction
-    let appTop : Γ(SpecComplex, ⊤) →+* Γ(C.toScheme, ⊤) := C.structureMorphism.app ⊤
-    let toFF : Γ(C.toScheme, ⊤) →+* K(C) := ...  -- localization to generic point
-    return (toFF.comp appTop).comp specIso.symm.toRingHom
-    ```
-
-    **Impact**: This affects `functionFieldAlgebra` and `valuation_algebraMap` proofs. -/
-noncomputable def constantsEmbed : ℂ →+* C.FunctionFieldType := by
-  -- Construction:
-  -- structureMorphism : C → Spec ℂ induces
-  -- Γ(Spec ℂ, O) → Γ(C, O_C) → K(C)
-  -- and Γ(Spec ℂ, O) ≅ ℂ
-  sorry
+    This is a PROPER DEFINITION (no sorry), using Mathlib's infrastructure. -/
+noncomputable def constantsEmbed : ℂ →+* C.FunctionFieldType :=
+  -- Step 3: Γ(C, ⊤) → K(C) via germToFunctionField
+  (C.toScheme.germToFunctionField ⊤).hom.comp
+    -- Step 2: Γ(Spec ℂ, ⊤) → Γ(C, ⊤) via structureMorphism.appTop
+    (C.structureMorphism.appTop.hom.comp
+      -- Step 1: ℂ → Γ(Spec ℂ, ⊤) via ΓSpecIso inverse
+      (Scheme.ΓSpecIso (CommRingCat.of ℂ)).inv.hom)
 
 /-- The ℂ-algebra structure on the function field.
 
