@@ -1,11 +1,11 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Harmonic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.GreenFunction
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.HodgeTheory.Harmonic
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Applications.GreenFunction
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Moduli
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.AbelJacobi
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.ThetaFunctions
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.HarmonicHelpers
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.GreenHelpers
-import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Helpers.ThetaHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Jacobian.AbelJacobi
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Jacobian.ThetaFunctions
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.HodgeTheory.Helpers.HarmonicHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Applications.Helpers.GreenHelpers
+import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Jacobian.Helpers.ThetaHelpers
 
 /-!
 # Analytic Theory of Riemann Surfaces

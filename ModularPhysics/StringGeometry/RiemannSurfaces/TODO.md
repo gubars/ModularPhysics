@@ -290,6 +290,40 @@ Both paths need:
 
 ---
 
+## Analytic Path Progress (2026-02-06)
+
+### Harmonic.lean - 3 Theorems Proven
+
+Using Mathlib's harmonic function infrastructure, the following theorems were proven:
+
+| Theorem | Mathlib Lemma Used | Status |
+|---------|-------------------|--------|
+| `holomorphic_real_part_harmonic` | `AnalyticAt.harmonicAt_re` | ✅ PROVEN |
+| `holomorphic_imag_part_harmonic` | `AnalyticAt.harmonicAt_im` | ✅ PROVEN |
+| `log_norm_harmonic` | `AnalyticAt.harmonicAt_log_norm` | ✅ PROVEN |
+
+**Key insight:** `DifferentiableOn.analyticOnNhd` bridges holomorphic functions to analytic functions,
+then Mathlib's `AnalyticAt.harmonicAt_*` lemmas provide harmonicity results.
+
+### Current Sorry Counts (Analytic Folder)
+
+| File | Sorrys | Notes |
+|------|--------|-------|
+| ThetaHelpers.lean | 6 | Theta function properties |
+| Dolbeault.lean | 9 | Wirtinger derivatives, smoothness |
+| HodgeDecomposition.lean | 8 | Hodge theory, Laplacian |
+| Harmonic.lean | 8 | Was 11, reduced by 3 |
+| RiemannRoch.lean | 7 | Main theorem, h0/h1 properties |
+| ThetaFunctions.lean | 7 | Convergence, theta nulls |
+| AbelJacobi.lean | 7 | Deep theta function theory |
+| SerreDuality.lean | 5 | Integration theory |
+| GreenFunction.lean | 5 | Green's function existence |
+| MeromorphicFunction.lean | 3 | Argument principle |
+
+**Total: ~70 sorrys** (most require substantial infrastructure: integration, Hodge theory, etc.)
+
+---
+
 ## Available Infrastructure (2026-02-04)
 
 ### Mathlib Infrastructure

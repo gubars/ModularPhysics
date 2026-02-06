@@ -1,5 +1,6 @@
 import Mathlib.LinearAlgebra.Matrix.PosDef
 import Mathlib.Data.Complex.Basic
+import Mathlib.Data.Real.StarOrdered
 
 /-!
 # Siegel Upper Half-Space
@@ -62,20 +63,17 @@ noncomputable def SiegelUpperHalfSpace.canonical (g : ℕ) (_ : g > 0) :
   symmetric := by simp [Matrix.transpose_smul, Matrix.transpose_one]
   imPart := 1  -- Identity matrix
   imPart_symmetric := Matrix.transpose_one
-  imPart_posDef := by
-    -- The identity matrix is positive definite
-    sorry
+  imPart_posDef := Matrix.PosDef.one
 
-/-- The diagonal entry Ω_{ii} has positive imaginary part -/
-theorem SiegelUpperHalfSpace.diag_im_pos {g : ℕ} (Ω : SiegelUpperHalfSpace g)
-    (i : Fin g) : (Ω.Ω i i).im > 0 := by
-  -- Diagonal of positive definite matrix is positive
-  sorry
+/-- The diagonal entry of imPart is positive -/
+theorem SiegelUpperHalfSpace.imPart_diag_pos {g : ℕ} (Ω : SiegelUpperHalfSpace g)
+    (i : Fin g) : Ω.imPart i i > 0 :=
+  Ω.imPart_posDef.diag_pos
 
 /-- The imaginary part of any period matrix has positive trace -/
-theorem SiegelUpperHalfSpace.trace_im_pos {g : ℕ} (_ : g > 0)
+theorem SiegelUpperHalfSpace.trace_im_pos {g : ℕ} (hg : g > 0)
     (Ω : SiegelUpperHalfSpace g) : Matrix.trace Ω.imPart > 0 := by
-  -- Trace of positive definite matrix is positive
-  sorry
+  haveI : Nonempty (Fin g) := ⟨⟨0, hg⟩⟩
+  exact Ω.imPart_posDef.trace_pos
 
 end RiemannSurfaces.Analytic

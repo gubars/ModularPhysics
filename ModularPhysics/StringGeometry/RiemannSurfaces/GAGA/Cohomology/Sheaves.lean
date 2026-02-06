@@ -1,5 +1,5 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Divisors
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.AlgebraicCurves.Divisors
 import Mathlib.CategoryTheory.Sites.Sheaf
 import Mathlib.CategoryTheory.Sites.Sheafification
 import Mathlib.CategoryTheory.Abelian.Basic

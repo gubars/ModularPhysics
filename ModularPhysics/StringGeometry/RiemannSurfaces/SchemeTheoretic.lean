@@ -5,32 +5,42 @@ Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.LocalRings
-import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.ToCompactAlgebraicCurve
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Divisors
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Sheaves.Coherent
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Sheaves.LineBundles
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Sheaves.Skyscraper
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.SheafCohomology
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.CurveVanishing
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.CanonicalSheaf
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Duality
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.RiemannRoch
 
 /-!
 # Scheme-Theoretic Foundations for Riemann Surfaces
 
 This folder provides scheme-theoretic foundations for algebraic curves over ℂ,
-bridging Mathlib's `Scheme` infrastructure with the `CompactAlgebraicCurve`
-structure used elsewhere in the project.
+using Mathlib's `Scheme` infrastructure to develop Riemann-Roch theory.
 
 ## Files
 
 * `Basic.lean` - Defines `SmoothProjectiveCurve` using Mathlib's Scheme type
 * `LocalRings.lean` - DVR structure and discrete valuations at each point
-* `ToCompactAlgebraicCurve.lean` - The main bridge theorem
+* `Divisors.lean` - Weil divisors on curves
+* `Sheaves/Coherent.lean` - Coherent sheaves on curves
+* `Sheaves/LineBundles.lean` - Line bundles and invertible sheaves
+* `Sheaves/Skyscraper.lean` - Skyscraper sheaves for point exact sequences
+* `Cohomology/SheafCohomology.lean` - Sheaf cohomology via derived functors
+* `Cohomology/CurveVanishing.lean` - Vanishing theorems for curves
+* `CanonicalSheaf.lean` - The canonical sheaf and canonical divisor
+* `Duality.lean` - Serre duality on curves
+* `RiemannRoch.lean` - The Riemann-Roch theorem
 
 ## Main Results
 
-* `SmoothProjectiveCurve.toCompactAlgebraicCurve` - Every scheme-theoretic smooth
-  projective curve over ℂ gives rise to a `CompactAlgebraicCurve`, validating
-  that the abstract axioms are exactly what scheme theory provides.
+* `riemann_roch_euler` - χ(D) = deg(D) + 1 - g
+* `riemann_roch_serre` - h⁰(D) - h⁰(K-D) = deg(D) + 1 - g
 
 ## Design Philosophy
 
-This bridge VALIDATES that `CompactAlgebraicCurve`'s axioms are sound:
-- Points come from the scheme's closed points
-- Function field comes from `Scheme.functionField`
-- Valuations come from DVR structure of stalks
-- Compactness properties (argument principle, Liouville) follow from properness
+All proofs are purely algebraic - no analytic methods are used.
 -/

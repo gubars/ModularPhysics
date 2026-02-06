@@ -3,8 +3,11 @@ import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.SimpleCurves
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.PantsDecomposition
 import ModularPhysics.StringGeometry.RiemannSurfaces.Topology.HatcherThurston
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Algebraic
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.VectorBundles
+-- Algebraic curve infrastructure (migrated to GAGA)
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.AlgebraicCurves.Divisors
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.AlgebraicCurves.FunctionField
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Moduli.Moduli
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Moduli.VectorBundles
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Analytic
 import ModularPhysics.StringGeometry.RiemannSurfaces.Combinatorial.Combinatorial
 import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Basic

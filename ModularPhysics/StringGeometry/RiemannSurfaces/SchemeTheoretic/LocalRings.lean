@@ -234,16 +234,32 @@ theorem exists_localParameter (x : C.PointType) :
   -- addValNat π = toNat(1) = 1
   simp only [DVRValuation.addValNat, hval, ENat.toNat_one, Nat.cast_one]
 
-/-- Local parameters have no extra zeros: v_q(t_p) ≤ 0 for q ≠ p.
+/-- A uniformizer at p, viewed in K(C), has finite support.
+
+    Follows from `valuationAt_finiteSupport`. -/
+theorem localParameter_finiteSupport (x : C.PointType) (t : C.FunctionFieldType)
+    (ht_ne : t ≠ 0) :
+    Set.Finite { y : C.PointType | C.valuationAt y t ≠ 0 } :=
+  C.valuationAt_finiteSupport t ht_ne
+
+/-- The sum of valuations of a uniformizer is zero (argument principle).
 
     **Mathematical content:**
-    By the argument principle (degree of principal divisor = 0),
-    a function with a simple zero at p must have poles elsewhere.
-    So v_q(t_p) ≤ 0 for q ≠ p. -/
-theorem localParameter_nonpos_away (x y : C.PointType) (t : C.FunctionFieldType)
-    (ht : C.valuationAt x t = 1) (hxy : x ≠ y) :
-    C.valuationAt y t ≤ 0 := by
-  -- From argument principle + v_x(t) = 1 > 0
+    By the argument principle, Σ_p v_p(t) = 0 for any t ∈ K(C)*.
+    For a uniformizer with v_x(t) = 1, the sum of valuations at other points is -1.
+
+    **Note:** Individual valuations at other points may be positive, zero,
+    or negative. The statement v_q(t) ≤ 0 for all q ≠ p is FALSE in general.
+    A uniformizer at p can have additional zeros at other points.
+
+    This theorem is stated here but proven in Divisors.lean as
+    `principalDivisor_degree_zero` since it requires the divisor machinery. -/
+theorem localParameter_valuation_sum (_x : C.PointType) (t : C.FunctionFieldType)
+    (_ht : C.valuationAt _x t = 1) (ht_ne : t ≠ 0) :
+    -- The sum of valuations over the finite support equals 0
+    -- This is expressed via the degree of the principal divisor in Divisors.lean
+    ∃ (S : Finset C.PointType), (∀ y ∉ S, C.valuationAt y t = 0) ∧
+      S.sum (C.valuationAt · t) = 0 := by
   sorry
 
 end SmoothProjectiveCurve

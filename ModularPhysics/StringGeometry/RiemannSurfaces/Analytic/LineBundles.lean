@@ -109,4 +109,24 @@ structure LinearSystem (RS : RiemannSurface) (D : Divisor RS) where
   /-- The divisor condition: div(f) + D is effective -/
   effective : Divisor.Effective (divisorOf fn + D)
 
+/-- The linear system L(D) is empty when deg(D) < 0.
+
+    **Proof idea:**
+    If f ∈ L(D), then div(f) + D ≥ 0, so deg(div(f)) + deg(D) ≥ 0.
+    By the argument principle, deg(div(f)) = 0 for meromorphic functions.
+    Thus deg(D) ≥ 0, contradicting deg(D) < 0. -/
+theorem linearSystem_empty_negative_degree (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface) (hdeg : D.degree < 0) :
+    IsEmpty (LinearSystem CRS.toRiemannSurface D) := by
+  constructor
+  intro ⟨f, heff⟩
+  -- div(f) + D ≥ 0 means deg(div(f) + D) ≥ 0
+  have hdeg_sum : (divisorOf f + D).degree ≥ 0 := Divisor.degree_nonneg_of_effective heff
+  rw [Divisor.degree_add] at hdeg_sum
+  -- deg(div(f)) = 0 by argument principle
+  have hdiv_zero := principal_degree_zero_compact CRS f
+  rw [hdiv_zero] at hdeg_sum
+  simp at hdeg_sum
+  omega
+
 end RiemannSurfaces.Analytic

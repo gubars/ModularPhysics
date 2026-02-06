@@ -1,4 +1,4 @@
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.FunctionField
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.AlgebraicCurves.FunctionField
 import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
 
 /-!
@@ -135,10 +135,33 @@ For compact Riemann surfaces, we additionally have the argument principle.
     Includes the genus and the argument principle. -/
 structure CompactAlgebraicStructureOn (CRS : CompactRiemannSurface) extends
     AlgebraicStructureOn CRS.toRiemannSurface where
+  /-- The ℂ-algebra structure on the function field -/
+  algebraInst : Algebra ℂ FunctionField
+  /-- Constant functions have valuation 0 -/
+  valuation_algebraMap : ∀ (p : CRS.carrier) (c : ℂ), c ≠ 0 →
+    valuation p (algebraMap ℂ FunctionField c) = 0
   /-- The argument principle: degree of any principal divisor is zero -/
   argumentPrinciple : ∀ (f : FunctionField) (hf : f ≠ 0),
     (toAlgebraicStructureOn.valuation_finiteSupport f hf).toFinset.sum
       (fun p => toAlgebraicStructureOn.valuation p f) = 0
+  /-- Regular functions are constant (properness) -/
+  regularIsConstant : ∀ (f : FunctionField), (∀ p : CRS.carrier, 0 ≤ valuation p f) →
+    ∃ (c : ℂ), f = algebraMap ℂ FunctionField c
+  /-- Local parameter at each point -/
+  localParameter : CRS.carrier → FunctionField
+  /-- Local parameter has valuation 1 at its point -/
+  localParameter_valuation : ∀ p, valuation p (localParameter p) = 1
+  /-- Local parameter has non-positive valuation elsewhere (no additional zeros).
+      By argument principle, Σ v_q(t_p) = 0 with v_p(t_p) = 1, so t_p has poles elsewhere. -/
+  localParameter_nonpos_away : ∀ p q, p ≠ q → valuation q (localParameter p) ≤ 0
+  /-- Leading coefficient uniqueness (DVR property) -/
+  leadingCoefficientUniqueness : ∀ (p : CRS.carrier) (f g : FunctionField),
+      f ≠ 0 → g ≠ 0 →
+      valuation p f = valuation p g →
+      valuation p f < 0 →
+      ∃ (c : ℂ), c ≠ 0 ∧
+        (g - algebraMap ℂ FunctionField c * f = 0 ∨
+         valuation p (g - algebraMap ℂ FunctionField c * f) > valuation p g)
 
 namespace CompactAlgebraicStructureOn
 
@@ -180,9 +203,31 @@ theorem zeros_eq_poles (f : CA.FunctionField) (hf : f ≠ 0) :
   rw [hsplit] at h
   linarith
 
--- Note: Full conversion to CompactAlgebraicCurve requires additional fields
--- (algebraInst, regularIsConstant, localParameter, etc.) that are not in this
--- minimal structure. Use Algebraic.CompactAlgebraicStructureOn for the complete version.
+/-- The FunctionFieldAlgebra instance for the underlying algebraic curve -/
+def toFunctionFieldAlgebra : FunctionFieldAlgebra CA.toAlgebraicStructureOn.toAlgebraicCurve where
+  algebraInst := CA.algebraInst
+  valuation_algebraMap := CA.valuation_algebraMap
+
+/-- Convert to CompactAlgebraicCurve structure -/
+def toCompactAlgebraicCurve : CompactAlgebraicCurve where
+  Point := CRS.toRiemannSurface.carrier
+  FunctionField := CA.FunctionField
+  valuation := CA.valuation
+  valuation_zero := CA.valuation_zero
+  valuation_mul := CA.valuation_mul
+  valuation_add_min := CA.valuation_add_min
+  valuation_finiteSupport := CA.valuation_finiteSupport
+  algebraInst := CA.toFunctionFieldAlgebra
+  genus := CRS.genus
+  argumentPrinciple := fun f hf => by
+    unfold AlgebraicCurve.orderSum AlgebraicCurve.divisorOf AlgebraicCurve.Divisor.degree
+    simp only
+    exact CA.argumentPrinciple f hf
+  regularIsConstant := CA.regularIsConstant
+  localParameter := CA.localParameter
+  localParameter_valuation := CA.localParameter_valuation
+  localParameter_nonpos_away := CA.localParameter_nonpos_away
+  leadingCoefficientUniqueness := CA.leadingCoefficientUniqueness
 
 end CompactAlgebraicStructureOn
 

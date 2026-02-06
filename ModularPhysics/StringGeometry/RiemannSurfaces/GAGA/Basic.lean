@@ -2,7 +2,7 @@ import ModularPhysics.StringGeometry.RiemannSurfaces.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.Basic
 import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.ExactSequence
 import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Cohomology.CechTheory
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.Divisors
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.AlgebraicCurves.Divisors
 
 /-!
 # GAGA for Riemann Surfaces

@@ -259,6 +259,16 @@ theorem degree_point (p : RS.carrier) : (point p).degree = 1 := by
 def Effective (D : Divisor RS) : Prop :=
   ∀ p, 0 ≤ D.coeff p
 
+/-- Effective divisors have non-negative degree.
+
+    deg(D) = Σ_p D(p), and if all D(p) ≥ 0, then Σ D(p) ≥ 0. -/
+theorem degree_nonneg_of_effective {D : Divisor RS} (heff : D.Effective) :
+    D.degree ≥ 0 := by
+  unfold degree
+  apply Finset.sum_nonneg
+  intro p _
+  exact heff p
+
 /-- Notation: D ≥ 0 means D is effective -/
 instance : LE (Divisor RS) where
   le D₁ D₂ := Effective (D₂ + (-D₁))
