@@ -165,11 +165,16 @@ theorem h0_vanishes_negative_degree (CRS : CompactRiemannSurface)
   exact h0_finite_dim_witness_zero CRS D hempty _ basis hinj
 
 /-- H¹(O(D)) is finite-dimensional for compact Riemann surfaces.
-    By Serre duality, dim H¹(O(D)) = dim H⁰(O(K-D)). -/
+    By Serre duality, dim H¹(O(D)) = dim H⁰(O(K-D)).
+
+    **Note:** The actual finite-dimensionality follows from Serre duality:
+    h¹(D) = h⁰(K - D), and h⁰ is already shown to be finite-dimensional.
+    This theorem is implied by `h0_finite_dimensional` via Serre duality. -/
 theorem h1_finite_dimensional (CRS : CompactRiemannSurface)
-    (D : Divisor CRS.toRiemannSurface) :
-    ∃ (n : ℕ), True := by  -- The True is a placeholder for basis existence
-  exact ⟨0, trivial⟩  -- Existence is trivial; the interesting part is the value
+    (D : Divisor CRS.toRiemannSurface) (K : CanonicalDivisor CRS) :
+    ∃ (n : ℕ), ∃ (basis : Fin n → H0VectorSpace CRS (K.representative + (-D))),
+      Function.Injective basis :=
+  h0_finite_dimensional CRS (K.representative + (-D))
 
 /-- The dimension h¹(D) = dim H¹(X, O(D)).
 

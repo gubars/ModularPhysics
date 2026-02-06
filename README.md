@@ -68,21 +68,31 @@ ModularPhysics/
 │   └── VOA/
 ├── StringGeometry/
 │   ├── RiemannSurfaces/
-│   │   ├── Algebraic/
-│   │   │   ├── Cohomology/
-│   │   │   ├── Core/
-│   │   │   ├── Helpers/
-│   │   │   └── Moduli/
 │   │   ├── Analytic/
-│   │   │   ├── Helpers/
+│   │   │   ├── Applications/
+│   │   │   │   └── Helpers/
+│   │   │   ├── HodgeTheory/
+│   │   │   │   ├── Helpers/
+│   │   │   │   └── Infrastructure/
+│   │   │   ├── Jacobian/
+│   │   │   │   └── Helpers/
 │   │   │   └── Moduli/
 │   │   ├── Combinatorial/
 │   │   │   └── Helpers/
 │   │   ├── GAGA/
-│   │   │   └── Cohomology/
+│   │   │   ├── AlgebraicCurves/
+│   │   │   │   ├── Cohomology/
+│   │   │   │   └── Core/
+│   │   │   ├── Bridge/
+│   │   │   ├── Cohomology/
+│   │   │   │   └── Helpers/
+│   │   │   ├── Helpers/
+│   │   │   └── Moduli/
 │   │   ├── Helpers/
 │   │   ├── SchemeTheoretic/
-│   │   │   └── Helpers/
+│   │   │   ├── Cohomology/
+│   │   │   ├── Helpers/
+│   │   │   └── Sheaves/
 │   │   └── Topology/
 │   ├── Supermanifolds/
 │   │   ├── FPS/

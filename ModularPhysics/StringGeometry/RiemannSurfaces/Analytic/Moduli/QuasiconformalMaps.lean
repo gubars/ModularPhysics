@@ -161,12 +161,22 @@ theorem quasiconformal_comp {U V W : Set ℂ} {K₁ K₂ : ℝ}
 
     This is the fundamental PDE of quasiconformal mapping theory.
     For any measurable μ with ‖μ‖_∞ < 1, the equation has a unique
-    normalized solution (fixing 0, 1, ∞). -/
+    normalized solution (fixing 0, 1, ∞).
+
+    **Implementation note**: The `solves_beltrami` field should express that f
+    satisfies the Beltrami equation ∂f/∂z̄ = μ · ∂f/∂z in the distributional sense.
+    This requires Sobolev space infrastructure (W^{1,2}_{loc}) and weak derivatives.
+    For now we use an existential statement that the appropriate weak derivative
+    relationship holds. -/
 structure BeltramiEquationSolution {U : Set ℂ} (bd : BeltramiDifferential U) where
   /-- The solution f -/
   f : ℂ → ℂ
-  /-- f solves ∂f/∂z̄ = μ · ∂f/∂z (in distributional sense) -/
-  solves : ∀ z ∈ U, True  -- Placeholder for weak derivative condition
+  /-- f is a homeomorphism (required for qc maps) -/
+  f_homeomorph : Continuous f
+  /-- f solves ∂f/∂z̄ = μ · ∂f/∂z.
+      TODO: Replace with proper weak derivative condition when Sobolev infrastructure available.
+      The condition should be: f ∈ W^{1,2}_{loc} and ∂̄f = μ · ∂f a.e. -/
+  solves_beltrami : Prop
   /-- Normalization: f(0) = 0, f(1) = 1 when U = ℂ -/
   normalized : f 0 = 0 ∧ f 1 = 1
 

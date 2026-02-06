@@ -121,18 +121,37 @@ so any local construction can be extended globally without monodromy issues.
 
 /-- On a simply connected domain, a harmonic function has a global harmonic conjugate.
 
-    The proof idea: locally we can find conjugates using `harmonic_is_realOfHolomorphic`.
-    On a simply connected domain, these local conjugates can be patched together
-    because the domain has trivial fundamental group (no monodromy).
+    **Mathematical Background**:
+    If u is harmonic, the 1-form ω = -∂u/∂y dx + ∂u/∂x dy is closed (dω = 0 because Δu = 0).
+    On simply connected domains, the Poincaré lemma says closed forms are exact.
+    So there exists v with dv = ω, i.e., ∂v/∂x = -∂u/∂y and ∂v/∂y = ∂u/∂x.
+    These are exactly the Cauchy-Riemann equations, so u + iv is holomorphic.
 
-    This is a deep result requiring path integration theory. -/
+    **Proof Approach 1 (Path Integration)**:
+    1. Fix a basepoint z₀ ∈ U
+    2. Define v(z) = ∫_γ ω where γ is any path from z₀ to z in U
+    3. Show v is well-defined: for any two paths γ₁, γ₂ from z₀ to z,
+       γ₁ - γ₂ is a loop, and since U is simply connected, this loop is null-homotopic
+    4. For closed forms, homotopic paths give the same integral
+    5. Hence v is well-defined and satisfies Cauchy-Riemann with u
+
+    **Proof Approach 2 (Sheaf/Covering)**:
+    1. Local conjugates exist by `harmonic_conjugate_exists_ball`
+    2. On overlaps, conjugates differ by constants (since differences are locally constant)
+    3. Use path-connectedness to fix constants consistently
+    4. Simply connectedness ensures this construction is consistent (no monodromy)
+
+    **Required Mathlib Infrastructure**:
+    - Curve integrals of 1-forms: Available in `Mathlib.MeasureTheory.Integral.CurveIntegral`
+    - Homotopy invariance of curve integrals for closed forms: Not yet formalized
+    - Poincaré lemma: In progress (PR #24019 mentioned in Mathlib)
+    - `SimplyConnectedSpace`: Available in `Mathlib.AlgebraicTopology.FundamentalGroupoid.SimplyConnected` -/
 theorem harmonic_conjugate_simply_connected {u : ℂ → ℝ} {U : Set ℂ}
     (hU : IsOpen U) [SimplyConnectedSpace ↥U]
     (hu : HarmonicOnNhd u U) :
     ∃ v : ℂ → ℝ, IsHarmonicConjugate' u v U ∧ HarmonicOnNhd v U := by
-  -- This requires path integration or sheaf-theoretic arguments
-  -- The key is that on simply connected domains, any locally defined function
-  -- (like the harmonic conjugate) extends globally
+  -- Requires Poincaré lemma or homotopy invariance of curve integrals.
+  -- See detailed proof approaches in docstring.
   sorry
 
 end RiemannSurfaces.Analytic.Infrastructure

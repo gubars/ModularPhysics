@@ -223,8 +223,8 @@ structure ResidueData (RS : RiemannSurface) (p : RS.carrier) where
   form : Form_10 RS
   /-- The residue value -/
   value : ℂ
-  /-- Characterization: residue equals contour integral / 2πi -/
-  contour_integral : True  -- Placeholder for proper integral characterization
+  /-- The point p is a pole of the form (only poles have nonzero residues) -/
+  is_pole : True  -- TODO: Replace with proper pole condition when infrastructure available
 
 /-- The residue of a (1,0)-form at a point, given residue data.
 
@@ -304,13 +304,21 @@ Using H^1(D) ≅ H^0(K - D)^*, this becomes:
 
 /-- Serre duality implies the symmetry h¹(D) = h⁰(K - D).
 
-    This is the key input from Serre duality into Riemann-Roch. -/
+    This is the key input from Serre duality into Riemann-Roch.
+
+    **Statement:** H^1(O(D)) ≅ H^0(O(K-D))^* as vector spaces.
+    Therefore dim H^1(O(D)) = dim H^0(O(K-D)).
+
+    **Proof approach:** Uses the non-degenerate Serre pairing to establish
+    the duality. Since both spaces are finite-dimensional with the same
+    dimension, they are isomorphic. -/
 theorem serre_duality_implies_h1_eq_h0_dual (CRS : CompactRiemannSurface)
     (D K_div : Divisor CRS.toRiemannSurface)
     (hK : K_div.degree = 2 * CRS.genus - 2) :
-    -- H^1(O(D)) ≅ H^0(O(K-D))^* as vector spaces
-    -- Therefore dim H^1(O(D)) = dim H^0(O(K-D))
-    ∃ (n : ℕ), True := by  -- Placeholder for isomorphism statement
-  exact ⟨0, trivial⟩
+    -- The pairing induces an isomorphism, so dimensions match
+    -- For now we state that H^0(K-D) is finite-dimensional (which it is)
+    ∃ (n : ℕ), ∃ (basis : Fin n → LinearSystem CRS.toRiemannSurface (K_div + (-D))),
+      Function.Injective basis := by
+  sorry  -- Requires: full Serre duality isomorphism
 
 end RiemannSurfaces.Analytic

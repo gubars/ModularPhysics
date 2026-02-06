@@ -167,7 +167,27 @@ theorem thetaWithChar_relation (g : ℕ) (χ : ThetaCharacteristic g)
     (z : Fin g → ℂ) (Ω : SiegelHg g) :
     ∃ (phase : ℂ) (shift : Fin g → ℂ),
       thetaWithChar g χ z Ω = phase * riemannTheta g (fun i => z i + shift i) Ω := by
-  sorry  -- Follows from definition of theta with characteristic
+  -- The definition of thetaWithCharVal is exactly in this form
+  -- thetaWithCharVal a b z Ω = exp(πi a·Ω·a + 2πi a·(z+b)) * riemannThetaVal (z + Ωa + b) Ω
+  -- Define the shift: Ωa + b
+  let shift := fun i => (Finset.univ.sum fun j => Ω.Ω i j * (χ.a j : ℂ)) + (χ.b i : ℂ)
+  -- Define the phase: exp(πi a·Ω·a + 2πi a·(z+b))
+  let aΩa := Finset.univ.sum fun i => Finset.univ.sum fun j =>
+    (χ.a i : ℂ) * Ω.Ω i j * (χ.a j : ℂ)
+  let aZplusB := Finset.univ.sum fun i => (χ.a i : ℂ) * (z i + (χ.b i : ℂ))
+  let phase := exp (π * I * aΩa + 2 * π * I * aZplusB)
+  use phase, shift
+  -- Show the equality by unfolding the definition
+  unfold thetaWithChar riemannTheta Helpers.thetaWithCharVal
+  -- The shifted argument in thetaWithCharVal matches: z + Ωa + b
+  have h_shift_eq : (fun i => z i + (Finset.univ.sum fun j => Ω.Ω i j * (χ.a j : ℂ)) + (χ.b i : ℂ)) =
+      (fun i => z i + shift i) := by
+    funext i
+    simp only [shift]
+    ring
+  simp only [h_shift_eq]
+  -- The phase matches by definition
+  rfl
 
 /-- Parity of theta function under negation -/
 theorem theta_parity (g : ℕ) (χ : ThetaCharacteristic g)
@@ -220,10 +240,41 @@ noncomputable def halfIntegerCharacteristics (g : ℕ) : Finset (ThetaCharacteri
   Finset.image (fun p : (Fin g → Bool) × (Fin g → Bool) =>
     characteristicFromBits g p.1 p.2) Finset.univ
 
+/-- Injectivity of characteristicFromBits -/
+theorem characteristicFromBits_injective (g : ℕ) :
+    Function.Injective (fun p : (Fin g → Bool) × (Fin g → Bool) =>
+      characteristicFromBits g p.1 p.2) := by
+  intro ⟨a1, b1⟩ ⟨a2, b2⟩ heq
+  -- characteristicFromBits returns equal values only when inputs are equal
+  unfold characteristicFromBits at heq
+  simp only [ThetaCharacteristic.mk.injEq] at heq
+  obtain ⟨ha, hb⟩ := heq
+  -- ha : (fun i => if a1 i then 1/2 else 0) = (fun i => if a2 i then 1/2 else 0)
+  -- hb : (fun i => if b1 i then 1/2 else 0) = (fun i => if b2 i then 1/2 else 0)
+  congr 1
+  · -- a1 = a2
+    funext i
+    have hi := congrFun ha i
+    simp only at hi
+    by_cases h1 : a1 i <;> by_cases h2 : a2 i <;> simp_all
+  · -- b1 = b2
+    funext i
+    have hi := congrFun hb i
+    simp only at hi
+    by_cases h1 : b1 i <;> by_cases h2 : b2 i <;> simp_all
+
 /-- Number of half-integer characteristics is 2^{2g} -/
 theorem num_half_int_characteristics (g : ℕ) :
     (halfIntegerCharacteristics g).card = 2 ^ (2 * g) := by
-  sorry  -- Combinatorics of (Z/2Z)^{2g}
+  unfold halfIntegerCharacteristics
+  -- Use card_image_of_injective
+  rw [Finset.card_image_of_injective _ (characteristicFromBits_injective g)]
+  -- card of univ over product type
+  rw [Finset.card_univ, Fintype.card_prod]
+  -- Each factor has cardinality 2^g
+  simp only [Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
+  -- 2^g * 2^g = 2^{2g}
+  ring
 
 /-!
 ## Genus 1: Jacobi Theta Functions
@@ -298,19 +349,25 @@ Riemann's theorem: Θ = W_{g-1} + κ where W_{g-1} is the image of the
     The Riemann constant satisfies: Θ = W_{g-1} + κ where W_{g-1} is the
     image of Σ^{g-1} under Abel-Jacobi.
 
-    **Implementation:** Requires AbelJacobiData to compute the integral values. -/
+    **Implementation:** Requires Weierstrass point infrastructure to compute.
+    The computation involves:
+    1. Finding the 2g+2 Weierstrass points of the curve
+    2. Selecting g of them
+    3. Summing their Abel-Jacobi images
+
+    For genus 0: κ = 0
+    For genus 1: κ = AJ(w) for the unique Weierstrass point w
+    For general genus: requires the full computation above -/
 noncomputable def riemannConstant (CRS : RiemannSurfaces.CompactRiemannSurface)
-    (J : Jacobian' CRS) (ajData : AbelJacobiData CRS J)
-    (_ : CRS.carrier) : J.points :=
-  -- The Riemann constant is computed from Weierstrass points via Abel-Jacobi.
-  -- For genus 0: κ = 0
-  -- For genus 1: κ = AJ(w) for the unique Weierstrass point w
-  -- For general genus: requires summing AJ over g Weierstrass points
-  -- Pending Weierstrass point infrastructure, we use a sorry for the computation
-  -- but the definition now has the correct type signature.
-  Classical.choice (by
-    -- J.points is nonempty since J.proj is surjective
-    exact ⟨J.proj (fun _ => 0)⟩)
+    (J : Jacobian' CRS) (_ : AbelJacobiData CRS J)
+    (_ : CRS.carrier) : J.points := by
+  -- The Riemann constant requires computing the sum of Abel-Jacobi images
+  -- of g Weierstrass points. This requires:
+  -- 1. Weierstrass point infrastructure (not yet available)
+  -- 2. Explicit integration to compute AJ images
+  -- We mark this as sorry rather than using Classical.choice, to be honest
+  -- that the specific mathematical value has not been computed.
+  exact sorry
 
 /-!
 ## Fay's Identities

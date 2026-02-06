@@ -61,25 +61,41 @@ For curves over ℂ, κ(p) ≅ ℂ.
     - k_p(U) = κ(p) if p ∈ U, else 0
     - The O_C-module structure: f · v = f(p) · v for f ∈ O_C(U), v ∈ κ(p)
 
-    **Construction outline:**
-    1. Define the presheaf of abelian groups: U ↦ κ(p) if p ∈ U, else 0
-    2. Give it O_C-module structure via evalAtPoint (from SkyscraperInfrastructure)
-    3. Show the sheaf condition holds (trivially, since sections glue uniquely)
-    4. Package as SheafOfModules C.toScheme.ringCatSheaf
+    **Construction using Mathlib:**
+    1. Use `skyscraperPresheaf p κ(p)` from Mathlib.Topology.Sheaves.Skyscraper
+       - This gives a presheaf with k_p(U) = κ(p) if p ∈ U, else terminal object
+    2. The sheaf condition holds (by `skyscraperPresheaf_isSheaf`)
+    3. The O_C-module structure uses:
+       - `residueFieldModule p U hp : Module (Γ(C, U)) (C.toScheme.residueField p)`
+       - This gives the scalar multiplication f · v = evalAtPoint(f) · v
+    4. Package as `SheafOfModules C.toScheme.ringCatSheaf`
 
-    The key tool is `TopCat.Presheaf.skyscraperPresheaf` from Mathlib which
-    constructs the underlying presheaf. The O_C-module structure uses
-    `residueFieldModule` from SkyscraperInfrastructure.
+    **Key Mathlib components:**
+    - `TopCat.Presheaf.skyscraperPresheaf` : The underlying presheaf
+    - `skyscraperPresheaf_isSheaf` : Sheaf condition
+    - `skyscraperPresheafStalkOfSpecializes` : Stalk at p is κ(p)
+    - `skyscraperPresheafStalkOfNotSpecializes` : Stalk at q ≠ p is terminal
 
-    TODO: Requires developing infrastructure for:
-    - Presheaf of modules structure on skyscraper presheaf
-    - Verifying the sheaf condition for modules
-    - Interfacing with Mathlib's SheafOfModules API -/
+    **Infrastructure from SkyscraperInfrastructure.lean:**
+    - `evalAtPoint` : O_C(U) →+* κ(p) for p ∈ U
+    - `residueFieldModule` : κ(p) is an O_C(U)-module for p ∈ U
+
+    **Technical challenge:**
+    The construction requires interfacing Mathlib's `SheafOfModules` API
+    (which uses PresheafOfModules over a ring presheaf) with the skyscraper
+    construction (which is a presheaf in a general category C with terminal
+    objects). This interface requires showing that the module operations
+    are compatible with the presheaf structure. -/
 noncomputable def skyscraperModule (p : C.PointType) : OModule C.toScheme := by
   -- The mathematical content is standard:
   -- skyscraper(p, κ(p)) as an O_C-module sheaf
   -- Sections: k_p(U) = κ(p) if p ∈ U, else 0
   -- Module action: f · v = evaluation(f)(p) · v
+  --
+  -- Full implementation requires:
+  -- 1. Building PresheafOfModules structure on skyscraper presheaf
+  -- 2. Verifying sheaf condition for modules
+  -- 3. Packaging as SheafOfModules
   sorry
 
 /-- The skyscraper sheaf at p is coherent.
@@ -169,9 +185,23 @@ The key fact for Riemann-Roch: skyscraper sheaves have Euler characteristic 1.
 /-- h⁰(k_p) = 1.
 
     **Proof:**
-    H⁰(C, k_p) = Γ(C, k_p) = κ(p) ≅ ℂ, which is 1-dimensional. -/
+    H⁰(C, k_p) = Γ(C, k_p) = k_p(C) = κ(p) ≅ ℂ, which is 1-dimensional.
+
+    **Detailed proof:**
+    1. H⁰(C, k_p) = Γ(C, k_p) by definition of H⁰
+    2. For the skyscraper sheaf, Γ(C, k_p) = k_p(C) = κ(p) since p ∈ C
+    3. κ(p) ≅ ℂ as ℂ-vector spaces (from residueFieldLinearEquiv)
+    4. dim_ℂ(ℂ) = 1 (from residueField_finrank_one)
+
+    **Key infrastructure:**
+    - `residueFieldLinearEquiv` : κ(p) ≃ₗ[ℂ] ℂ (in SkyscraperInfrastructure.lean)
+    - `residueField_finrank_one` : finrank ℂ κ(p) = 1 -/
 theorem h0_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointType) :
     h_i C 0 (skyscraperSheaf C.toAlgebraicCurve p) = 1 := by
+  -- The proof requires:
+  -- 1. H⁰(C, k_p) = Γ(C, k_p) = κ(p) (since p ∈ C, the global sections are κ(p))
+  -- 2. finrank ℂ κ(p) = 1 (from residueField_finrank_one)
+  -- This depends on the skyscraperModule construction
   sorry
 
 /-- h¹(k_p) = 0 (skyscraper sheaves are acyclic).
@@ -180,12 +210,23 @@ theorem h0_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointType) :
     This follows from the fact that k_p is a flasque (flabby) sheaf:
     - k_p is supported on a single point
     - Restriction maps are either identity or zero-to-zero
-    - Flasque sheaves have vanishing higher cohomology
+    - Flasque sheaves have vanishing higher cohomology (flasque_H1_zero)
 
-    Alternatively, use the fact that any sheaf supported on a 0-dimensional
-    subset has H^i = 0 for i ≥ 1 (cohomological dimension bound). -/
+    **Detailed proof:**
+    1. k_p is flasque (from skyscraperModule_isFlasque)
+    2. Flasque sheaves have H¹ = 0 (from flasque_H1_zero in FlasqueSheaves.lean)
+    3. H¹ = 0 implies finrank ℂ H¹ = 0, hence h¹ = 0
+
+    **Key infrastructure:**
+    - `skyscraperModule_isFlasque` : k_p is flasque
+    - `flasque_H1_zero` : F flasque ⇒ H¹(F) = 0 -/
 theorem h1_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointType) :
     h_i C 1 (skyscraperSheaf C.toAlgebraicCurve p) = 0 := by
+  -- The proof requires:
+  -- 1. k_p is flasque (skyscraperModule_isFlasque)
+  -- 2. Flasque sheaves have H¹ = 0 (flasque_H1_zero)
+  -- 3. The zero module has finrank 0
+  -- This depends on the skyscraperModule construction and flasque_H1_zero
   sorry
 
 /-- χ(k_p) = 1.
@@ -210,18 +251,30 @@ This is the key property that implies H¹ = 0.
 
     **Proof:**
     For a skyscraper sheaf k_p:
-    - k_p(U) = κ(p) if p ∈ U, else 0
+    - k_p(U) = κ(p) if p ∈ U, else 0 (= terminal object PUnit)
 
     The restriction map k_p(V) → k_p(U) for U ⊆ V is:
-    - Identity κ(p) → κ(p) if p ∈ U (hence p ∈ V)
-    - The unique map κ(p) → 0 if p ∉ U, p ∈ V
-    - The zero map 0 → 0 if p ∉ V
+    - Identity κ(p) → κ(p) if p ∈ U (hence p ∈ V by U ≤ V)
+    - The unique map κ(p) → 0 if p ∉ U but p ∈ V
+    - The zero map 0 → 0 if p ∉ V (hence p ∉ U)
 
-    All these maps are surjective. -/
+    All these maps are surjective:
+    - Case 1: id : κ(p) → κ(p) is surjective (trivially)
+    - Case 2: κ(p) → 0 is surjective (0 is terminal, unique preimage)
+    - Case 3: 0 → 0 is surjective (trivially)
+
+    **Key infrastructure:**
+    - `skyscraper_restriction_surjective` in SkyscraperInfrastructure.lean
+      proves surjectivity for each case separately. -/
 instance skyscraperModule_isFlasque (p : C.PointType) :
     IsFlasque (skyscraperModule C p) where
   restriction_surjective := fun U V hUV => by
     -- By case analysis on whether p ∈ U
+    -- All cases follow from skyscraper_restriction_surjective
+    -- Case 1: p ∈ U → restriction is id : κ(p) → κ(p), surjective
+    -- Case 2: p ∉ U, p ∈ V → restriction is κ(p) → 0, surjective
+    -- Case 3: p ∉ V → restriction is 0 → 0, surjective
+    -- This depends on the skyscraperModule construction
     sorry
 
 end RiemannSurfaces.SchemeTheoretic

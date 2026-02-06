@@ -82,25 +82,55 @@ noncomputable def symmetricSecondDeriv (f : ℂ → ℝ) (z : ℂ) (v : ℂ) : �
   (fderiv ℝ (fun w => fderiv ℝ f w v) z) v
 
 /-- For functions satisfying MVP, we have a representation via circle averages.
-    This implies strong regularity. -/
+    This implies strong regularity.
+
+    **Proof Strategy** (requires Poisson integral infrastructure not in Mathlib):
+    1. Define the Poisson kernel: P(z, ζ) = (|ζ|² - |z|²) / |ζ - z|² for |z| < |ζ|
+    2. Show that if f is continuous on ∂B(z₀, R) and satisfies MVP, then f equals its
+       Poisson integral: f(z) = (1/2π) ∫₀^{2π} P(z, z₀ + Re^{iθ}) f(z₀ + Re^{iθ}) dθ
+    3. Poisson integrals of continuous boundary data are C^∞ in the interior
+    4. Hence f is C^∞
+
+    **Alternative approach using approximation**:
+    - Convolve f with smooth mollifiers
+    - MVP is preserved under certain convolutions
+    - Take limits to recover f while maintaining smoothness -/
 theorem smooth_of_mvp_ball (f : ℂ → ℝ) (z₀ : ℂ) (R : ℝ) (hR : R > 0)
     (hcont : ContinuousOn f (closedBall z₀ R))
     (hmvp : ∀ z ∈ ball z₀ R, SatisfiesMVPAt f z (closedBall z₀ R)) :
     ContDiffOn ℝ ⊤ f (ball z₀ R) := by
-  -- The MVP characterizes harmonic functions, and harmonic functions are smooth.
-  -- We use that MVP + continuity implies the function is the Poisson integral of
-  -- its boundary values, which is C^∞.
+  -- Requires Poisson integral representation theory.
+  -- See proof strategy in docstring.
   sorry
 
 /-- The Laplacian of a function with MVP vanishes.
-    Proof: The Laplacian at z can be computed as a limit involving circle averages.
-    Specifically, Δf(z) = lim_{r→0} (4/r²) (circleAverage f z r - f(z))
-    If f satisfies MVP, then circleAverage f z r = f(z), so Δf(z) = 0. -/
+
+    **Proof Strategy**:
+    For C² functions f : ℂ → ℝ, there is a fundamental formula relating the Laplacian
+    to circle averages via Taylor expansion:
+
+      circleAverage f z r = f(z) + (r²/4) Δf(z) + O(r³)
+
+    This comes from expanding f(z + re^{iθ}) in Taylor series and integrating over θ:
+    - Linear terms ∂f/∂x, ∂f/∂y integrate to zero (odd in θ)
+    - Cross term ∂²f/∂x∂y integrates to zero
+    - Terms ∂²f/∂x² and ∂²f/∂y² each contribute r²/4
+
+    If f satisfies MVP (circleAverage f z r = f(z) for all small r), then:
+      0 = (r²/4) Δf(z) + O(r³)
+
+    Dividing by r² and taking r → 0 gives Δf(z) = 0.
+
+    **Required infrastructure**:
+    - Integration of multivariate Taylor expansion over circles
+    - Error estimates for remainder terms -/
 theorem laplacian_zero_of_mvp (f : ℂ → ℝ) (z₀ : ℂ) (R : ℝ) (hR : R > 0)
     (hcont : ContinuousOn f (closedBall z₀ R))
     (hmvp : ∀ z ∈ ball z₀ R, SatisfiesMVPAt f z (closedBall z₀ R))
     (hsmooth : ContDiffOn ℝ 2 f (ball z₀ R)) :
     ∀ z ∈ ball z₀ R, Δ f z = 0 := by
+  -- Requires Taylor expansion integrated over circles.
+  -- See proof strategy in docstring.
   sorry
 
 /-- Main theorem: If f is continuous on an open set and satisfies the mean value

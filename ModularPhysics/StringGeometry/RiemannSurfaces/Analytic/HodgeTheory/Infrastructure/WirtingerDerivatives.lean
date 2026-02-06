@@ -3,6 +3,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Add
 import Mathlib.Analysis.Calculus.FDeriv.Prod
 import Mathlib.Analysis.Calculus.FDeriv.Mul
 import Mathlib.Analysis.Calculus.FDeriv.Comp
+import Mathlib.Analysis.Calculus.FDeriv.Symmetric
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.HodgeTheory.Infrastructure.RealSmoothness
 
 /-!
@@ -504,9 +505,161 @@ The Laplacian Δf = ∂²f/∂x² + ∂²f/∂y² can be written as:
 theorem laplacian_eq_four_wirtinger_mixed (f : ℂ → ℂ) (z : ℂ)
     (hf : ContDiff ℝ 2 f) :
     wirtingerDeriv (wirtingerDerivBar f) z = wirtingerDerivBar (wirtingerDeriv f) z := by
-  -- The key insight is that both sides equal (1/4) * (Laplacian of f).
-  -- This uses symmetry of second derivatives for C² functions.
-  -- The formal proof requires careful handling of fderiv of fderiv.
-  sorry  -- Requires detailed second derivative theory connecting Wirtinger to iterated Fréchet
+  -- Use the symmetry of second derivatives from Mathlib
+  -- For C² functions over ℝ: fderiv ℝ (fderiv ℝ f) z v w = fderiv ℝ (fderiv ℝ f) z w v
+  have hsymm : IsSymmSndFDerivAt ℝ f z := by
+    apply ContDiffAt.isSymmSndFDerivAt hf.contDiffAt
+    simp only [minSmoothness_of_isRCLikeNormedField, le_refl]
+
+  -- Define: D²(v)(w) = fderiv ℝ (fderiv ℝ f) z v w (the second derivative)
+  set D2 := fderiv ℝ (fderiv ℝ f) z with hD2
+
+  -- By symmetry: D²(1)(I) = D²(I)(1)
+  have hsymm_1_I : D2 1 Complex.I = D2 Complex.I 1 := hsymm 1 Complex.I
+
+  -- Get differentiability
+  have hdiff_fderiv : DifferentiableAt ℝ (fderiv ℝ f) z :=
+    (hf.contDiffAt.fderiv_right (m := 1) le_rfl).differentiableAt one_ne_zero
+
+  -- Define helper functions for evaluation at 1 and I
+  let eval1 : (ℂ →L[ℝ] ℂ) →L[ℝ] ℂ := ContinuousLinearMap.apply ℝ ℂ 1
+  let evalI : (ℂ →L[ℝ] ℂ) →L[ℝ] ℂ := ContinuousLinearMap.apply ℝ ℂ Complex.I
+
+  -- Differentiability of the component functions at z
+  have hdiff1 : DifferentiableAt ℝ (fun w => fderiv ℝ f w 1) z := by
+    have h : DifferentiableAt ℝ (eval1 ∘ fderiv ℝ f) z :=
+      eval1.differentiableAt.comp z hdiff_fderiv
+    exact h
+  have hdiffI : DifferentiableAt ℝ (fun w => fderiv ℝ f w Complex.I) z := by
+    have h : DifferentiableAt ℝ (evalI ∘ fderiv ℝ f) z :=
+      evalI.differentiableAt.comp z hdiff_fderiv
+    exact h
+
+  -- The key lemma: fderiv ℝ (fun w => fderiv ℝ f w v) z u = D2 u v
+  have hD2_apply : ∀ u v, fderiv ℝ (fun w => fderiv ℝ f w v) z u = D2 u v := by
+    intro u v
+    let evalV : (ℂ →L[ℝ] ℂ) →L[ℝ] ℂ := ContinuousLinearMap.apply ℝ ℂ v
+    have hcomp : fderiv ℝ (evalV ∘ fderiv ℝ f) z = evalV.comp (fderiv ℝ (fderiv ℝ f) z) := by
+      rw [fderiv_comp z evalV.differentiableAt hdiff_fderiv]
+      simp [ContinuousLinearMap.fderiv]
+    calc fderiv ℝ (fun w => fderiv ℝ f w v) z u
+      _ = (fderiv ℝ (evalV ∘ fderiv ℝ f) z) u := rfl
+      _ = (evalV.comp D2) u := by rw [hcomp]
+      _ = evalV (D2 u) := rfl
+      _ = D2 u v := rfl
+
+  -- Define the inner functions without let bindings for wirtingerDerivBar/wirtingerDeriv
+  -- wirtingerDerivBar f z' = (1/2)(fderiv ℝ f z' 1 + I * fderiv ℝ f z' I)
+  -- wirtingerDeriv f z' = (1/2)(fderiv ℝ f z' 1 - I * fderiv ℝ f z' I)
+
+  -- Since wirtingerDerivBar and wirtingerDeriv use `let L := fderiv ℝ f z'`,
+  -- we need to show they're equal to our simplified forms
+  have heq_bar : ∀ z', wirtingerDerivBar f z' =
+      (1/2 : ℂ) * (fderiv ℝ f z' 1 + Complex.I * fderiv ℝ f z' Complex.I) := by
+    intro z'; unfold wirtingerDerivBar; ring
+  have heq_hol : ∀ z', wirtingerDeriv f z' =
+      (1/2 : ℂ) * (fderiv ℝ f z' 1 - Complex.I * fderiv ℝ f z' Complex.I) := by
+    intro z'; unfold wirtingerDeriv; ring
+
+  -- Now we can compute fderiv of wirtingerDerivBar f at z
+  -- We compute directly using the CLM linearity
+  have hfderiv_bar_apply : ∀ u, fderiv ℝ (wirtingerDerivBar f) z u =
+      (1/2 : ℂ) * (D2 u 1 + Complex.I * D2 u Complex.I) := by
+    intro u
+    -- wirtingerDerivBar f equals our simpler form
+    have heq : wirtingerDerivBar f = fun z' =>
+        (1/2 : ℂ) * (fderiv ℝ f z' 1 + Complex.I * fderiv ℝ f z' Complex.I) := by
+      ext z'; exact heq_bar z'
+    -- Define component functions using smul (•) to match fderiv_const_smul
+    let g1 : ℂ → ℂ := fun w => fderiv ℝ f w 1
+    let gI : ℂ → ℂ := fun w => fderiv ℝ f w Complex.I
+    let g2 : ℂ → ℂ := Complex.I • gI  -- This is fun w => I • gI w = fun w => I * fderiv ℝ f w I
+    -- g2 equals the original form
+    have hg2_eq : g2 = fun w => Complex.I * fderiv ℝ f w Complex.I := by
+      ext w; simp [g2, gI, smul_eq_mul]
+    -- Differentiability
+    have hdiffI_smul : DifferentiableAt ℝ g2 z := hdiffI.const_smul Complex.I
+    have hdiff_sum : DifferentiableAt ℝ (g1 + g2) z := hdiff1.add hdiffI_smul
+    -- fderiv of sum
+    have hfderiv_sum : fderiv ℝ (g1 + g2) z = fderiv ℝ g1 z + fderiv ℝ g2 z :=
+      fderiv_add hdiff1 hdiffI_smul
+    -- fderiv of const • g
+    have hfderiv_g2 : fderiv ℝ g2 z = Complex.I • fderiv ℝ gI z :=
+      fderiv_const_smul hdiffI Complex.I
+    -- Now compute
+    calc fderiv ℝ (wirtingerDerivBar f) z u
+      _ = fderiv ℝ (fun z' => (1/2 : ℂ) * (fderiv ℝ f z' 1 + Complex.I * fderiv ℝ f z' Complex.I)) z u := by
+          rw [heq]
+      _ = fderiv ℝ ((1/2 : ℂ) • (g1 + g2)) z u := by
+          apply congrArg (fun h => fderiv ℝ h z u)
+          ext w; simp only [Pi.smul_apply, Pi.add_apply, smul_eq_mul, g1, g2, gI]
+      _ = ((1/2 : ℂ) • fderiv ℝ (g1 + g2) z) u := by rw [fderiv_const_smul hdiff_sum]
+      _ = (1/2 : ℂ) • (fderiv ℝ (g1 + g2) z u) := rfl
+      _ = (1/2 : ℂ) • ((fderiv ℝ g1 z + fderiv ℝ g2 z) u) := by rw [hfderiv_sum]
+      _ = (1/2 : ℂ) • (fderiv ℝ g1 z u + fderiv ℝ g2 z u) := rfl
+      _ = (1/2 : ℂ) • (D2 u 1 + (Complex.I • fderiv ℝ gI z) u) := by rw [hD2_apply u 1, hfderiv_g2]
+      _ = (1/2 : ℂ) • (D2 u 1 + Complex.I • D2 u Complex.I) := by
+          -- fderiv ℝ gI z = fderiv ℝ (fun w => fderiv ℝ f w Complex.I) z
+          -- and hD2_apply says fderiv ℝ (fun w => fderiv ℝ f w Complex.I) z u = D2 u Complex.I
+          have : fderiv ℝ gI z u = D2 u Complex.I := hD2_apply u Complex.I
+          simp only [ContinuousLinearMap.smul_apply, this]
+      _ = (1/2 : ℂ) * (D2 u 1 + Complex.I * D2 u Complex.I) := by simp only [smul_eq_mul]
+
+  have hfderiv_hol_apply : ∀ u, fderiv ℝ (wirtingerDeriv f) z u =
+      (1/2 : ℂ) * (D2 u 1 - Complex.I * D2 u Complex.I) := by
+    intro u
+    have heq : wirtingerDeriv f = fun z' =>
+        (1/2 : ℂ) * (fderiv ℝ f z' 1 - Complex.I * fderiv ℝ f z' Complex.I) := by
+      ext z'; exact heq_hol z'
+    let g1 : ℂ → ℂ := fun w => fderiv ℝ f w 1
+    let gI : ℂ → ℂ := fun w => fderiv ℝ f w Complex.I
+    let g2 : ℂ → ℂ := Complex.I • gI
+    have hg2_eq : g2 = fun w => Complex.I * fderiv ℝ f w Complex.I := by
+      ext w; simp [g2, gI, smul_eq_mul]
+    have hdiffI_smul : DifferentiableAt ℝ g2 z := hdiffI.const_smul Complex.I
+    have hdiff_sub : DifferentiableAt ℝ (g1 - g2) z := hdiff1.sub hdiffI_smul
+    have hfderiv_sub : fderiv ℝ (g1 - g2) z = fderiv ℝ g1 z - fderiv ℝ g2 z :=
+      fderiv_sub hdiff1 hdiffI_smul
+    have hfderiv_g2 : fderiv ℝ g2 z = Complex.I • fderiv ℝ gI z :=
+      fderiv_const_smul hdiffI Complex.I
+    calc fderiv ℝ (wirtingerDeriv f) z u
+      _ = fderiv ℝ (fun z' => (1/2 : ℂ) * (fderiv ℝ f z' 1 - Complex.I * fderiv ℝ f z' Complex.I)) z u := by
+          rw [heq]
+      _ = fderiv ℝ ((1/2 : ℂ) • (g1 - g2)) z u := by
+          apply congrArg (fun h => fderiv ℝ h z u)
+          ext w; simp only [Pi.smul_apply, Pi.sub_apply, smul_eq_mul, g1, g2, gI]
+      _ = ((1/2 : ℂ) • fderiv ℝ (g1 - g2) z) u := by rw [fderiv_const_smul hdiff_sub]
+      _ = (1/2 : ℂ) • (fderiv ℝ (g1 - g2) z u) := rfl
+      _ = (1/2 : ℂ) • ((fderiv ℝ g1 z - fderiv ℝ g2 z) u) := by rw [hfderiv_sub]
+      _ = (1/2 : ℂ) • (fderiv ℝ g1 z u - fderiv ℝ g2 z u) := rfl
+      _ = (1/2 : ℂ) • (D2 u 1 - (Complex.I • fderiv ℝ gI z) u) := by rw [hD2_apply u 1, hfderiv_g2]
+      _ = (1/2 : ℂ) • (D2 u 1 - Complex.I • D2 u Complex.I) := by
+          have : fderiv ℝ gI z u = D2 u Complex.I := hD2_apply u Complex.I
+          simp only [ContinuousLinearMap.smul_apply, this]
+      _ = (1/2 : ℂ) * (D2 u 1 - Complex.I * D2 u Complex.I) := by simp only [smul_eq_mul]
+
+  -- Now compute both sides
+  -- LHS = wirtingerDeriv (wirtingerDerivBar f) z
+  --     = (1/2)(fderiv ℝ (wirtingerDerivBar f) z 1 - I * fderiv ℝ (wirtingerDerivBar f) z I)
+  -- RHS = wirtingerDerivBar (wirtingerDeriv f) z
+  --     = (1/2)(fderiv ℝ (wirtingerDeriv f) z 1 + I * fderiv ℝ (wirtingerDeriv f) z I)
+
+  -- Expand wirtingerDeriv (wirtingerDerivBar f) z
+  have hLHS : wirtingerDeriv (wirtingerDerivBar f) z =
+      (1/2 : ℂ) * (fderiv ℝ (wirtingerDerivBar f) z 1 -
+                   Complex.I * fderiv ℝ (wirtingerDerivBar f) z Complex.I) := by
+    unfold wirtingerDeriv; ring
+
+  -- Expand wirtingerDerivBar (wirtingerDeriv f) z
+  have hRHS : wirtingerDerivBar (wirtingerDeriv f) z =
+      (1/2 : ℂ) * (fderiv ℝ (wirtingerDeriv f) z 1 +
+                   Complex.I * fderiv ℝ (wirtingerDeriv f) z Complex.I) := by
+    unfold wirtingerDerivBar; ring
+
+  rw [hLHS, hRHS, hfderiv_bar_apply 1, hfderiv_bar_apply Complex.I,
+      hfderiv_hol_apply 1, hfderiv_hol_apply Complex.I]
+  -- Now both sides are expressions in D2
+  rw [hsymm_1_I]
+  ring
 
 end RiemannSurfaces.Analytic.Infrastructure

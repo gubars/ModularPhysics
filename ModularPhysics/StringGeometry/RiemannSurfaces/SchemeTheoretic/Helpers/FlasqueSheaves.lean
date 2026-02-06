@@ -82,6 +82,55 @@ theorem cocycle_at_simplex (F : OModule X) (𝒰 : OpenCover X)
   -- Evaluate at σ
   exact congrFun h σ
 
+/-!
+### Infrastructure for flasque_H1_zero
+
+The proof of H¹ = 0 for flasque sheaves requires careful handling of
+the cocycle condition and the flasque extension property.
+-/
+
+/-- The 1-cocycle condition in explicit form.
+
+    For σ = (i₀, i₁, i₂), the cocycle condition says:
+    c(i₁,i₂)|_{triple} - c(i₀,i₂)|_{triple} + c(i₀,i₁)|_{triple} = 0
+
+    This is the key constraint that makes the construction work. -/
+theorem cocycle_explicit (F : OModule X) (𝒰 : OpenCover X)
+    (c : CechCocycles F 𝒰 1) (i₀ i₁ i₂ : 𝒰.I) :
+    let σ : Fin 3 → 𝒰.I := ![i₀, i₁, i₂]
+    -- The three face contributions sum to zero:
+    -- c(i₁,i₂) - c(i₀,i₂) + c(i₀,i₁) = 0 (all restricted to triple)
+    (cechDifferential F 𝒰 1 c.val) σ = 0 :=
+  cocycle_at_simplex F 𝒰 c _
+
+/-- For flasque sheaves, sections can be extended from any open to any larger open.
+    This is the key property used in constructing the primitive. -/
+theorem flasque_extend (F : OModule X) [IsFlasque F] (U V : Opens X.carrier) (hUV : U ≤ V)
+    (s : F.val.obj (Opposite.op U)) :
+    ∃ t : F.val.obj (Opposite.op V), F.val.map (homOfLE hUV).op t = s :=
+  IsFlasque.restriction_surjective U V hUV s
+
+/-- The d⁰ differential applied to a 0-cochain b at a 1-simplex σ = (i, j).
+
+    (d⁰b)(i,j) = b(j)|_{U_i∩U_j} - b(i)|_{U_i∩U_j}
+
+    This formula makes explicit what db = c means: for each pair (i,j),
+    the difference of restrictions equals c(i,j). -/
+theorem d0_explicit (F : OModule X) (𝒰 : OpenCover X)
+    (b : CechCochain F 𝒰 0) (i j : 𝒰.I) :
+    let σ : Fin 2 → 𝒰.I := ![i, j]
+    (cechDifferential F 𝒰 0 b) σ =
+      restrictionToFace F 𝒰 σ 0 (b (faceMap 0 σ)) -
+      restrictionToFace F 𝒰 σ 1 (b (faceMap 1 σ)) := by
+  simp only [cechDifferential]
+  -- Sum over j : Fin 2 with alternating signs
+  rw [Fin.sum_univ_two]
+  simp only [Fin.val_zero, pow_zero, one_smul, Fin.val_one, pow_one]
+  -- (-1)^1 = -1
+  norm_num
+  -- Now we have: term0 + (-term1) = term0 - term1
+  rw [sub_eq_add_neg]
+
 /-- Flasque sheaves have H¹ = 0.
 
     **Proof strategy:**

@@ -148,11 +148,205 @@ noncomputable def laplacian_dbar_fun (f : SmoothFunction RS) : SmoothFunction RS
 def SmoothFunction.IsHarmonic (f : SmoothFunction RS) : Prop :=
   laplacian_dbar_fun f = 0
 
+/-- For MDifferentiable functions on a Riemann surface with 𝓘(ℂ, ℂ) model,
+    the chart expression is ℂ-differentiable at every point in the chart target.
+
+    This is the key infrastructure lemma: MDifferentiable f means f ∘ (chartAt q)⁻¹ is
+    ℂ-differentiable at chartAt q for every q. We want to show that for a fixed chart e,
+    f ∘ e.symm is ℂ-differentiable at every point z ∈ e.target.
+
+    The proof uses:
+    1. For z ∈ e.target, let q = e.symm z, so q ∈ e.source
+    2. f is MDifferentiableAt at q
+    3. Let e' = chartAt ℂ q (could differ from e)
+    4. Then f ∘ e'.symm is DifferentiableAt at e' q
+    5. On the overlap, e' ∘ e.symm is holomorphic (chart compatibility)
+    6. f ∘ e.symm = (f ∘ e'.symm) ∘ (e' ∘ e.symm) locally
+    7. Composition of holomorphic functions is holomorphic -/
+theorem mdifferentiable_chart_diffAt {M : Type*} [TopologicalSpace M] [ChartedSpace ℂ M]
+    [IsManifold 𝓘(ℂ, ℂ) ⊤ M] {f : M → ℂ} (hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f)
+    (e : OpenPartialHomeomorph M ℂ) (he : e ∈ atlas ℂ M) (z : ℂ) (hz : z ∈ e.target) :
+    DifferentiableAt ℂ (f ∘ e.symm) z := by
+  -- q = e.symm z is in e.source
+  let q := e.symm z
+  have hq_source : q ∈ e.source := e.map_target hz
+
+  -- f is MDifferentiableAt at q
+  have hmdiff_q : MDifferentiableAt 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f q := hmDiff q
+
+  -- The canonical chart at q
+  let e' := chartAt ℂ q
+  have hq_e'_source : q ∈ e'.source := mem_chart_source ℂ q
+
+  -- Target chart simplifies (target is ℂ)
+  have htarget : extChartAt 𝓘(ℂ, ℂ) (f q) = PartialEquiv.refl ℂ := by simp only [mfld_simps]
+  have hrange : Set.range (𝓘(ℂ, ℂ) : ℂ → ℂ) = Set.univ := by simp
+
+  -- Use mdifferentiableAt_iff_of_mem_source
+  have hfq_source : f q ∈ (chartAt ℂ (f q)).source := mem_chart_source ℂ (f q)
+  rw [mdifferentiableAt_iff_of_mem_source hq_e'_source hfq_source] at hmdiff_q
+
+  -- Extract: f ∘ e'.symm is DifferentiableWithinAt at e' q
+  simp only [hrange, htarget, PartialEquiv.refl_coe] at hmdiff_q
+  have hdiff_e' : DifferentiableAt ℂ (f ∘ e'.symm) (e' q) := by
+    have hfun_eq : id ∘ f ∘ (extChartAt 𝓘(ℂ, ℂ) q).symm = f ∘ e'.symm := by
+      ext w
+      simp only [Function.comp_apply, id_eq, extChartAt, OpenPartialHomeomorph.extend_coe_symm,
+        modelWithCornersSelf_coe_symm, e']
+    rw [hfun_eq] at hmdiff_q
+    exact hmdiff_q.2.differentiableAt Filter.univ_mem
+
+  -- Now we need to relate f ∘ e.symm to f ∘ e'.symm
+  -- On the overlap: f ∘ e.symm = (f ∘ e'.symm) ∘ (e' ∘ e.symm)
+
+  -- e' ∘ e.symm is the transition map, which is holomorphic on its domain
+  -- Since both e and e' are in the atlas, e' ∘ e.symm is smooth (actually holomorphic for Riemann surfaces)
+
+  -- The point z satisfies: e.symm z = q ∈ e'.source (since q ∈ e.source and e' = chartAt q)
+  have hq_e'_source' : e.symm z ∈ e'.source := hq_e'_source
+
+  -- On a neighborhood of z, e' ∘ e.symm is well-defined and holomorphic
+  -- and f ∘ e.symm = (f ∘ e'.symm) ∘ (e' ∘ e.symm)
+
+  -- Chart transition is differentiable (holomorphic for Riemann surfaces)
+  have htrans_diff : DifferentiableAt ℂ (e' ∘ e.symm) z := by
+    -- e.symm is continuous, e' is a chart, on the overlap the transition is smooth
+    -- For 𝓘(ℂ, ℂ) (holomorphic atlas), transitions are holomorphic
+    have he' : e' ∈ atlas ℂ M := chart_mem_atlas ℂ q
+    -- The transition e' ∘ e.symm is smooth on e.target ∩ e'.symm.source (the overlap in ℂ)
+    -- For a Riemann surface atlas, this is actually holomorphic
+    -- Use StructureGroupoid.compatible to get membership in contDiffGroupoid
+    have hmem : e.symm ≫ₕ e' ∈ contDiffGroupoid ⊤ 𝓘(ℂ, ℂ) :=
+      StructureGroupoid.compatible (contDiffGroupoid ⊤ 𝓘(ℂ, ℂ)) he he'
+    -- Extract ContDiffOn from membership in contDiffGroupoid
+    rw [contDiffGroupoid, mem_groupoid_of_pregroupoid] at hmem
+    -- hmem.1 : contDiffPregroupoid property for e.symm ≫ₕ e'
+    -- For 𝓘(ℂ, ℂ), this simplifies to ContDiffOn ℂ ⊤ (e.symm ≫ₕ e') (e.symm ≫ₕ e').source
+    have hcd_source : ContDiffOn ℂ ⊤ (𝓘(ℂ, ℂ) ∘ (e.symm ≫ₕ e') ∘ 𝓘(ℂ, ℂ).symm)
+        (𝓘(ℂ, ℂ).symm ⁻¹' (e.symm ≫ₕ e').source ∩ Set.range 𝓘(ℂ, ℂ)) := hmem.1
+    simp only [modelWithCornersSelf_coe, modelWithCornersSelf_coe_symm, Function.comp_id,
+        Set.range_id, Set.inter_univ] at hcd_source
+    -- hcd_source : ContDiffOn ℂ ⊤ (e.symm ≫ₕ e') (e.symm ≫ₕ e').source
+    -- The source is e.symm.source ∩ e.symm ⁻¹' e'.source = e.target ∩ e.symm ⁻¹' e'.source
+    have hsymm_source : e.symm.source = e.target := rfl
+    have hdom : z ∈ e.target ∩ e.symm ⁻¹' e'.source := by
+      constructor
+      · exact hz
+      · simp only [Set.mem_preimage]
+        exact hq_e'_source'
+    -- The domain of e.symm ≫ₕ e' is exactly e.target ∩ e.symm ⁻¹' e'.source
+    have hsource_eq : (e.symm ≫ₕ e').source = e.target ∩ e.symm ⁻¹' e'.source := by
+      simp only [OpenPartialHomeomorph.trans_source, hsymm_source]
+    -- ContDiffOn ⊤ implies DifferentiableOn, which gives DifferentiableWithinAt
+    have hcd : ContDiffWithinAt ℂ ⊤ (e.symm ≫ₕ e') (e.target ∩ e.symm ⁻¹' e'.source) z := by
+      rw [← hsource_eq]
+      exact hcd_source z (by rw [hsource_eq]; exact hdom)
+    -- Convert to DifferentiableAt using that the domain is open
+    have hopen : IsOpen (e.target ∩ e.symm ⁻¹' e'.source) := by
+      rw [← hsource_eq]
+      exact (e.symm ≫ₕ e').open_source
+    have hdw : DifferentiableWithinAt ℂ (e.symm ≫ₕ e') (e.target ∩ e.symm ⁻¹' e'.source) z :=
+      hcd.differentiableWithinAt (WithTop.top_ne_zero)
+    -- Convert DifferentiableWithinAt to DifferentiableAt using that z is in the interior
+    have hda := DifferentiableWithinAt.differentiableAt hdw (IsOpen.mem_nhds hopen hdom)
+    -- Finally, (e.symm ≫ₕ e') = e' ∘ e.symm on the domain
+    have hcomp : e' ∘ e.symm =ᶠ[nhds z] (e.symm ≫ₕ e') := by
+      rw [Filter.eventuallyEq_iff_exists_mem]
+      use e.target ∩ e.symm ⁻¹' e'.source, IsOpen.mem_nhds hopen hdom
+      intro w _
+      rfl
+    exact hda.congr_of_eventuallyEq hcomp.symm
+
+  -- Now compose: f ∘ e.symm = (f ∘ e'.symm) ∘ (e' ∘ e.symm)
+  have hcomp_eq : f ∘ e.symm =ᶠ[nhds z] (f ∘ e'.symm) ∘ (e' ∘ e.symm) := by
+    rw [Filter.eventuallyEq_iff_exists_mem]
+    -- On e.target ∩ e.symm⁻¹(e'.source), we have e'.symm (e' (e.symm w)) = e.symm w
+    have hsymm_source' : e.symm.source = e.target := rfl
+    have hsource_eq : (e.symm ≫ₕ e').source = e.target ∩ e.symm ⁻¹' e'.source := by
+      simp only [OpenPartialHomeomorph.trans_source, hsymm_source']
+    have hopen : IsOpen (e.target ∩ e.symm ⁻¹' e'.source) := by
+      rw [← hsource_eq]
+      exact (e.symm ≫ₕ e').open_source
+    use e.target ∩ e.symm ⁻¹' e'.source
+    constructor
+    · apply IsOpen.mem_nhds hopen
+      exact ⟨hz, hq_e'_source'⟩
+    · intro w ⟨_, hw_preimage⟩
+      simp only [Function.comp_apply]
+      -- e'.symm (e' (e.symm w)) = e.symm w when e.symm w ∈ e'.source
+      have hw_e'_source : e.symm w ∈ e'.source := hw_preimage
+      rw [e'.left_inv hw_e'_source]
+
+  -- Composition of differentiable functions is differentiable
+  -- First show the composed function is differentiable
+  have hcomp_diff : DifferentiableAt ℂ (fun w => f (e'.symm (e' (e.symm w)))) z := by
+    have h1 : DifferentiableAt ℂ (e' ∘ e.symm) z := htrans_diff
+    have h2 : DifferentiableAt ℂ (f ∘ e'.symm) ((e' ∘ e.symm) z) := by
+      have heq : (e' ∘ e.symm) z = e' q := rfl
+      rw [heq]
+      exact hdiff_e'
+    exact h2.comp z h1
+
+  -- Now use that on the overlap, e'.symm (e' (e.symm w)) = e.symm w
+  exact hcomp_diff.congr_of_eventuallyEq hcomp_eq
+
 /-- Holomorphic functions are harmonic -/
 theorem holomorphic_implies_harmonic (f : SmoothFunction RS) (hf : f.IsHolomorphic) :
     f.IsHarmonic := by
   -- If ∂̄f = 0, then Δf = 4∂∂̄f = 4∂(0) = 0
-  sorry
+  letI := RS.topology
+  letI := RS.chartedSpace
+  unfold SmoothFunction.IsHarmonic laplacian_dbar_fun
+  congr 1
+  funext p
+
+  -- Get the chart at p
+  let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+  have he : e ∈ atlas ℂ RS.carrier := chart_mem_atlas ℂ p
+
+  -- Extract MDifferentiability from IsHolomorphic
+  have hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun :=
+    (isHolomorphic_iff_mDifferentiable f).mp hf
+
+  haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+  have hp_source : p ∈ e.source := mem_chart_source ℂ p
+  have heP_target : e p ∈ e.target := e.map_source hp_source
+
+  -- Key: wirtingerDerivBar (f ∘ e.symm) = 0 on e.target
+  have hwbar_all : ∀ z ∈ e.target, wirtingerDeriv_zbar (f.toFun ∘ e.symm) z = 0 := by
+    intro z hz
+    -- By mdifferentiable_chart_diffAt, f ∘ e.symm is ℂ-differentiable at z
+    have hdiff_z : DifferentiableAt ℂ (f.toFun ∘ e.symm) z :=
+      mdifferentiable_chart_diffAt hmDiff e he z hz
+    -- ℂ-differentiable implies wirtingerDerivBar = 0
+    simp only [wirtingerDeriv_zbar]
+    exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp hdiff_z).2
+
+  -- wirtingerDerivBar (f ∘ e.symm) equals the zero function on the open set e.target
+  -- Hence fderiv of this function at any point in e.target is zero
+  -- Hence wirtingerDeriv at e p is zero
+
+  have htarget_open : IsOpen e.target := e.open_target
+
+  -- The function wirtingerDerivBar (f ∘ e.symm) is locally constant (= 0)
+  -- fderiv of a locally constant function is zero
+  have hfderiv_zero : fderiv ℝ (fun z => wirtingerDeriv_zbar (f.toFun ∘ e.symm) z) (e p) = 0 := by
+    -- Use that f is locally zero on e.target
+    have hlocal_zero : (fun z => wirtingerDeriv_zbar (f.toFun ∘ e.symm) z) =ᶠ[nhds (e p)] 0 := by
+      rw [Filter.eventuallyEq_iff_exists_mem]
+      use e.target, IsOpen.mem_nhds htarget_open heP_target
+      intro z hz
+      exact hwbar_all z hz
+    -- fderiv of a function that is locally constant zero is zero
+    have hfderiv_const : fderiv ℝ (fun _ : ℂ => (0 : ℂ)) (e p) = 0 := fderiv_const_apply 0
+    rw [hlocal_zero.fderiv_eq]
+    exact hfderiv_const
+
+  -- Now compute wirtingerDeriv
+  simp only [wirtingerDeriv_z]
+  unfold Infrastructure.wirtingerDeriv
+  rw [hfderiv_zero]
+  simp
 
 /-!
 ## Harmonic 1-Forms

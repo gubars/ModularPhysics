@@ -1,6 +1,6 @@
 import ModularPhysics.StringGeometry.SuperRiemannSurfaces.Basic
 import ModularPhysics.StringGeometry.Supermanifolds.Supermanifolds
-import ModularPhysics.StringGeometry.RiemannSurfaces.Algebraic.VectorBundles
+import ModularPhysics.StringGeometry.RiemannSurfaces.GAGA.Moduli.VectorBundles
 
 /-!
 # Supermoduli Space of Super Riemann Surfaces

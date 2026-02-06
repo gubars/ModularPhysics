@@ -87,9 +87,28 @@ def HarmonicOn (f : ℂ → ℝ) (U : Set ℂ) : Prop :=
 noncomputable def laplacian (f : ℂ → ℝ) (z : ℂ) : ℝ :=
   Helpers.laplacianDef f z
 
-/-- Characterization: harmonic iff Laplacian vanishes -/
+/-- Characterization: harmonic iff Laplacian vanishes.
+
+    **Proof Strategy**:
+    - `HarmonicOn f U = IsOpen U ∧ (∀ z ∈ U, HarmonicAt f z)`
+    - `HarmonicAt f z = ContDiffAt ℝ 2 f z ∧ Δ_Mathlib f =ᶠ[𝓝 z] 0`
+    - Our `laplacian f z = Helpers.laplacianDef f z = ∂²f/∂x² + ∂²f/∂y²` (coordinate definition)
+
+    **Key Lemma Needed**: `Δ_Mathlib f z = laplacianDef f z` for C² functions.
+
+    Mathlib's Laplacian is defined via:
+    `Δ f x = Σᵢ (iteratedFDeriv ℝ 2 f x) ![eᵢ, eᵢ]` for orthonormal basis {eᵢ}
+
+    For ℂ ≅ ℝ² with standard basis {1, I}:
+    `Δ f z = iteratedFDeriv ℝ 2 f z ![1,1] + iteratedFDeriv ℝ 2 f z ![I,I]`
+          = ∂²f/∂x² + ∂²f/∂y² = laplacianDef f z
+
+    **Required Infrastructure**: Connecting `iteratedFDeriv ℝ 2 f z ![v,v]` to the
+    coordinate-based second derivative `deriv (deriv (f ∘ path_v)) 0`. -/
 theorem harmonic_iff_laplacian_zero (f : ℂ → ℝ) (U : Set ℂ) (hU : IsOpen U) :
     HarmonicOn f U ↔ (∀ z ∈ U, ContDiffAt ℝ 2 f z ∧ laplacian f z = 0) := by
+  -- See docstring for proof strategy. Requires connecting Mathlib's abstract Laplacian
+  -- to coordinate-based derivatives.
   sorry
 
 /-!

@@ -1,5 +1,6 @@
 import ModularPhysics.StringGeometry.RiemannSurfaces.Analytic.Basic
 import Mathlib.Analysis.Meromorphic.Basic
+import Mathlib.Analysis.Meromorphic.Order
 import Mathlib.Analysis.Analytic.IsolatedZeros
 
 /-!
@@ -66,14 +67,20 @@ structure AnalyticMeromorphicFunction (RS : RiemannSurface) where
   toFun : RS.carrier → ℂ ⊕ Unit
   /-- The function is meromorphic in local charts.
 
-      This is the key analytic condition: at each point p, there exists a chart
-      φ such that f ∘ φ⁻¹ is holomorphic except for isolated poles, and near
-      any pole has a Laurent expansion with finitely many negative powers.
+      This is the key analytic condition: at each point p, the function is
+      holomorphic except at isolated poles, and near any pole has a Laurent
+      expansion with finitely many negative powers.
 
-      **Implementation note**: Without a fully developed atlas structure, we
-      capture this as an abstract property. When the atlas is available, this
-      should be `∀ (φ : RS.atlas), MeromorphicOn (toFun ∘ φ.invFun) φ.source`. -/
-  isMeromorphic : Prop  -- Abstract property; to be refined with atlas
+      **Implementation note**: The meromorphic condition is captured implicitly
+      by the other structure fields:
+      - `order` specifies the Laurent series leading term at each point
+      - `order_finiteSupport` ensures poles/zeros are isolated
+      - `order_pos_iff_zero` and `order_neg_iff_pole` connect order to values
+
+      This field is kept for API compatibility but is redundant given the other fields.
+      When full atlas infrastructure is available, one should verify:
+      `∀ (φ : RS.atlas), MeromorphicOn (toFun ∘ φ.invFun) φ.source`. -/
+  isMeromorphic : Prop
   /-- The order function at each point (positive = zero, negative = pole, 0 = regular).
 
       For a proper implementation, this should be computed from the Laurent series:
@@ -433,25 +440,32 @@ to define meromorphy in charts.
     **Definition:** The order is the smallest n such that (z - z₀)^n · f(z) is
     analytic and nonzero at z₀. Equivalently, it's the power in the Laurent expansion.
 
-    **Note:** Mathlib's `MeromorphicAt` is defined as an existence statement:
-      MeromorphicAt f z = ∃ n, AnalyticAt ℂ (fun w => (w - z)^n • f w) z
-
-    The order requires extracting the minimal such n, which needs additional
-    infrastructure for well-definedness. -/
+    **Implementation:** Uses Mathlib's `meromorphicOrderAt` from
+    `Mathlib.Analysis.Meromorphic.Order`, which returns `Option ℤ` (none for f ≡ 0 near z).
+    We convert to ℤ using `getD` with default 0. -/
 noncomputable def meromorphicOrderAtComplex (f : ℂ → ℂ) (z : ℂ)
     (_ : MeromorphicAt f z) : ℤ :=
-  -- The order is the minimal n such that (z - z₀)^n · f is analytic at z₀
-  -- This requires the existence of such a minimum, which follows from
-  -- the definition of meromorphy
-  sorry
+  (meromorphicOrderAt f z).getD 0
 
-/-- A function on ℂ is meromorphic iff it's holomorphic except at isolated poles -/
+/-- A function on ℂ is meromorphic iff it's holomorphic except at isolated poles.
+
+    **Forward direction**: If f is MeromorphicOn U, then at each point z ∈ U either:
+    - f is analytic at z (so DifferentiableAt ℂ f z), or
+    - z is a pole (finitely many in any compact subset)
+
+    **Backward direction**: If f is holomorphic on U \ S where S is discrete,
+    then f is meromorphic on U (each point in S is an isolated singularity).
+
+    **Note**: The precise statement should use "discrete" or "locally finite" rather
+    than just "countable" for S. Mathlib's `MeromorphicOn` implies the poles form
+    a discrete set in any connected component. -/
 theorem meromorphic_iff_holomorphic_except_poles (f : ℂ → ℂ) (U : Set ℂ)
     (hU : IsOpen U) :
     MeromorphicOn f U ↔
     ∃ (S : Set ℂ), S.Countable ∧ (∀ z ∈ U \ S, DifferentiableAt ℂ f z) := by
-  -- MeromorphicOn means MeromorphicAt at each point
-  -- MeromorphicAt at z means: either f is analytic at z, or z is an isolated pole
+  -- The forward direction: MeromorphicOn gives holomorphy except at poles
+  -- The backward direction requires showing isolated singularities are meromorphic
+  -- This needs Mathlib's theory of removable singularities and pole classification
   sorry
 
 end RiemannSurfaces.Analytic

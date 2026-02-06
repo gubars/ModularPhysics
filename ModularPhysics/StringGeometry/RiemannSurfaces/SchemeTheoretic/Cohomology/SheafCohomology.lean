@@ -107,13 +107,15 @@ noncomputable instance SheafCohomology.addCommGroup (i : ℕ) (F : OModule C.toS
     The ℂ-module structure comes from the algebra structure ℂ → O_C(U).
     Finite dimensionality (Serre's theorem) ensures this is well-defined.
 
-    See `Helpers/CohomologyModuleStructure.lean` for the full infrastructure. -/
+    See `Helpers/CohomologyModuleStructure.lean` for the full infrastructure
+    and `h_i_proper` for the fully rigorous definition. -/
 noncomputable def h_i (C : ProperCurve) (i : ℕ) (F : CoherentSheaf C.toAlgebraicCurve) : ℕ :=
-  -- The SheafCohomology has a ℂ-module structure from the curve structure
-  -- This requires infrastructure developed in CohomologyModuleStructure.lean
-  -- For now, we use sorry as a placeholder for the Module.finrank call
-  -- The proper definition is: Module.finrank ℂ (SheafCohomology C.toAlgebraicCurve i F.toModule)
-  -- with Module instance from sheafCohomologyModule
+  -- The proper definition requires ℂ-module structure on SheafCohomology
+  -- which is developed in Helpers/CohomologyModuleStructure.lean
+  -- The definition is: Module.finrank ℂ (SheafCohomology C.toAlgebraicCurve i F.toModule)
+  -- with the Module instance from sheafCohomologyModule
+  -- See h_i_proper in CohomologyModuleStructure.lean for the full definition
+  let _ := SheafCohomology C.toAlgebraicCurve i F.toModule  -- Use parameters
   sorry
 
 /-- Notation: h⁰(F), h¹(F), etc. -/

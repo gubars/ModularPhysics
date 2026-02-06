@@ -89,8 +89,14 @@ noncomputable def wirtingerDeriv_zbar (f : ℂ → ℂ) (z : ℂ) : ℂ :=
 noncomputable def wirtingerDeriv_z (f : ℂ → ℂ) (z : ℂ) : ℂ :=
   Infrastructure.wirtingerDeriv f z
 
-/-- A function is holomorphic iff its ∂/∂z̄ derivative vanishes -/
-theorem holomorphic_iff_wirtinger_zbar_zero (f : ℂ → ℂ) (U : Set ℂ) (hU : IsOpen U) :
+/-- A function is holomorphic iff it's ℝ-differentiable and its ∂/∂z̄ derivative vanishes.
+
+    **Note**: The ℝ-differentiability hypothesis is necessary because the Wirtinger derivative
+    ∂f/∂z̄ is defined using the Fréchet derivative fderiv ℝ f z. Without ℝ-differentiability,
+    the Wirtinger derivative defaults to 0 (by convention for fderiv), which could falsely
+    suggest holomorphicity. -/
+theorem holomorphic_iff_wirtinger_zbar_zero (f : ℂ → ℂ) (U : Set ℂ) (hU : IsOpen U)
+    (hf_real : ∀ z ∈ U, DifferentiableAt ℝ f z) :
     DifferentiableOn ℂ f U ↔ ∀ z ∈ U, wirtingerDeriv_zbar f z = 0 := by
   -- Use the pointwise characterization from infrastructure
   constructor
@@ -101,11 +107,14 @@ theorem holomorphic_iff_wirtinger_zbar_zero (f : ℂ → ℂ) (U : Set ℂ) (hU 
     simp only [wirtingerDeriv_zbar]
     exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp hdiffAt).2
   · intro h z hz
-    -- Need to show DifferentiableWithinAt ℂ f U z
-    -- This requires showing f is R-differentiable with vanishing wirtingerDerivBar
-    -- The issue is we only know wirtingerDerivBar = 0, not that f is R-differentiable
-    -- For a complete proof, we'd need to assume R-differentiability too
-    sorry
+    -- We have ℝ-differentiability and vanishing wirtingerDerivBar
+    have hdiffR := hf_real z hz
+    have hbar := h z hz
+    simp only [wirtingerDeriv_zbar] at hbar
+    -- Use the infrastructure theorem: DifferentiableAt ℂ ↔ DifferentiableAt ℝ ∧ wirtingerDerivBar = 0
+    have hdiffC : DifferentiableAt ℂ f z :=
+      Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mpr ⟨hdiffR, hbar⟩
+    exact hdiffC.differentiableWithinAt
 
 /-!
 ## The ∂̄-Operator on Functions
@@ -114,7 +123,26 @@ theorem holomorphic_iff_wirtinger_zbar_zero (f : ℂ → ℂ) (U : Set ℂ) (hU 
 variable {RS : RiemannSurface}
 
 /-- The ∂̄-operator on smooth functions: ∂̄f = (∂f/∂z̄) dz̄.
-    This maps a smooth function to a (0,1)-form. -/
+    This maps a smooth function to a (0,1)-form.
+
+    **Definition**: At each point p, we compute the Wirtinger derivative ∂f/∂z̄ in the
+    local chart at p. The chart at p provides local coordinates z near p, and we compute
+    wirtingerDerivBar (f ∘ chart⁻¹) (chart p).
+
+    **Smoothness Proof Strategy**:
+    The resulting section is smooth because:
+    1. For any chart φ, the pullback (section ∘ φ⁻¹) needs to be ContDiff ℝ ⊤
+    2. At z ∈ φ.target, the value involves wirtingerDerivBar of f in the local chart at φ⁻¹(z)
+    3. By wirtingerDerivBar_contDiff, if g is C^{n+1} then wirtingerDerivBar g is C^n
+    4. Since f is ContMDiff ⊤ (smooth), f ∘ ψ⁻¹ is smooth for any chart ψ
+    5. The transition between different chart choices involves holomorphic transition maps
+
+    **Required Infrastructure**: The full proof requires showing that the function
+    p ↦ wirtingerDerivBar (f ∘ (chartAt ℂ p)⁻¹) ((chartAt ℂ p) p)
+    is globally smooth even though chartAt varies with p. This follows from:
+    - Transformation law: (∂̄f)_ψ = (∂̄f)_φ × conj(d(φψ⁻¹)) under coordinate change
+    - Holomorphic transition maps: d(φψ⁻¹) is smooth, conj is ℝ-smooth
+    - Gluing: local smoothness in each chart extends to global smoothness -/
 noncomputable def dbar_fun (f : SmoothFunction RS) : Form_01 RS :=
   ⟨fun p =>
     letI := RS.topology
@@ -123,32 +151,121 @@ noncomputable def dbar_fun (f : SmoothFunction RS) : Form_01 RS :=
     wirtingerDeriv_zbar (f.toFun ∘ e.symm) (e p),
    by
      letI := RS.topology; letI := RS.chartedSpace
-     sorry⟩  -- Smoothness of Wirtinger derivative
+     -- See docstring for proof strategy. Requires manifold gluing infrastructure.
+     sorry⟩
 
 /-- A smooth function is holomorphic iff ∂̄f = 0 -/
 def SmoothFunction.IsHolomorphic (f : SmoothFunction RS) : Prop :=
   dbar_fun f = 0
 
-/-- Holomorphicity is equivalent to MDifferentiability -/
+/-- Holomorphicity is equivalent to MDifferentiability.
+
+    **Proof Strategy**:
+    (→) If ∂̄f = 0, then at each point p, wirtingerDerivBar (f ∘ chart⁻¹) vanishes at chart(p).
+        By holomorphic_iff_wirtingerDerivBar_zero, f ∘ chart⁻¹ is ℂ-differentiable at chart(p).
+        This means f is MDifferentiable at p.
+
+    (←) If f is MDifferentiable, then f ∘ chart⁻¹ is ℂ-differentiable in each chart.
+        By holomorphic_iff_wirtingerDerivBar_zero, wirtingerDerivBar (f ∘ chart⁻¹) = 0.
+        Hence (∂̄f)(p) = 0 for all p.
+
+    **Note**: Since `SmoothFunction RS` already requires `ContMDiff 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) ⊤`,
+    both directions follow from:
+    - ContMDiff ⊤ implies MDifferentiable (by `ContMDiff.mdifferentiable`)
+    - ℂ-differentiability implies wirtingerDerivBar = 0 (by `holomorphic_iff_wirtingerDerivBar_zero`) -/
 theorem isHolomorphic_iff_mDifferentiable (f : SmoothFunction RS) :
     f.IsHolomorphic ↔
     (letI := RS.topology; letI := RS.chartedSpace
      MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun) := by
-  sorry
+  letI := RS.topology
+  letI := RS.chartedSpace
+  constructor
+  · -- (→) IsHolomorphic → MDifferentiable
+    -- Since f is a SmoothFunction, it's ContMDiff ⊤, which implies MDifferentiable
+    -- ContMDiff.mdifferentiable requires showing ⊤ ≠ 0 in the appropriate type
+    intro _
+    exact f.smooth'.mdifferentiable (by decide : (⊤ : WithTop ℕ∞) ≠ 0)
+  · -- (←) MDifferentiable → IsHolomorphic
+    -- Need to show dbar_fun f = 0, i.e., wirtingerDerivBar vanishes everywhere
+    intro hmdiff
+    unfold SmoothFunction.IsHolomorphic dbar_fun
+    -- Show the two Form_01 values are equal at each point
+    congr 1
+    funext p
+    simp only [wirtingerDeriv_zbar]
+    -- At each point p, we need wirtingerDerivBar (f ∘ chart⁻¹) (chart p) = 0
+    -- MDifferentiableAt in the 𝓘(ℂ, ℂ) model means the chart expression is ℂ-differentiable
+
+    -- Need the manifold instance
+    haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+
+    let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+    -- MDifferentiable gives MDifferentiableAt at p
+    have hmdiffAt : MDifferentiableAt 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun p := hmdiff p
+
+    -- MDifferentiableAt for 𝓘(ℂ, ℂ) means the chart-expressed function is ℂ-differentiable
+    -- mdifferentiableAt_iff_of_mem_source: MDifferentiableAt ↔ DifferentiableWithinAt in charts
+    have hp_source : p ∈ e.source := mem_chart_source ℂ p
+    have hfp_source : f.toFun p ∈ (chartAt ℂ (f.toFun p)).source := mem_chart_source ℂ (f.toFun p)
+
+    -- For 𝓘(ℂ, ℂ) model, extChartAt is essentially the chart itself
+    -- and DifferentiableWithinAt ℂ on range = univ means DifferentiableAt ℂ
+    rw [mdifferentiableAt_iff_of_mem_source hp_source hfp_source] at hmdiffAt
+
+    -- extChartAt for 𝓘(ℂ, ℂ) simplifies: it's just the chart
+    have hrange : Set.range (𝓘(ℂ, ℂ) : ℂ → ℂ) = Set.univ := by
+      simp only [modelWithCornersSelf_coe, Set.range_id]
+
+    -- Extract differentiability
+    have hdiff_within := hmdiffAt.2
+
+    -- For target ℂ (model space), extChartAt is identity
+    have htarget : extChartAt 𝓘(ℂ, ℂ) (f.toFun p) = PartialEquiv.refl ℂ := by simp only [mfld_simps]
+
+    -- For source, extChartAt.symm = chartAt.symm
+    have hsource_symm : ∀ z, (extChartAt 𝓘(ℂ, ℂ) p).symm z = e.symm z := by
+      intro z
+      simp only [extChartAt, OpenPartialHomeomorph.extend_coe_symm, modelWithCornersSelf_coe_symm,
+        Function.comp_apply, id_eq, e]
+
+    have hsource_val : extChartAt 𝓘(ℂ, ℂ) p p = e p := by simp only [mfld_simps, e]
+
+    -- Use MDifferentiableAt → DifferentiableAt for identity model charts
+    -- For 𝓘(ℂ, ℂ), MDifferentiableAt means the chart-expressed function is ℂ-differentiable
+    have hdiff : DifferentiableAt ℂ (f.toFun ∘ e.symm) (e p) := by
+      -- Simplify using 𝓘(ℂ, ℂ) identities
+      simp only [hrange, htarget, PartialEquiv.refl_coe, hsource_val] at hdiff_within
+      -- Now hdiff_within is: DifferentiableWithinAt ℂ (id ∘ f.toFun ∘ extChartAt.symm) univ (e p)
+      -- id ∘ f ∘ g = f ∘ g, and extChartAt.symm = e.symm by hsource_symm
+      have hfun_eq : id ∘ f.toFun ∘ (extChartAt 𝓘(ℂ, ℂ) p).symm = f.toFun ∘ e.symm := by
+        ext z
+        simp only [Function.comp_apply, id_eq, hsource_symm]
+      rw [hfun_eq] at hdiff_within
+      exact hdiff_within.differentiableAt Filter.univ_mem
+
+    -- By holomorphic_iff_wirtingerDerivBar_zero: ℂ-differentiable implies wirtingerDerivBar = 0
+    exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp hdiff).2
 
 /-!
 ## The ∂̄-Operator on (1,0)-Forms
 -/
 
 /-- The ∂̄-operator on (1,0)-forms: ∂̄(f dz) = (∂f/∂z̄) dz̄ ∧ dz.
-    This maps a (1,0)-form to a (1,1)-form. -/
+    This maps a (1,0)-form to a (1,1)-form.
+
+    **Definition**: For a (1,0)-form ω with local expression f(z) dz, we define
+    ∂̄ω = -(∂f/∂z̄) dz ∧ dz̄. The sign comes from dz̄ ∧ dz = -dz ∧ dz̄.
+
+    **Smoothness**: Same proof strategy as dbar_fun, requiring manifold gluing
+    for wirtingerDerivBar with varying charts. -/
 noncomputable def dbar_10 (ω : Form_10 RS) : Form_11 RS := by
   letI := RS.topology
   letI := RS.chartedSpace
   refine ⟨fun p => ?_, ?_⟩
   · let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
     exact -(wirtingerDeriv_zbar (ω.toSection ∘ e.symm) (e p))
-  · sorry
+  · -- See dbar_fun docstring for smoothness proof strategy (same argument applies).
+    sorry
 
 /-- A (1,0)-form is holomorphic iff ∂̄ω = 0 -/
 def Form_10.IsHolomorphic' (ω : Form_10 RS) : Prop :=
@@ -158,13 +275,20 @@ def Form_10.IsHolomorphic' (ω : Form_10 RS) : Prop :=
 ## Properties of ∂̄
 -/
 
-/-- ∂̄² = 0 on functions (maps to (0,2)-forms which vanish on Riemann surfaces) -/
+/-- ∂̄² = 0 on functions (maps to (0,2)-forms which vanish on Riemann surfaces).
+
+    **Proof Strategy**:
+    ∂̄²f = ∂̄(∂̄f) = ∂̄((∂f/∂z̄) dz̄) = (∂²f/∂z̄²) dz̄ ∧ dz̄.
+
+    But dz̄ ∧ dz̄ = 0 by antisymmetry of the wedge product!
+
+    Mathematically: on a 1-dimensional complex manifold, there are no (0,2)-forms
+    because we'd need two antiholomorphic differentials, but dz̄ ∧ dz̄ = 0. -/
 theorem dbar_dbar_fun (f : SmoothFunction RS) :
     dbar_10 (⟨(dbar_fun f).toSection, (dbar_fun f).smooth'⟩ : Form_10 RS) = 0 := by
-  -- On a Riemann surface, ∂̄ of a (0,1)-form would be a (0,2)-form,
-  -- but there are no (0,2)-forms on a 1-dim complex manifold.
-  -- Here we're abusing notation slightly - the proper statement is that
-  -- the Dolbeault complex terminates.
+  -- The key is that dz̄ ∧ dz̄ = 0, so any (0,2)-form vanishes on a Riemann surface.
+  -- Here we're computing ∂̄ of a (0,1)-form viewed as a (1,0)-form (abuse of notation).
+  -- The result should be the second Wirtinger derivative times dz̄ ∧ dz ∧ dz̄ = 0.
   sorry
 
 /-- Leibniz rule for ∂̄ on functions: ∂̄(fg) = f ∂̄g + g ∂̄f -/
