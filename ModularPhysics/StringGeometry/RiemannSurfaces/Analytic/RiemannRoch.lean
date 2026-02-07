@@ -149,17 +149,123 @@ theorem isLinIndepLS_empty (CRS : CompactRiemannSurface)
     IsLinIndepLS CRS D basis := by
   intro c _ i; exact Fin.elim0 i
 
+/-- Zero-counting principle for linear combinations in L(D).
+
+    A ℂ-linear combination of elements of L(D) that vanishes at
+    deg(D)+1 distinct regular points outside supp(D)
+    must vanish at all regular points.
+
+    **Proof idea:**
+    The linear combination g(p) = Σ cᵢ · fᵢ(p) is a meromorphic function:
+    1. g is holomorphic wherever all fᵢ are regular (from holomorphicAway)
+    2. The poles of g are bounded by D: at any point q, if all fᵢ have
+       order ≥ -D(q), then g has order ≥ -D(q)
+    3. If g vanishes at deg(D)+1 points outside supp(D), counting:
+       - Zeros contribute ≥ deg(D)+1 to the degree of div(g)
+       - Poles contribute ≥ -deg(D) to the degree of div(g)
+       - So deg(div(g)) ≥ 1 > 0
+    4. But by the argument principle, deg(div(g)) = 0 for any nonzero
+       meromorphic function on a compact surface
+    5. Therefore g ≡ 0 on the regular locus -/
+theorem zero_counting_linear_combination (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface) (hdeg : 0 ≤ D.degree)
+    {n : ℕ} (basis : Fin n → LinearSystem CRS.toRiemannSurface D)
+    (c : Fin n → ℂ)
+    (pts : Fin (D.degree.toNat + 1) → CRS.toRiemannSurface.carrier)
+    (hpts_inj : Function.Injective pts)
+    (hpts_reg : ∀ j i, 0 ≤ (basis i).fn.order (pts j))
+    (hpts_out : ∀ j, D.coeff (pts j) = 0)
+    (heval : ∀ j, Finset.univ.sum (fun i => c i * (basis i).fn.regularValue (pts j)) = 0) :
+    ∀ p, (∀ i, 0 ≤ (basis i).fn.order p) →
+      Finset.univ.sum (fun i => c i * (basis i).fn.regularValue p) = 0 := by
+  sorry
+
 /-- L(D) is finite-dimensional on compact Riemann surfaces:
     there exists N such that no family of N+1 elements in L(D) is ℂ-linearly independent.
 
-    This is a fundamental result of compact complex geometry: coherent sheaves
-    on compact complex manifolds have finite-dimensional cohomology. -/
+    **Proof (Riemann inequality):**
+    Any deg(D)+2 elements of L(D) must be linearly dependent. Choose deg(D)+1
+    distinct points outside supp(D) and evaluate. The evaluation vectors live in
+    ℂ^{deg(D)+1}, so deg(D)+2 of them are linearly dependent. By the zero-counting
+    principle, the nontrivial relation extends to all regular points, contradicting
+    linear independence. -/
 theorem h0_bounded (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) :
     ∃ N : ℕ, ∀ m, m > N →
       ¬ ∃ (basis : Fin m → LinearSystem CRS.toRiemannSurface D),
         IsLinIndepLS CRS D basis := by
-  sorry -- Requires: finite-dimensionality theorem for coherent sheaves on compact RS
+  -- Case 1: deg(D) < 0 → L(D) is empty
+  by_cases hdeg : D.degree < 0
+  · exact ⟨0, fun m hm ⟨basis, _⟩ =>
+      (linearSystem_empty_negative_degree CRS D hdeg).false (basis ⟨0, by omega⟩)⟩
+  -- Case 2: deg(D) ≥ 0
+  push_neg at hdeg
+  -- Bound: N = deg(D) + 1 (the Riemann inequality bound)
+  refine ⟨D.degree.toNat + 1, fun m hm ⟨basis, hli⟩ => ?_⟩
+  -- Define S = supp(D) ∪ ⋃ᵢ supp(basis(i).fn)
+  let S : Set CRS.toRiemannSurface.carrier :=
+    { p | D.coeff p ≠ 0 } ∪ (⋃ i : Fin m, { p | (basis i).fn.order p ≠ 0 })
+  have hS_finite : S.Finite := by
+    apply Set.Finite.union D.finiteSupport
+    exact Set.finite_iUnion (fun i => (basis i).fn.order_finiteSupport)
+  -- Sᶜ is infinite (carrier is infinite, S is finite)
+  haveI : Infinite CRS.toRiemannSurface.carrier :=
+    RiemannSurface.carrier_infinite CRS.toRiemannSurface
+  have hSc_inf : Sᶜ.Infinite := Set.Finite.infinite_compl hS_finite
+  -- Choose deg(D)+1 distinct points in Sᶜ using the natural embedding
+  let k := D.degree.toNat + 1
+  let emb := hSc_inf.natEmbedding
+  let pts : Fin k → CRS.toRiemannSurface.carrier := fun j => (emb j.val).val
+  have hpts_inj : Function.Injective pts := by
+    intro a b hab
+    exact Fin.val_injective (emb.injective (Subtype.val_injective hab))
+  -- The chosen points are outside S
+  have hpts_out : ∀ j : Fin k, pts j ∉ S := fun j => (emb j.val).property
+  -- Therefore: regular for all basis elements
+  have hpts_reg : ∀ (j : Fin k) (i : Fin m), 0 ≤ (basis i).fn.order (pts j) := by
+    intro j i
+    have h := hpts_out j
+    simp only [S, Set.mem_union, Set.mem_setOf_eq, Set.mem_iUnion, not_or, not_exists] at h
+    have := h.2 i
+    push_neg at this
+    omega
+  -- And outside supp(D)
+  have hpts_D : ∀ j : Fin k, D.coeff (pts j) = 0 := by
+    intro j
+    have h := hpts_out j
+    simp only [S, Set.mem_union, Set.mem_setOf_eq, not_or, Set.mem_iUnion, not_exists] at h
+    push_neg at h
+    exact h.1
+  -- Define evaluation vectors: v(i)(j) = basis(i).fn.regularValue(pts(j))
+  let v : Fin m → (Fin k → ℂ) := fun i j => (basis i).fn.regularValue (pts j)
+  -- v cannot be linearly independent (m > k = dim of codomain)
+  have hnotli : ¬LinearIndependent ℂ v := by
+    intro hli_v
+    have hcard := hli_v.fintype_card_le_finrank
+    simp only [Fintype.card_fin] at hcard
+    have hfr : Module.finrank ℂ (Fin k → ℂ) = k := by
+      rw [Module.finrank_pi, Fintype.card_fin]
+    rw [hfr] at hcard
+    omega
+  -- Extract nontrivial linear relation
+  rw [Fintype.linearIndependent_iff] at hnotli
+  push_neg at hnotli
+  obtain ⟨c, hsum, i₀, hi₀⟩ := hnotli
+  -- hsum : ∑ i, c i • v i = 0 (vector equation in Fin k → ℂ)
+  -- Extract component-wise: for each j, ∑ i, c i * basis(i).regularValue(pts j) = 0
+  have heval : ∀ j : Fin k,
+      Finset.univ.sum (fun i => c i * (basis i).fn.regularValue (pts j)) = 0 := by
+    intro j
+    have := congr_fun hsum j
+    simp only [Finset.sum_apply, Pi.smul_apply, smul_eq_mul, Pi.zero_apply] at this
+    exact this
+  -- Apply zero-counting principle
+  have hzc := zero_counting_linear_combination CRS D hdeg basis c pts hpts_inj
+    hpts_reg hpts_D heval
+  -- Apply IsLinIndepLS to get all c i = 0
+  have hall := hli c (fun p hreg => hzc p (fun i => hreg i))
+  -- But c i₀ ≠ 0, contradiction
+  exact hi₀ (hall i₀)
 
 /-- Helper: reformulation for Nat.find -/
 private theorem h0_find_pred (CRS : CompactRiemannSurface)

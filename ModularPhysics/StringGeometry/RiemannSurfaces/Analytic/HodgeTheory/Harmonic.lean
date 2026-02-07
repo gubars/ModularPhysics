@@ -83,33 +83,52 @@ def HarmonicAt (f : ℂ → ℝ) (z₀ : ℂ) : Prop :=
 def HarmonicOn (f : ℂ → ℝ) (U : Set ℂ) : Prop :=
   IsOpen U ∧ InnerProductSpace.HarmonicOnNhd f U
 
-/-- The Laplacian in complex coordinates: Δf = 4 ∂²f/∂z∂z̄ -/
-noncomputable def laplacian (f : ℂ → ℝ) (z : ℂ) : ℝ :=
-  Helpers.laplacianDef f z
+/-- The Laplacian of a function f : ℂ → ℝ, using Mathlib's abstract definition.
 
-/-- Characterization: harmonic iff Laplacian vanishes.
-
-    **Proof Strategy**:
-    - `HarmonicOn f U = IsOpen U ∧ (∀ z ∈ U, HarmonicAt f z)`
-    - `HarmonicAt f z = ContDiffAt ℝ 2 f z ∧ Δ_Mathlib f =ᶠ[𝓝 z] 0`
-    - Our `laplacian f z = Helpers.laplacianDef f z = ∂²f/∂x² + ∂²f/∂y²` (coordinate definition)
-
-    **Key Lemma Needed**: `Δ_Mathlib f z = laplacianDef f z` for C² functions.
-
-    Mathlib's Laplacian is defined via:
-    `Δ f x = Σᵢ (iteratedFDeriv ℝ 2 f x) ![eᵢ, eᵢ]` for orthonormal basis {eᵢ}
-
+    Mathlib defines `Δ f x = ∑ᵢ (iteratedFDeriv ℝ 2 f x) ![eᵢ, eᵢ]` for an orthonormal basis.
     For ℂ ≅ ℝ² with standard basis {1, I}:
-    `Δ f z = iteratedFDeriv ℝ 2 f z ![1,1] + iteratedFDeriv ℝ 2 f z ![I,I]`
-          = ∂²f/∂x² + ∂²f/∂y² = laplacianDef f z
+      Δ f z = iteratedFDeriv ℝ 2 f z ![1, 1] + iteratedFDeriv ℝ 2 f z ![I, I]
+            = ∂²f/∂x² + ∂²f/∂y²
 
-    **Required Infrastructure**: Connecting `iteratedFDeriv ℝ 2 f z ![v,v]` to the
-    coordinate-based second derivative `deriv (deriv (f ∘ path_v)) 0`. -/
+    This equals the coordinate definition `Helpers.laplacianDef` for C² functions.
+    We use Mathlib's definition for direct compatibility with `HarmonicAt`. -/
+noncomputable def laplacian (f : ℂ → ℝ) (z : ℂ) : ℝ :=
+  InnerProductSpace.laplacian f z
+
+/-- Characterization: harmonic iff C² and Laplacian vanishes.
+
+    `HarmonicOn f U = IsOpen U ∧ HarmonicOnNhd f U`
+    `HarmonicOnNhd f U = ∀ z ∈ U, HarmonicAt f z`
+    `HarmonicAt f z = ContDiffAt ℝ 2 f z ∧ Δ f =ᶠ[𝓝 z] 0`
+
+    Our `laplacian f z = InnerProductSpace.laplacian f z = Δ f z`, so:
+    - Forward: `Δ f =ᶠ[𝓝 z] 0` implies `Δ f z = 0` (evaluate at z)
+    - Backward: `∀ w ∈ U, Δ f w = 0` and U ∈ 𝓝 z gives `Δ f =ᶠ[𝓝 z] 0` -/
 theorem harmonic_iff_laplacian_zero (f : ℂ → ℝ) (U : Set ℂ) (hU : IsOpen U) :
     HarmonicOn f U ↔ (∀ z ∈ U, ContDiffAt ℝ 2 f z ∧ laplacian f z = 0) := by
-  -- See docstring for proof strategy. Requires connecting Mathlib's abstract Laplacian
-  -- to coordinate-based derivatives.
-  sorry
+  -- HarmonicOn f U = IsOpen U ∧ HarmonicOnNhd f U
+  -- HarmonicOnNhd f U = ∀ z ∈ U, HarmonicAt f z  (Mathlib)
+  -- HarmonicAt f z = ContDiffAt ℝ 2 f z ∧ Δ f =ᶠ[𝓝 z] 0  (Mathlib)
+  -- laplacian f z = InnerProductSpace.laplacian f z  (our def)
+  simp only [HarmonicOn]
+  constructor
+  · -- Forward: HarmonicOn → ∀ z ∈ U, ContDiffAt ∧ Δ f z = 0
+    intro ⟨_, hharm⟩ z hz
+    have hAt := hharm z hz
+    -- HarmonicAt = ContDiffAt ℝ 2 f z ∧ Δ f =ᶠ[𝓝 z] 0
+    refine ⟨hAt.1, ?_⟩
+    -- Δ f =ᶠ[𝓝 z] 0 → Δ f z = 0 (evaluate at z using self_of_nhds)
+    exact hAt.2.self_of_nhds
+  · -- Backward: ∀ z ∈ U, ContDiffAt ∧ Δ f z = 0 → HarmonicOn
+    intro h
+    refine ⟨hU, fun z hz => ?_⟩
+    obtain ⟨hsmooth, hlap⟩ := h z hz
+    refine ⟨hsmooth, ?_⟩
+    -- Need: Δ f =ᶠ[𝓝 z] 0
+    -- Since U is open and z ∈ U, U ∈ 𝓝 z
+    -- For all w ∈ U, Δ f w = 0 (by hypothesis h)
+    apply Filter.eventuallyEq_iff_exists_mem.mpr
+    exact ⟨U, hU.mem_nhds hz, fun w hw => (h w hw).2⟩
 
 /-!
 ## Mean Value Property

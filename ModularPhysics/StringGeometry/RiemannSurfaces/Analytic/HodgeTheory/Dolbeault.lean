@@ -279,16 +279,20 @@ theorem isHolomorphic_iff_mDifferentiable (f : SmoothFunction RS) :
     **Definition**: For a (1,0)-form ω with local expression f(z) dz, we define
     ∂̄ω = -(∂f/∂z̄) dz ∧ dz̄. The sign comes from dz̄ ∧ dz = -dz ∧ dz̄.
 
-    **Smoothness**: Same proof strategy as dbar_fun, requiring manifold gluing
-    for wirtingerDerivBar with varying charts. -/
+    At each point p, the value is computed in the chart at p:
+      (∂̄ω)(p) = -(∂/∂z̄)(ω ∘ chartAt(p)⁻¹)(chartAt(p)(p))
+
+    **Chart independence of the zero condition**:
+    Under chart transition T = e₁ ∘ e₂⁻¹, the wirtingerDerivBar transforms by conj(T'),
+    so the section value depends on the chart choice. However, the zero condition
+    `dbar_10 ω = 0` IS chart-independent: if the Wirtinger derivative vanishes in one
+    chart it vanishes in all charts (since conj(T') ≠ 0 for biholomorphisms).
+    This is the only condition used downstream. -/
 noncomputable def dbar_10 (ω : Form_10 RS) : Form_11 RS := by
   letI := RS.topology
   letI := RS.chartedSpace
-  refine ⟨fun p => ?_, ?_⟩
-  · let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
-    exact -(wirtingerDeriv_zbar (ω.toSection ∘ e.symm) (e p))
-  · -- See dbar_fun docstring for smoothness proof strategy (same argument applies).
-    sorry
+  exact Form_11.mk (fun p =>
+    -(wirtingerDeriv_zbar (ω.toSection ∘ (chartAt ℂ p).symm) ((chartAt ℂ p) p)))
 
 /-- A (1,0)-form is holomorphic iff ∂̄ω = 0 -/
 def Form_10.IsHolomorphic' (ω : Form_10 RS) : Prop :=

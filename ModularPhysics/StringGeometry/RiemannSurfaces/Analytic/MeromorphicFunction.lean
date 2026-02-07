@@ -507,25 +507,27 @@ noncomputable def meromorphicOrderAtComplex (f : ℂ → ℂ) (z : ℂ)
     (_ : MeromorphicAt f z) : ℤ :=
   (meromorphicOrderAt f z).getD 0
 
-/-- A function on ℂ is meromorphic iff it's holomorphic except at isolated poles.
+/-- A meromorphic function on an open set is holomorphic except at countably many poles.
 
-    **Forward direction**: If f is MeromorphicOn U, then at each point z ∈ U either:
-    - f is analytic at z (so DifferentiableAt ℂ f z), or
-    - z is a pole (finitely many in any compact subset)
+    If f is MeromorphicOn U, then the set of non-analytic points of f within U is
+    countable, and f is differentiable at all remaining points.
 
-    **Backward direction**: If f is holomorphic on U \ S where S is discrete,
-    then f is meromorphic on U (each point in S is an isolated singularity).
+    **Note**: The converse does NOT hold in general: a function holomorphic on U \ S
+    for countable S need not be meromorphic on U, because essential singularities
+    (e.g., e^{1/z} at z = 0) are holomorphic away from the singularity but not
+    meromorphic there.
 
-    **Note**: The precise statement should use "discrete" or "locally finite" rather
-    than just "countable" for S. Mathlib's `MeromorphicOn` implies the poles form
-    a discrete set in any connected component. -/
-theorem meromorphic_iff_holomorphic_except_poles (f : ℂ → ℂ) (U : Set ℂ)
-    (hU : IsOpen U) :
-    MeromorphicOn f U ↔
+    Uses Mathlib's `MeromorphicOn.countable_compl_analyticAt_inter`. -/
+theorem meromorphicOn_holomorphic_except_countable (f : ℂ → ℂ) (U : Set ℂ)
+    (_ : IsOpen U) (hf : MeromorphicOn f U) :
     ∃ (S : Set ℂ), S.Countable ∧ (∀ z ∈ U \ S, DifferentiableAt ℂ f z) := by
-  -- The forward direction: MeromorphicOn gives holomorphy except at poles
-  -- The backward direction requires showing isolated singularities are meromorphic
-  -- This needs Mathlib's theory of removable singularities and pole classification
-  sorry
+  -- Take S = the non-analytic points within U
+  refine ⟨{z | AnalyticAt ℂ f z}ᶜ ∩ U, hf.countable_compl_analyticAt_inter, ?_⟩
+  intro z ⟨hz_U, hz_notS⟩
+  -- z ∈ U and z ∉ S means AnalyticAt ℂ f z
+  have hanalytic : AnalyticAt ℂ f z := by
+    by_contra h
+    exact hz_notS ⟨h, hz_U⟩
+  exact hanalytic.differentiableAt
 
 end RiemannSurfaces.Analytic

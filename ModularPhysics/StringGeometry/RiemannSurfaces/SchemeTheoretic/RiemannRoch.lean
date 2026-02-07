@@ -93,6 +93,7 @@ noncomputable def pointExactSequence (D : Divisor C.toAlgebraicCurve) (p : C.Poi
   p := evaluationMorphism C D p
   mono_i := inclusionMorphism_mono C D p
   epi_p := evaluationMorphism_epi C D p
+  comp_zero := composition_zero C D p
   shortComplex := CategoryTheory.ShortComplex.mk
     (inclusionMorphism C D p)
     (evaluationMorphism C D p)

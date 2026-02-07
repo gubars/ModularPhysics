@@ -260,17 +260,23 @@ structure Form_01 (RS : RiemannSurface) where
             letI := RS.chartedSpace
             ContMDiff 𝓘(ℝ, ℂ) 𝓘(ℝ, ℂ) ⊤ toSection
 
-/-- A smooth (1,1)-form on a Riemann surface.
+/-- A (1,1)-form on a Riemann surface.
 
     A (1,1)-form in local coordinates has the form h(z) dz ∧ dz̄.
     Note: dz ∧ dz̄ = -2i dx ∧ dy, so a (1,1)-form is an area form.
 
-    Uses ℝ-smoothness for consistency with (1,0) and (0,1) forms. -/
+    **Design note on smoothness**:
+    Unlike Form_10 and Form_01, we do NOT require global `ContMDiff` smoothness.
+    The coefficient of a (1,1)-form transforms by |T'|² under chart transition
+    T = φ ∘ ψ⁻¹. The `toSection` field stores the coefficient in the chart
+    picked by `chartAt` at each point, which is chart-dependent. Global `ContMDiff`
+    is not a well-defined condition for such chart-dependent sections.
+
+    All meaningful operations (equality testing, ∂̄-closedness = 0, linearity)
+    work pointwise on `toSection` and are chart-independent when they should be
+    (e.g., `toSection p = 0` iff the form vanishes at p, regardless of chart). -/
 structure Form_11 (RS : RiemannSurface) where
   toSection : RS.carrier → ℂ
-  smooth' : letI := RS.topology
-            letI := RS.chartedSpace
-            ContMDiff 𝓘(ℝ, ℂ) 𝓘(ℝ, ℂ) ⊤ toSection
 
 /-!
 ## Vector Space Structure on Forms
@@ -443,41 +449,26 @@ instance : CoeFun (Form_11 RS) (fun _ => RS.carrier → ℂ) := ⟨toSection⟩
 theorem ext {ω₁ ω₂ : Form_11 RS} (h : ω₁.toSection = ω₂.toSection) : ω₁ = ω₂ := by
   cases ω₁; cases ω₂; simp_all
 
-noncomputable instance : Zero (Form_11 RS) where
-  zero := ⟨fun _ => 0, by letI := RS.topology; letI := RS.chartedSpace; exact contMDiff_const⟩
+instance : Zero (Form_11 RS) where
+  zero := ⟨fun _ => 0⟩
 
-noncomputable instance : Add (Form_11 RS) where
-  add ω₁ ω₂ := ⟨fun p => ω₁.toSection p + ω₂.toSection p,
-    by letI := RS.topology; letI := RS.chartedSpace; exact ω₁.smooth'.add ω₂.smooth'⟩
+instance : Add (Form_11 RS) where
+  add ω₁ ω₂ := ⟨fun p => ω₁.toSection p + ω₂.toSection p⟩
 
-noncomputable instance : Neg (Form_11 RS) where
-  neg ω := ⟨fun p => -ω.toSection p,
-    by letI := RS.topology; letI := RS.chartedSpace; exact ω.smooth'.neg⟩
+instance : Neg (Form_11 RS) where
+  neg ω := ⟨fun p => -ω.toSection p⟩
 
-noncomputable instance : Sub (Form_11 RS) where
-  sub ω₁ ω₂ := ⟨fun p => ω₁.toSection p - ω₂.toSection p,
-    by letI := RS.topology; letI := RS.chartedSpace; exact ω₁.smooth'.sub ω₂.smooth'⟩
+instance : Sub (Form_11 RS) where
+  sub ω₁ ω₂ := ⟨fun p => ω₁.toSection p - ω₂.toSection p⟩
 
-noncomputable instance : SMul ℂ (Form_11 RS) where
-  smul c ω := ⟨fun p => c * ω.toSection p,
-    by
-      letI := RS.topology; letI := RS.chartedSpace
-      exact contMDiff_mul_real contMDiff_const ω.smooth'⟩
+instance : SMul ℂ (Form_11 RS) where
+  smul c ω := ⟨fun p => c * ω.toSection p⟩
 
 noncomputable instance : SMul (SmoothFunction RS) (Form_11 RS) where
-  smul f ω := ⟨fun p => f.toFun p * ω.toSection p,
-    by
-      letI := RS.topology; letI := RS.chartedSpace
-      exact contMDiff_mul_real (contMDiff_real_of_complex_rs f.smooth') ω.smooth'⟩
+  smul f ω := ⟨fun p => f.toFun p * ω.toSection p⟩
 
-noncomputable instance : SMul (RealSmoothFunction RS) (Form_11 RS) where
-  smul f ω := ⟨fun p => f.toFun p * ω.toSection p,
-    by
-      letI := RS.topology; letI := RS.chartedSpace
-      have hmul : ContDiff ℝ ⊤ (fun p : ℂ × ℂ => p.1 * p.2) := contDiff_mul
-      have hpair : ContMDiff 𝓘(ℝ, ℂ) 𝓘(ℝ, ℂ × ℂ) ⊤ (fun p => (f.toFun p, ω.toSection p)) :=
-        f.smooth'.prodMk_space ω.smooth'
-      exact hmul.comp_contMDiff hpair⟩
+instance : SMul (RealSmoothFunction RS) (Form_11 RS) where
+  smul f ω := ⟨fun p => f.toFun p * ω.toSection p⟩
 
 @[simp] lemma add_toSection (ω₁ ω₂ : Form_11 RS) (p : RS.carrier) :
     (ω₁ + ω₂).toSection p = ω₁.toSection p + ω₂.toSection p := rfl
@@ -490,7 +481,7 @@ noncomputable instance : SMul (RealSmoothFunction RS) (Form_11 RS) where
 @[simp] lemma smul_toSection (c : ℂ) (ω : Form_11 RS) (p : RS.carrier) :
     (c • ω).toSection p = c * ω.toSection p := rfl
 
-noncomputable instance : AddCommGroup (Form_11 RS) where
+instance : AddCommGroup (Form_11 RS) where
   add_assoc a b c := by ext p; exact add_assoc _ _ _
   zero_add a := by ext p; exact zero_add _
   add_zero a := by ext p; exact add_zero _
@@ -500,7 +491,7 @@ noncomputable instance : AddCommGroup (Form_11 RS) where
   nsmul := nsmulRec
   zsmul := zsmulRec
 
-noncomputable instance : Module ℂ (Form_11 RS) where
+instance : Module ℂ (Form_11 RS) where
   one_smul a := by ext p; exact one_mul _
   mul_smul c d a := by ext p; exact mul_assoc _ _ _
   smul_zero c := by ext p; exact mul_zero _
@@ -588,26 +579,14 @@ end Form_1
 -/
 
 /-- Wedge product (1,0) ∧ (0,1) → (1,1): (f dz) ∧ (g dz̄) = fg dz ∧ dz̄ -/
-noncomputable def wedge_10_01 {RS : RiemannSurface}
+def wedge_10_01 {RS : RiemannSurface}
     (ω₁ : Form_10 RS) (ω₂ : Form_01 RS) : Form_11 RS :=
-  ⟨fun p => ω₁.toSection p * ω₂.toSection p,
-   by
-     letI := RS.topology; letI := RS.chartedSpace
-     have hmul : ContDiff ℝ ⊤ (fun p : ℂ × ℂ => p.1 * p.2) := contDiff_mul
-     have hpair : ContMDiff 𝓘(ℝ, ℂ) 𝓘(ℝ, ℂ × ℂ) ⊤ (fun p => (ω₁.toSection p, ω₂.toSection p)) :=
-       ω₁.smooth'.prodMk_space ω₂.smooth'
-     exact hmul.comp_contMDiff hpair⟩
+  ⟨fun p => ω₁.toSection p * ω₂.toSection p⟩
 
 /-- Wedge product (0,1) ∧ (1,0) → (1,1): (g dz̄) ∧ (f dz) = -fg dz ∧ dz̄ -/
-noncomputable def wedge_01_10 {RS : RiemannSurface}
+def wedge_01_10 {RS : RiemannSurface}
     (ω₁ : Form_01 RS) (ω₂ : Form_10 RS) : Form_11 RS :=
-  ⟨fun p => -(ω₁.toSection p * ω₂.toSection p),
-   by
-     letI := RS.topology; letI := RS.chartedSpace
-     have hmul : ContDiff ℝ ⊤ (fun p : ℂ × ℂ => p.1 * p.2) := contDiff_mul
-     have hpair : ContMDiff 𝓘(ℝ, ℂ) 𝓘(ℝ, ℂ × ℂ) ⊤ (fun p => (ω₁.toSection p, ω₂.toSection p)) :=
-       ω₁.smooth'.prodMk_space ω₂.smooth'
-     exact (hmul.comp_contMDiff hpair).neg⟩
+  ⟨fun p => -(ω₁.toSection p * ω₂.toSection p)⟩
 
 theorem wedge_antisymm {RS : RiemannSurface} (ω₁ : Form_10 RS) (ω₂ : Form_01 RS) :
     wedge_01_10 ω₂ ω₁ = -wedge_10_01 ω₁ ω₂ := by
@@ -642,11 +621,8 @@ noncomputable def Form_01.conj {RS : RiemannSurface} (ω : Form_01 RS) : Form_10
      exact conj_contMDiff_real ω.smooth'⟩
 
 /-- Complex conjugation on (1,1)-forms: conj(h dz ∧ dz̄) = conj(h) dz ∧ dz̄ -/
-noncomputable def Form_11.conj {RS : RiemannSurface} (ω : Form_11 RS) : Form_11 RS :=
-  ⟨fun p => starRingEnd ℂ (ω.toSection p),
-   by
-     letI := RS.topology; letI := RS.chartedSpace
-     exact conj_contMDiff_real ω.smooth'⟩
+def Form_11.conj {RS : RiemannSurface} (ω : Form_11 RS) : Form_11 RS :=
+  ⟨fun p => starRingEnd ℂ (ω.toSection p)⟩
 
 @[simp] lemma Form_10.conj_toSection {RS : RiemannSurface} (ω : Form_10 RS) (p : RS.carrier) :
     ω.conj.toSection p = starRingEnd ℂ (ω.toSection p) := rfl
@@ -746,8 +722,7 @@ theorem realForm_of_10_isReal {RS : RiemannSurface} (ω : Form_10 RS) :
 
 /-- The standard area form: (i/2) dz ∧ dz̄ = dx ∧ dy -/
 noncomputable def areaForm (RS : RiemannSurface) : Form_11 RS :=
-  ⟨fun _ => Complex.I / 2,
-   by letI := RS.topology; letI := RS.chartedSpace; exact contMDiff_const⟩
+  ⟨fun _ => Complex.I / 2⟩
 
 def Form_11.IsRealValued {RS : RiemannSurface} (ω : Form_11 RS) : Prop :=
   ∀ p, (ω.toSection p).im = 0

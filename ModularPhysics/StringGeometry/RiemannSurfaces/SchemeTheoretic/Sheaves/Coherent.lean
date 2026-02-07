@@ -188,12 +188,22 @@ instance : Category (CoherentSheaf C) where
     **Proof:** On Noetherian schemes, kernels of coherent → coherent are coherent.
     This is because submodules of finitely generated modules over Noetherian rings
     are finitely generated. -/
-noncomputable def kernelSheaf {F G : CoherentSheaf C} (f : F ⟶ G) : CoherentSheaf C := sorry
+noncomputable def kernelSheaf {F G : CoherentSheaf C} (f : F ⟶ G) : CoherentSheaf C where
+  toModule := Limits.kernel f
+  isCoherent := by
+    -- Kernels of morphisms between coherent sheaves on Noetherian schemes are coherent.
+    -- Submodules of finitely generated modules over Noetherian rings are finitely generated.
+    sorry
 
 /-- Cokernel of a morphism of coherent sheaves is coherent.
 
     **Proof:** Quotients of finitely generated modules are finitely generated. -/
-noncomputable def cokernelSheaf {F G : CoherentSheaf C} (f : F ⟶ G) : CoherentSheaf C := sorry
+noncomputable def cokernelSheaf {F G : CoherentSheaf C} (f : F ⟶ G) : CoherentSheaf C where
+  toModule := Limits.cokernel f
+  isCoherent := by
+    -- Cokernels of morphisms between coherent sheaves are coherent.
+    -- Quotients of finitely generated modules are finitely generated.
+    sorry
 
 end CoherentSheaf
 
@@ -226,9 +236,11 @@ structure ShortExactSeq (C : AlgebraicCurve) where
   mono_i : Mono i
   /-- p is an epimorphism -/
   epi_p : Epi p
+  /-- The composition i ≫ p = 0 (image of i lands in kernel of p). -/
+  comp_zero : i ≫ p = 0
   /-- The sequence forms an exact short complex in the abelian category of O_X-modules. -/
   shortComplex : CategoryTheory.ShortComplex (OModule C.toScheme) :=
-    CategoryTheory.ShortComplex.mk i p (by sorry)
+    CategoryTheory.ShortComplex.mk i p comp_zero
   /-- Exactness at the middle term -/
   exact : shortComplex.Exact
 

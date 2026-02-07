@@ -79,7 +79,7 @@ theorem curve_dimension_one (C : SmoothProjectiveCurve) :
     This is a fundamental result in algebraic geometry. -/
 theorem h_i_vanishing (C : ProperCurve) (i : ℕ) (hi : i ≥ 2)
     (F : OModule C.toScheme) [IsQuasiCoherent C.toScheme F] :
-    SheafCohomology C.toAlgebraicCurve i F = PEmpty := by
+    Subsingleton (SheafCohomology C.toAlgebraicCurve i F) := by
   sorry
 
 /-- Corollary: hⁱ(F) = 0 for i ≥ 2.
@@ -88,7 +88,14 @@ theorem h_i_vanishing (C : ProperCurve) (i : ℕ) (hi : i ≥ 2)
 theorem h_i_eq_zero (C : ProperCurve) (i : ℕ) (hi : i ≥ 2)
     (F : CoherentSheaf C.toAlgebraicCurve) :
     h_i C i F = 0 := by
-  sorry
+  -- Get quasi-coherent from coherent
+  haveI : IsQuasiCoherent C.toScheme F.toModule := F.isCoherent.toIsQuasiCoherent
+  -- Grothendieck vanishing: SheafCohomology is subsingleton for i ≥ 2
+  haveI : Subsingleton (SheafCohomology C.toAlgebraicCurve i F.toModule) :=
+    h_i_vanishing C i hi F.toModule
+  -- h_i = Module.finrank ℂ (SheafCohomology ...) = 0 since subsingleton
+  unfold h_i
+  exact Module.finrank_zero_of_subsingleton
 
 /-- The Euler characteristic simplifies for curves: χ(F) = h⁰(F) - h¹(F).
 
