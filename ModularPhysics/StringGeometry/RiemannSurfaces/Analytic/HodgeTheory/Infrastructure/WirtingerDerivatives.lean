@@ -325,6 +325,84 @@ theorem wirtingerDerivBar_conj : wirtingerDerivBar (starRingEnd ℂ) z = 1 := by
     _ = 1 / 2 * 2 := by ring
     _ = 1 := by ring
 
+/-- Chain rule for wirtingerDerivBar with conjugation: ∂(conj ∘ g)/∂z̄ = conj(∂g/∂z).
+    When g is ℂ-differentiable, composing with conjugation swaps the roles of
+    wirtingerDeriv and wirtingerDerivBar. -/
+theorem wirtingerDerivBar_comp_conj {g : ℂ → ℂ} {z : ℂ} (hg : DifferentiableAt ℂ g z) :
+    wirtingerDerivBar (starRingEnd ℂ ∘ g) z = starRingEnd ℂ (wirtingerDeriv g z) := by
+  -- Rewrite RHS using wirtingerDeriv = deriv for holomorphic functions
+  rw [wirtingerDeriv_eq_deriv hg]
+  -- Expand wirtingerDerivBar to work with fderiv directly
+  show (1/2 : ℂ) * (fderiv ℝ (starRingEnd ℂ ∘ g) z 1 +
+    Complex.I * fderiv ℝ (starRingEnd ℂ ∘ g) z Complex.I) = starRingEnd ℂ (deriv g z)
+  -- Step 1: Chain rule for fderiv (use HasFDerivAt to handle coercion matching)
+  have hgR : DifferentiableAt ℝ g z := hg.restrictScalars ℝ
+  have hfderiv_chain : fderiv ℝ (starRingEnd ℂ ∘ g) z =
+      (RiemannSurfaces.Analytic.conjCLM).comp (fderiv ℝ g z) := by
+    apply HasFDerivAt.fderiv
+    exact RiemannSurfaces.Analytic.conjCLM.hasFDerivAt.comp z hgR.hasFDerivAt
+  -- Step 2: Express fderiv ℝ g z using ℂ-linear structure
+  have hres : fderiv ℝ g z = (fderiv ℂ g z).restrictScalars ℝ := hg.fderiv_restrictScalars ℝ
+  -- Step 3: Evaluate the composed fderiv at 1 and I
+  have heval_1 : fderiv ℝ (starRingEnd ℂ ∘ g) z 1 = starRingEnd ℂ (deriv g z) := by
+    rw [hfderiv_chain]
+    simp only [ContinuousLinearMap.comp_apply, hres, ContinuousLinearMap.coe_restrictScalars']
+    change starRingEnd ℂ ((fderiv ℂ g z) 1) = _
+    rw [fderiv_apply_one_eq_deriv]
+  have heval_I : fderiv ℝ (starRingEnd ℂ ∘ g) z Complex.I =
+      -Complex.I * starRingEnd ℂ (deriv g z) := by
+    rw [hfderiv_chain]
+    simp only [ContinuousLinearMap.comp_apply, hres, ContinuousLinearMap.coe_restrictScalars']
+    change starRingEnd ℂ ((fderiv ℂ g z) Complex.I) = _
+    -- ℂ-linearity: (fderiv ℂ g z) I = I • (fderiv ℂ g z) 1 = I * deriv g z
+    have hlin : (fderiv ℂ g z) Complex.I = Complex.I * deriv g z := by
+      calc (fderiv ℂ g z) Complex.I
+        _ = (fderiv ℂ g z) (Complex.I • 1) := by simp
+        _ = Complex.I • (fderiv ℂ g z) 1 := ContinuousLinearMap.map_smul _ _ _
+        _ = Complex.I * deriv g z := by rw [smul_eq_mul, fderiv_apply_one_eq_deriv]
+    rw [hlin, map_mul (starRingEnd ℂ), Complex.conj_I]
+  -- Step 4: Substitute and simplify
+  rw [heval_1, heval_I]
+  -- Goal: (1/2) * (conj(g') + I * (-I * conj(g'))) = conj(g')
+  have : Complex.I * (-Complex.I * starRingEnd ℂ (deriv g z)) = starRingEnd ℂ (deriv g z) := by
+    rw [← mul_assoc, mul_neg, Complex.I_mul_I, neg_neg, one_mul]
+  rw [this]; ring
+
+/-- Chain rule for wirtingerDeriv with conjugation: ∂(conj ∘ g)/∂z = 0 when g is holomorphic.
+    This shows conj ∘ holomorphic is purely antiholomorphic. -/
+theorem wirtingerDeriv_comp_conj {g : ℂ → ℂ} {z : ℂ} (hg : DifferentiableAt ℂ g z) :
+    wirtingerDeriv (starRingEnd ℂ ∘ g) z = 0 := by
+  show (1/2 : ℂ) * (fderiv ℝ (starRingEnd ℂ ∘ g) z 1 -
+    Complex.I * fderiv ℝ (starRingEnd ℂ ∘ g) z Complex.I) = 0
+  -- Reuse chain rule computation from wirtingerDerivBar_comp_conj
+  have hgR : DifferentiableAt ℝ g z := hg.restrictScalars ℝ
+  have hfderiv_chain : fderiv ℝ (starRingEnd ℂ ∘ g) z =
+      (RiemannSurfaces.Analytic.conjCLM).comp (fderiv ℝ g z) := by
+    apply HasFDerivAt.fderiv
+    exact RiemannSurfaces.Analytic.conjCLM.hasFDerivAt.comp z hgR.hasFDerivAt
+  have hres : fderiv ℝ g z = (fderiv ℂ g z).restrictScalars ℝ := hg.fderiv_restrictScalars ℝ
+  have heval_1 : fderiv ℝ (starRingEnd ℂ ∘ g) z 1 = starRingEnd ℂ (deriv g z) := by
+    rw [hfderiv_chain]
+    simp only [ContinuousLinearMap.comp_apply, hres, ContinuousLinearMap.coe_restrictScalars']
+    change starRingEnd ℂ ((fderiv ℂ g z) 1) = _
+    rw [fderiv_apply_one_eq_deriv]
+  have heval_I : fderiv ℝ (starRingEnd ℂ ∘ g) z Complex.I =
+      -Complex.I * starRingEnd ℂ (deriv g z) := by
+    rw [hfderiv_chain]
+    simp only [ContinuousLinearMap.comp_apply, hres, ContinuousLinearMap.coe_restrictScalars']
+    change starRingEnd ℂ ((fderiv ℂ g z) Complex.I) = _
+    have hlin : (fderiv ℂ g z) Complex.I = Complex.I * deriv g z := by
+      calc (fderiv ℂ g z) Complex.I
+        _ = (fderiv ℂ g z) (Complex.I • 1) := by simp
+        _ = Complex.I • (fderiv ℂ g z) 1 := ContinuousLinearMap.map_smul _ _ _
+        _ = Complex.I * deriv g z := by rw [smul_eq_mul, fderiv_apply_one_eq_deriv]
+    rw [hlin, map_mul (starRingEnd ℂ), Complex.conj_I]
+  rw [heval_1, heval_I]
+  -- Goal: (1/2) * (conj(g') - I * (-I * conj(g'))) = 0
+  have : Complex.I * (-Complex.I * starRingEnd ℂ (deriv g z)) = starRingEnd ℂ (deriv g z) := by
+    rw [← mul_assoc, mul_neg, Complex.I_mul_I, neg_neg, one_mul]
+  rw [this]; ring
+
 /-!
 ## Differentiability in Manifold Charts
 

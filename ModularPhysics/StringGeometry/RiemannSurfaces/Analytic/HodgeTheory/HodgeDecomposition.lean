@@ -121,33 +121,6 @@ theorem hodgeStar_01_hodgeStar_10 (ω : Form_01 RS) :
   -- (-I) * (-I) = I² = -1
   simp only [neg_mul_neg, Complex.I_mul_I, neg_smul, one_smul]
 
-/-!
-## The Laplacian
-
-On a Riemann surface, the Laplacian decomposes as Δ = Δ_∂ + Δ_∂̄ where
-  Δ_∂̄ = ∂̄⋆∂̄ + ∂̄∂̄⋆
-
-For functions, this simplifies considerably because ∂̄² = 0.
--/
-
-/-- The ∂̄-Laplacian on functions: Δ_∂̄ f = ⋆∂̄⋆∂̄f.
-    On a Riemann surface, this equals 2∂∂̄. -/
-noncomputable def laplacian_dbar_fun (f : SmoothFunction RS) : SmoothFunction RS := by
-  letI := RS.topology
-  letI := RS.chartedSpace
-  -- Δ_∂̄ f = ⋆∂̄(⋆∂̄f) - but ∂̄f is a (0,1)-form, ⋆∂̄f is a (1,0)-form
-  -- ∂̄(⋆∂̄f) would be a (1,1)-form, and ⋆ of that is a function
-  -- For simplicity, we define via the coordinate expression
-  refine ⟨fun p => ?_, ?_⟩
-  · let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
-    -- Δf = 4 ∂²f/∂z∂z̄ in local coordinates
-    exact 4 * wirtingerDeriv_z (wirtingerDeriv_zbar (f.toFun ∘ e.symm)) (e p)
-  · sorry
-
-/-- A function is harmonic iff Δf = 0 -/
-def SmoothFunction.IsHarmonic (f : SmoothFunction RS) : Prop :=
-  laplacian_dbar_fun f = 0
-
 /-- For MDifferentiable functions on a Riemann surface with 𝓘(ℂ, ℂ) model,
     the chart expression is ℂ-differentiable at every point in the chart target.
 
@@ -290,6 +263,68 @@ theorem mdifferentiable_chart_diffAt {M : Type*} [TopologicalSpace M] [ChartedSp
   -- Now use that on the overlap, e'.symm (e' (e.symm w)) = e.symm w
   exact hcomp_diff.congr_of_eventuallyEq hcomp_eq
 
+/-!
+## The Laplacian
+
+On a Riemann surface, the Laplacian decomposes as Δ = Δ_∂ + Δ_∂̄ where
+  Δ_∂̄ = ∂̄⋆∂̄ + ∂̄∂̄⋆
+
+For functions, this simplifies considerably because ∂̄² = 0.
+-/
+
+/-- The ∂̄-Laplacian on functions: Δ_∂̄ f = ⋆∂̄⋆∂̄f.
+    On a Riemann surface, this equals 2∂∂̄. -/
+noncomputable def laplacian_dbar_fun (f : SmoothFunction RS) : SmoothFunction RS := by
+  letI := RS.topology
+  letI := RS.chartedSpace
+  -- Δ_∂̄ f = ⋆∂̄(⋆∂̄f) - but ∂̄f is a (0,1)-form, ⋆∂̄f is a (1,0)-form
+  -- ∂̄(⋆∂̄f) would be a (1,1)-form, and ⋆ of that is a function
+  -- For simplicity, we define via the coordinate expression
+  refine ⟨fun p => ?_, ?_⟩
+  · let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+    -- Δf = 4 ∂²f/∂z∂z̄ in local coordinates
+    exact 4 * wirtingerDeriv_z (wirtingerDeriv_zbar (f.toFun ∘ e.symm)) (e p)
+  · -- SmoothFunction is ℂ-smooth (holomorphic), so wirtingerDerivBar vanishes on chart targets.
+    -- wirtingerDeriv of a locally-zero function is zero. Hence the section ≡ 0.
+    haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+    have hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun :=
+      f.smooth'.mdifferentiable (by decide : (⊤ : WithTop ℕ∞) ≠ 0)
+    convert contMDiff_const (c := (0 : ℂ)) using 1
+    funext p
+    simp only [wirtingerDeriv_z]
+    -- Show wirtingerDerivBar (f ∘ e.symm) is zero on the open chart target
+    let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+    have he_atlas : e ∈ atlas ℂ RS.carrier := chart_mem_atlas ℂ p
+    have hp_source : p ∈ e.source := mem_chart_source ℂ p
+    have hep_target : e p ∈ e.target := e.map_source hp_source
+    -- wirtingerDerivBar (f ∘ e.symm) is zero on e.target (open set)
+    have hbar_zero : ∀ z ∈ e.target,
+        Infrastructure.wirtingerDerivBar (f.toFun ∘ e.symm) z = 0 := by
+      intro z hz
+      have hdiff := mdifferentiable_chart_diffAt hmDiff e he_atlas z hz
+      exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp hdiff).2
+    -- wirtingerDerivBar (f ∘ e.symm) =ᶠ[nhds (e p)] 0
+    have hbar_eq : Infrastructure.wirtingerDerivBar (f.toFun ∘ e.symm) =ᶠ[nhds (e p)]
+        fun _ => 0 := by
+      apply Filter.eventuallyEq_iff_exists_mem.mpr
+      exact ⟨e.target, e.open_target.mem_nhds hep_target, fun z hz => hbar_zero z hz⟩
+    -- fderiv of a locally-zero function is zero
+    have hfderiv_zero : fderiv ℝ (Infrastructure.wirtingerDerivBar (f.toFun ∘ e.symm)) (e p) =
+        fderiv ℝ (fun _ => (0 : ℂ)) (e p) :=
+      Filter.EventuallyEq.fderiv_eq hbar_eq
+    -- wirtingerDeriv uses fderiv, so it's zero
+    -- Bridge wirtingerDeriv_zbar = Infrastructure.wirtingerDerivBar, then unfold wirtingerDeriv
+    have hwz_eq : wirtingerDeriv_zbar (f.toFun ∘ ↑e.symm) =
+        Infrastructure.wirtingerDerivBar (f.toFun ∘ ↑e.symm) := rfl
+    rw [hwz_eq]
+    unfold Infrastructure.wirtingerDeriv
+    rw [hfderiv_zero]
+    simp
+
+/-- A function is harmonic iff Δf = 0 -/
+def SmoothFunction.IsHarmonic (f : SmoothFunction RS) : Prop :=
+  laplacian_dbar_fun f = 0
+
 /-- Holomorphic functions are harmonic -/
 theorem holomorphic_implies_harmonic (f : SmoothFunction RS) (hf : f.IsHolomorphic) :
     f.IsHarmonic := by
@@ -367,6 +402,102 @@ theorem holomorphic_form_is_harmonic (ω : Form_10 RS) (hω : ω.IsHolomorphic')
     ω.IsHarmonic := hω
 
 /-!
+## Linearity of ∂̄ on (1,0)-forms
+
+The operator ∂̄ : Ω^{1,0} → Ω^{1,1} is ℂ-linear. This follows from linearity
+of the Wirtinger derivative wirtingerDerivBar.
+-/
+
+/-- Helper: Form_10 sections composed with chart inverse are ℝ-differentiable.
+    This is needed for applying wirtingerDerivBar algebraic lemmas. -/
+private theorem form10_chart_differentiableAt (ω : Form_10 RS) (p : RS.carrier) :
+    letI := RS.topology; letI := RS.chartedSpace
+    DifferentiableAt ℝ (ω.toSection ∘ (chartAt ℂ p).symm) ((chartAt ℂ p) p) := by
+  letI := RS.topology; letI := RS.chartedSpace
+  haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+  haveI : IsManifold 𝓘(ℝ, ℂ) ⊤ RS.carrier := isManifold_real_of_complex
+  exact Infrastructure.differentiableAt_chart_comp ω.smooth' p
+
+/-- ∂̄ is additive: dbar_10 (ω₁ + ω₂) = dbar_10 ω₁ + dbar_10 ω₂ -/
+theorem dbar_10_add (ω₁ ω₂ : Form_10 RS) :
+    dbar_10 (ω₁ + ω₂) = dbar_10 ω₁ + dbar_10 ω₂ := by
+  letI := RS.topology; letI := RS.chartedSpace
+  apply Form_11.ext; funext p
+  simp only [Form_11.add_toSection]
+  -- At point p, the value of dbar_10 (ω₁ + ω₂) is
+  -- -(wirtingerDerivBar ((ω₁ + ω₂).toSection ∘ e.symm) (e p))
+  show -(Infrastructure.wirtingerDerivBar ((ω₁ + ω₂).toSection ∘
+    (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm)
+    ((@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p) p)) =
+    -(Infrastructure.wirtingerDerivBar (ω₁.toSection ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm)
+      ((@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p) p)) +
+    -(Infrastructure.wirtingerDerivBar (ω₂.toSection ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm)
+      ((@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p) p))
+  -- (ω₁ + ω₂).toSection ∘ e.symm = (ω₁.toSection ∘ e.symm) + (ω₂.toSection ∘ e.symm)
+  have hfun_eq : (ω₁ + ω₂).toSection ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm =
+      (ω₁.toSection ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm) +
+      (ω₂.toSection ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm) := by
+    ext z; simp only [Function.comp_apply, Form_10.add_toSection, Pi.add_apply]
+  rw [hfun_eq]
+  have h1 := form10_chart_differentiableAt ω₁ p
+  have h2 := form10_chart_differentiableAt ω₂ p
+  rw [Infrastructure.wirtingerDerivBar_add h1 h2]
+  ring
+
+/-- ∂̄ is ℂ-linear in scalar multiplication: dbar_10 (c • ω) = c • dbar_10 ω -/
+theorem dbar_10_smul (c : ℂ) (ω : Form_10 RS) :
+    dbar_10 (c • ω) = c • dbar_10 ω := by
+  letI := RS.topology; letI := RS.chartedSpace
+  apply Form_11.ext; funext p
+  simp only [Form_11.smul_toSection]
+  show -(Infrastructure.wirtingerDerivBar ((c • ω).toSection ∘
+    (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm)
+    ((@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p) p)) =
+    c * -(Infrastructure.wirtingerDerivBar (ω.toSection ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm)
+      ((@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p) p))
+  have hfun_eq : (c • ω).toSection ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm =
+      c • (ω.toSection ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm) := by
+    ext z; simp only [Function.comp_apply, Form_10.smul_toSection, Pi.smul_apply, smul_eq_mul]
+  rw [hfun_eq]
+  have h := form10_chart_differentiableAt ω p
+  rw [Infrastructure.wirtingerDerivBar_const_smul c h]
+  ring
+
+/-- Harmonic (1,0)-forms are closed under addition. -/
+theorem isHarmonic_add {ω₁ ω₂ : Form_10 RS} (h₁ : ω₁.IsHarmonic) (h₂ : ω₂.IsHarmonic) :
+    (ω₁ + ω₂).IsHarmonic := by
+  unfold Form_10.IsHarmonic at *
+  rw [dbar_10_add, h₁, h₂, add_zero]
+
+/-- Harmonic (1,0)-forms are closed under scalar multiplication. -/
+theorem isHarmonic_smul {ω : Form_10 RS} (c : ℂ) (h : ω.IsHarmonic) :
+    (c • ω).IsHarmonic := by
+  unfold Form_10.IsHarmonic at *
+  rw [dbar_10_smul, h, smul_zero]
+
+/-- Zero form is harmonic. -/
+theorem isHarmonic_zero : (0 : Form_10 RS).IsHarmonic := by
+  unfold Form_10.IsHarmonic
+  rw [show (0 : Form_10 RS) = (0 : ℂ) • (0 : Form_10 RS) by simp]
+  rw [dbar_10_smul, zero_smul]
+
+/-- Negation preserves harmonicity. -/
+theorem isHarmonic_neg {ω : Form_10 RS} (h : ω.IsHarmonic) : (-ω).IsHarmonic := by
+  rw [show (-ω : Form_10 RS) = (-1 : ℂ) • ω by ext p; simp]
+  exact isHarmonic_smul (-1) h
+
+/-- Subtraction preserves harmonicity. -/
+theorem isHarmonic_sub {ω₁ ω₂ : Form_10 RS} (h₁ : ω₁.IsHarmonic) (h₂ : ω₂.IsHarmonic) :
+    (ω₁ - ω₂).IsHarmonic := by
+  rw [sub_eq_add_neg]
+  exact isHarmonic_add h₁ (isHarmonic_neg h₂)
+
+/-!
 ## The Space of Harmonic Forms
 
 For a compact Riemann surface of genus g:
@@ -375,11 +506,24 @@ For a compact Riemann surface of genus g:
 - dim H^1(X) = 2g (harmonic 1-forms)
 -/
 
+/-- Harmonic (1,0)-forms form a ℂ-submodule of all (1,0)-forms.
+    This is the kernel of the ∂̄-operator, which is ℂ-linear. -/
+def harmonicSubmodule10 (RS : RiemannSurface) : Submodule ℂ (Form_10 RS) where
+  carrier := { ω | ω.IsHarmonic }
+  add_mem' := fun ha hb => isHarmonic_add ha hb
+  zero_mem' := isHarmonic_zero
+  smul_mem' := fun c _ hω => isHarmonic_smul c hω
+
 /-- The type of harmonic (1,0)-forms (holomorphic 1-forms) -/
 def Harmonic10Forms (RS : RiemannSurface) := { ω : Form_10 RS // ω.IsHarmonic }
 
 /-- The type of harmonic (0,1)-forms (antiholomorphic 1-forms) -/
 def Harmonic01Forms (RS : RiemannSurface) := { ω : Form_01 RS // ω.IsHarmonic }
+
+/-- Harmonic10Forms is equivalent to the harmonicSubmodule10 carrier. -/
+def Harmonic10Forms.equivSubmodule (RS : RiemannSurface) :
+    Harmonic10Forms RS ≃ harmonicSubmodule10 RS :=
+  Equiv.subtypeEquivRight (fun _ => Iff.rfl)
 
 /-- Conjugation gives an isomorphism H^{1,0} ≅ H^{0,1} -/
 noncomputable def conjugate_harmonic_iso (RS : RiemannSurface) :

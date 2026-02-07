@@ -153,6 +153,10 @@ theorem h1_vanishes_large_degree (C : SmoothProjectiveCurve) (D : Divisor C.toAl
 theorem structure_sheaf_cohomology (C : SmoothProjectiveCurve) :
     h_i C.toProperCurve 0 (CoherentSheaf.structureSheaf C.toAlgebraicCurve) = 1 ∧
     h_i C.toProperCurve 1 (CoherentSheaf.structureSheaf C.toAlgebraicCurve) = genus C := by
-  sorry
+  constructor
+  · -- h⁰(O_C) = 1 (algebraic Liouville theorem)
+    exact h0_structure_sheaf_eq_one C
+  · -- h¹(O_C) = g (by definition of genus)
+    exact h1_structure_sheaf_eq_genus C
 
 end RiemannSurfaces.SchemeTheoretic

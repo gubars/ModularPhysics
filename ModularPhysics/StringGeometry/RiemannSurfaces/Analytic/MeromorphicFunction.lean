@@ -385,6 +385,66 @@ noncomputable def smulNonzero (c : ℂ) (hc : c ≠ 0) (f : AnalyticMeromorphicF
 theorem order_smulNonzero (c : ℂ) (hc : c ≠ 0) (f : AnalyticMeromorphicFunction RS)
     (p : RS.carrier) : (smulNonzero c hc f).order p = f.order p := rfl
 
+/-- The regularized value of a meromorphic function at a point.
+    Returns the actual ℂ-value at non-pole points, and 0 at poles (by convention).
+
+    At regular non-zero points (order = 0): regularValue = the actual value ∈ ℂ*
+    At zeros (order > 0): regularValue = 0
+    At poles (order < 0): regularValue = 0 (convention) -/
+noncomputable def regularValue (f : AnalyticMeromorphicFunction RS) (p : RS.carrier) : ℂ :=
+  match f.toFun p with
+  | Sum.inl z => z
+  | Sum.inr () => 0
+
+/-- At a regular point (order = 0), the regularized value is non-zero -/
+theorem regularValue_ne_zero_of_regular {f : AnalyticMeromorphicFunction RS}
+    {p : RS.carrier} (h : f.order p = 0) : f.regularValue p ≠ 0 := by
+  unfold regularValue
+  cases hfp : f.toFun p with
+  | inl z =>
+    simp only
+    intro heq
+    -- z = 0, so f.toFun p = Sum.inl 0, meaning f has a zero at p
+    have hfp0 : f.toFun p = Sum.inl 0 := by rw [hfp, heq]
+    have hpos := (f.order_pos_iff_zero p).mpr hfp0
+    omega
+  | inr _ =>
+    have hpole := (f.order_neg_iff_pole p).mpr hfp
+    omega
+
+/-- At a pole (order < 0), the regularized value is 0 -/
+theorem regularValue_at_pole {f : AnalyticMeromorphicFunction RS} {p : RS.carrier}
+    (h : f.order p < 0) : f.regularValue p = 0 := by
+  unfold regularValue
+  rw [(f.order_neg_iff_pole p).mp h]
+
+/-- At a zero (order > 0), the regularized value is 0 -/
+theorem regularValue_at_zero {f : AnalyticMeromorphicFunction RS} {p : RS.carrier}
+    (h : 0 < f.order p) : f.regularValue p = 0 := by
+  unfold regularValue
+  rw [(f.order_pos_iff_zero p).mp h]
+
+/-- When toFun gives a finite value, regularValue equals it -/
+theorem regularValue_of_inl {f : AnalyticMeromorphicFunction RS} {p : RS.carrier}
+    {z : ℂ} (h : f.toFun p = Sum.inl z) : f.regularValue p = z := by
+  unfold regularValue; rw [h]
+
+/-- Scalar multiplication preserves regularValue up to scaling -/
+theorem regularValue_smulNonzero (c : ℂ) (hc : c ≠ 0) (f : AnalyticMeromorphicFunction RS)
+    (p : RS.carrier) : (smulNonzero c hc f).regularValue p = c * f.regularValue p := by
+  unfold regularValue smulNonzero
+  simp only
+  cases hfp : f.toFun p with
+  | inl z => simp only
+  | inr _ => simp only [mul_zero]
+
+/-- The constant 1 has regularValue 1 everywhere -/
+theorem regularValue_one (p : RS.carrier) :
+    (1 : AnalyticMeromorphicFunction RS).regularValue p = 1 := by
+  show (match (one (RS := RS)).toFun p with
+    | Sum.inl z => z | Sum.inr () => 0) = 1
+  simp [one]
+
 end AnalyticMeromorphicFunction
 
 /-!

@@ -522,4 +522,16 @@ noncomputable def standardAffineCover : OpenCover C.toScheme where
 noncomputable def CechCohomologyCurve (F : OModule C.toScheme) (n : ℕ) : Type _ :=
   CechCohomology F (standardAffineCover C) n
 
+/-- The i-th sheaf cohomology group Hⁱ(C, F) defined via Čech cohomology. -/
+noncomputable def SheafCohomology (i : ℕ) (F : OModule C.toScheme) : Type _ :=
+  CechCohomologyCurve C F i
+
+/-- Sheaf cohomology is an additive group. -/
+noncomputable instance SheafCohomology.addCommGroup (i : ℕ) (F : OModule C.toScheme) :
+    AddCommGroup (SheafCohomology C i F) := by
+  unfold SheafCohomology CechCohomologyCurve CechCohomology
+  cases i with
+  | zero => exact CechCohomology0.addCommGroup F (standardAffineCover C)
+  | succ n => exact CechCohomologySucc.addCommGroup F (standardAffineCover C) n
+
 end RiemannSurfaces.SchemeTheoretic

@@ -119,6 +119,42 @@ structure RiemannSurface where
   /-- Connected -/
   connected : @ConnectedSpace carrier topology
 
+/-- The carrier of a Riemann surface is infinite.
+
+    **Proof:** By contradiction. If the carrier were finite, then a chart
+    would map a finite open subset to an open subset of ℂ. But open subsets
+    of ℂ that are finite must be clopen (finite = closed in T1 space, open by
+    hypothesis). Since ℂ is connected, the only nonempty clopen set is ℂ itself.
+    But ℂ is infinite, contradicting finiteness. -/
+instance RiemannSurface.carrier_infinite (RS : RiemannSurface) : Infinite RS.carrier := by
+  letI := RS.topology
+  letI := RS.chartedSpace
+  haveI := RS.t2
+  haveI := RS.connected
+  constructor  -- Goal: ¬ Finite RS.carrier
+  intro hfin
+  -- Pick a point (connected → nonempty)
+  obtain ⟨x⟩ : Nonempty RS.carrier := RS.connected.toNonempty
+  -- Get the chart at x: an OpenPartialHomeomorph to ℂ
+  let e := chartAt ℂ x
+  -- e.target is the image of e.source, which is finite since carrier is finite
+  have htgt_fin : Set.Finite e.target := by
+    have hsrc_fin : Set.Finite e.source := Set.toFinite e.source
+    have := hsrc_fin.image e
+    rwa [e.image_source_eq_target] at this
+  -- e.target is open in ℂ (from OpenPartialHomeomorph)
+  have htgt_open : IsOpen e.target := e.open_target
+  -- e.target is closed (finite subset of T1 space ℂ)
+  have htgt_closed : IsClosed e.target := htgt_fin.isClosed
+  -- e.target is nonempty (contains the image of x)
+  have htgt_ne : e.target.Nonempty := ⟨e x, mem_chart_target ℂ x⟩
+  -- ℂ is connected, so a nonempty clopen set must be all of ℂ
+  have htgt_clopen : IsClopen e.target := ⟨htgt_closed, htgt_open⟩
+  have htgt_univ : e.target = Set.univ := htgt_clopen.eq_univ htgt_ne
+  -- But Set.univ in ℂ is infinite (ℂ has CharZero, hence Infinite ℂ)
+  rw [htgt_univ] at htgt_fin
+  exact Set.infinite_univ htgt_fin
+
 /-!
 ## Standard Examples
 -/

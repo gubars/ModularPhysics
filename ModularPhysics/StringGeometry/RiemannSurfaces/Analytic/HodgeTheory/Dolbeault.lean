@@ -151,8 +151,31 @@ noncomputable def dbar_fun (f : SmoothFunction RS) : Form_01 RS :=
     wirtingerDeriv_zbar (f.toFun ∘ e.symm) (e p),
    by
      letI := RS.topology; letI := RS.chartedSpace
-     -- See docstring for proof strategy. Requires manifold gluing infrastructure.
-     sorry⟩
+     haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+     -- SmoothFunction is ℂ-smooth, which implies holomorphic (MDifferentiable).
+     -- Therefore wirtingerDerivBar vanishes everywhere, making the section ≡ 0.
+     have hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun :=
+       f.smooth'.mdifferentiable (by decide : (⊤ : WithTop ℕ∞) ≠ 0)
+     convert contMDiff_const (c := (0 : ℂ)) using 1
+     funext p
+     simp only [wirtingerDeriv_zbar]
+     -- Extract DifferentiableAt ℂ from MDifferentiableAt
+     have hmdiffAt := hmDiff p
+     have hp := mem_chart_source ℂ p
+     have hfp := mem_chart_source ℂ (f.toFun p)
+     rw [mdifferentiableAt_iff_of_mem_source hp hfp] at hmdiffAt
+     simp only [modelWithCornersSelf_coe, Set.range_id] at hmdiffAt
+     have htarget : extChartAt 𝓘(ℂ, ℂ) (f.toFun p) = PartialEquiv.refl ℂ := by
+       simp only [mfld_simps]
+     simp only [htarget, PartialEquiv.refl_coe] at hmdiffAt
+     have hfun_eq : id ∘ f.toFun ∘ (extChartAt 𝓘(ℂ, ℂ) p).symm =
+         f.toFun ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm := by
+       ext z
+       simp only [Function.comp_apply, id_eq, extChartAt, OpenPartialHomeomorph.extend_coe_symm,
+         modelWithCornersSelf_coe_symm]
+     rw [hfun_eq] at hmdiffAt
+     exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp
+       (hmdiffAt.2.differentiableAt Filter.univ_mem)).2⟩
 
 /-- A smooth function is holomorphic iff ∂̄f = 0 -/
 def SmoothFunction.IsHolomorphic (f : SmoothFunction RS) : Prop :=
@@ -286,10 +309,45 @@ def Form_10.IsHolomorphic' (ω : Form_10 RS) : Prop :=
     because we'd need two antiholomorphic differentials, but dz̄ ∧ dz̄ = 0. -/
 theorem dbar_dbar_fun (f : SmoothFunction RS) :
     dbar_10 (⟨(dbar_fun f).toSection, (dbar_fun f).smooth'⟩ : Form_10 RS) = 0 := by
-  -- The key is that dz̄ ∧ dz̄ = 0, so any (0,2)-form vanishes on a Riemann surface.
-  -- Here we're computing ∂̄ of a (0,1)-form viewed as a (1,0)-form (abuse of notation).
-  -- The result should be the second Wirtinger derivative times dz̄ ∧ dz ∧ dz̄ = 0.
-  sorry
+  -- Since SmoothFunction requires ℂ-smoothness (= holomorphic), dbar_fun f has zero section.
+  -- Then dbar_10 of a zero-section form is zero.
+  letI := RS.topology; letI := RS.chartedSpace
+  haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+  -- Step 1: Show the section of dbar_fun f is identically zero
+  have hsec_zero : (dbar_fun f).toSection = fun _ => 0 := by
+    funext p
+    show wirtingerDeriv_zbar (f.toFun ∘ _) _ = 0
+    simp only [wirtingerDeriv_zbar]
+    have hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun :=
+      f.smooth'.mdifferentiable (by decide : (⊤ : WithTop ℕ∞) ≠ 0)
+    have hmdiffAt := hmDiff p
+    have hp := mem_chart_source ℂ p
+    have hfp := mem_chart_source ℂ (f.toFun p)
+    rw [mdifferentiableAt_iff_of_mem_source hp hfp] at hmdiffAt
+    simp only [modelWithCornersSelf_coe, Set.range_id] at hmdiffAt
+    have htarget : extChartAt 𝓘(ℂ, ℂ) (f.toFun p) = PartialEquiv.refl ℂ := by
+      simp only [mfld_simps]
+    simp only [htarget, PartialEquiv.refl_coe] at hmdiffAt
+    have hfun_eq : id ∘ f.toFun ∘ (extChartAt 𝓘(ℂ, ℂ) p).symm =
+        f.toFun ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm := by
+      ext z
+      simp only [Function.comp_apply, id_eq, extChartAt, OpenPartialHomeomorph.extend_coe_symm,
+        modelWithCornersSelf_coe_symm]
+    rw [hfun_eq] at hmdiffAt
+    exact (Infrastructure.holomorphic_iff_wirtingerDerivBar_zero.mp
+      (hmdiffAt.2.differentiableAt Filter.univ_mem)).2
+  -- Step 2: Apply Form_11.ext and show dbar_10 of zero-section form is zero
+  apply Form_11.ext
+  funext p
+  show -(wirtingerDeriv_zbar ((dbar_fun f).toSection ∘ _) _) = (0 : Form_11 RS).toSection p
+  rw [hsec_zero]
+  -- Now the section is (fun _ => 0) ∘ e.symm = fun _ => 0
+  simp only [wirtingerDeriv_zbar]
+  have hcomp : (fun (_ : RS.carrier) => (0 : ℂ)) ∘
+      (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm = fun _ => 0 := by
+    ext; simp
+  rw [hcomp, Infrastructure.wirtingerDerivBar_const, neg_zero]
+  rfl
 
 /-- Leibniz rule for ∂̄ on functions: ∂̄(fg) = f ∂̄g + g ∂̄f -/
 theorem dbar_fun_mul (f g : SmoothFunction RS) :
@@ -374,16 +432,46 @@ theorem form_10_holomorphic_iff_dbar_closed (ω : Form_10 RS) :
 ## The ∂̄-Operator and Complex Conjugation
 -/
 
-/-- Relation between ∂ and ∂̄ via conjugation: ∂̄(conj f) = conj(∂f) -/
-theorem dbar_conj_eq_conj_d (f : SmoothFunction RS) :
-    dbar_fun ⟨fun p => starRingEnd ℂ (f.toFun p), by
-      letI := RS.topology; letI := RS.chartedSpace; sorry⟩ =
-    (⟨fun p =>
-      letI := RS.topology; letI := RS.chartedSpace
-      let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
-      starRingEnd ℂ (wirtingerDeriv_z (f.toFun ∘ e.symm) (e p)),
-     by letI := RS.topology; letI := RS.chartedSpace; sorry⟩ : Form_01 RS) := by
-  sorry
+/-- Relation between ∂ and ∂̄ via conjugation in local coordinates.
+
+    For a holomorphic function f, in a chart e at point p:
+      wirtingerDerivBar (conj ∘ f ∘ e.symm) (e p) = conj (wirtingerDeriv (f ∘ e.symm) (e p))
+
+    This expresses ∂̄(f̄) = conj(∂f) at the chart level.
+
+    **Note**: The original formulation as `dbar_fun ⟨conj ∘ f, ...⟩` is not type-correct because
+    `SmoothFunction RS` requires `ContMDiff 𝓘(ℂ,ℂ) 𝓘(ℂ,ℂ) ⊤` (holomorphic), but conjugation
+    of a non-constant holomorphic function is only ℝ-smooth, not ℂ-smooth.
+    A proper global formulation requires a ∂̄ operator on ℝ-smooth functions. -/
+theorem dbar_conj_eq_conj_d_chart (f : SmoothFunction RS) (p : RS.carrier) :
+    letI := RS.topology; letI := RS.chartedSpace
+    let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+    Infrastructure.wirtingerDerivBar (starRingEnd ℂ ∘ f.toFun ∘ e.symm) (e p) =
+      starRingEnd ℂ (Infrastructure.wirtingerDeriv (f.toFun ∘ e.symm) (e p)) := by
+  letI := RS.topology; letI := RS.chartedSpace
+  haveI : IsManifold 𝓘(ℂ, ℂ) ⊤ RS.carrier := RS.isManifold
+  let e := @chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p
+  -- f is holomorphic, so f ∘ e.symm is ℂ-differentiable
+  have hmDiff : MDifferentiable 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ) f.toFun :=
+    f.smooth'.mdifferentiable (by decide : (⊤ : WithTop ℕ∞) ≠ 0)
+  have hp := mem_chart_source ℂ p
+  have hfp := mem_chart_source ℂ (f.toFun p)
+  have hmdiffAt := hmDiff p
+  rw [mdifferentiableAt_iff_of_mem_source hp hfp] at hmdiffAt
+  simp only [modelWithCornersSelf_coe, Set.range_id] at hmdiffAt
+  have htarget : extChartAt 𝓘(ℂ, ℂ) (f.toFun p) = PartialEquiv.refl ℂ := by
+    simp only [mfld_simps]
+  simp only [htarget, PartialEquiv.refl_coe] at hmdiffAt
+  have hfun_eq : id ∘ f.toFun ∘ (extChartAt 𝓘(ℂ, ℂ) p).symm =
+      f.toFun ∘ (@chartAt ℂ _ RS.carrier RS.topology RS.chartedSpace p).symm := by
+    ext z
+    simp only [Function.comp_apply, id_eq, extChartAt, OpenPartialHomeomorph.extend_coe_symm,
+      modelWithCornersSelf_coe_symm]
+  rw [hfun_eq] at hmdiffAt
+  have hdiff : DifferentiableAt ℂ (f.toFun ∘ e.symm) (e p) :=
+    hmdiffAt.2.differentiableAt Filter.univ_mem
+  -- Apply the chain rule for wirtingerDerivBar with conjugation
+  exact Infrastructure.wirtingerDerivBar_comp_conj hdiff
 
 /-!
 ## Dolbeault-Grothendieck Lemma

@@ -3,7 +3,7 @@ Copyright (c) 2026 ModularPhysics Authors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
-import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.SheafCohomology
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.CechComplex
 
 /-!
 # ℂ-Module Structure on Čech Cohomology
@@ -159,6 +159,38 @@ noncomputable instance CechCochain.module (F : OModule C.toScheme) (𝒰 : OpenC
   -- Use Pi.module for the product
   exact Pi.module (Fin (n + 1) → 𝒰.I) (fun σ => F.val.obj (Opposite.op (𝒰.intersection σ))) ℂ
 
+/-- Presheaf restriction applied to an element equals the CommRingCat morphism hom applied.
+    This bridges `ringCatSheaf.val.map` and `presheaf.map` for element-level computations. -/
+theorem ringCatSheaf_map_eq (U V : TopologicalSpace.Opens C.toScheme.carrier) (hUV : U ≤ V)
+    (r : C.toScheme.presheaf.obj (Opposite.op V)) :
+    (C.toScheme.ringCatSheaf.val.map (homOfLE hUV).op : _) r =
+    (C.toScheme.presheaf.map (homOfLE hUV).op).hom r := rfl
+
+theorem restrictionToFace_smul (F : OModule C.toScheme) (𝒰 : OpenCover C.toScheme)
+    {n : ℕ} (σ : Fin (n + 2) → 𝒰.I) (j : Fin (n + 2)) (s : ℂ)
+    (m : F.val.obj (Opposite.op (𝒰.intersection (faceMap j σ)))) :
+    restrictionToFace F 𝒰 σ j (s • m) = s • restrictionToFace F 𝒰 σ j m := by
+  -- Strategy: Convert ℂ-smul to O-smul, apply map_smul, use algebraMap_restriction_commute
+  -- Module.compHom is @[reducible] (abbrev), so s • m = (algebraMap s) • m definitionally
+  simp only [restrictionToFace]
+  -- Step 1: Convert ℂ-smul to O-smul (definitional via Module.compHom)
+  let src_ring := C.toScheme.presheaf.obj (Opposite.op (𝒰.intersection (faceMap j σ)))
+  let tgt_ring := C.toScheme.presheaf.obj (Opposite.op (𝒰.intersection σ))
+  have h_src : (s • m : F.val.obj (Opposite.op (𝒰.intersection (faceMap j σ)))) =
+    (algebraMap ℂ ↑src_ring s) • m := rfl
+  have h_tgt : ∀ (x : F.val.obj (Opposite.op (𝒰.intersection σ))),
+    s • x = (algebraMap ℂ ↑tgt_ring s) • x := fun _ => rfl
+  rw [h_src]
+  -- Step 2: Apply O-semilinearity (map_smul)
+  rw [F.val.map_smul]
+  -- Step 3: Convert back and use algebraMap_restriction_commute
+  rw [h_tgt]
+  congr 1
+  -- Goal: ringCatSheaf.val.map h.op (algebraMap s) = algebraMap s
+  -- Bridge ringCatSheaf.val.map to presheaf.map, then use algebraMap_restriction_commute
+  rw [ringCatSheaf_map_eq C]
+  exact algebraMap_restriction_commute C _ _ _ s
+
 /-- The Čech differential is ℂ-linear.
 
     **Mathematical proof:**
@@ -169,11 +201,8 @@ noncomputable instance CechCochain.module (F : OModule C.toScheme) (𝒰 : OpenC
     For linearity:
     1. d(a•c + b•c') uses additivity (from cechDifferentialHom) to split
     2. For scalar: d(a•c) = Σⱼ (-1)ʲ ρⱼ((a•c)(δʲσ)) = Σⱼ (-1)ʲ ρⱼ(a • c(δʲσ))
-    3. Restriction is O-semilinear: ρⱼ(r•x) = ρ(r)•ρⱼ(x) (by map_smul)
-    4. For ℂ-scalars via Module.compHom: a • x = (algebraMap a) • x
-    5. By algebraMap_restriction_commute: ρ(algebraMap a) = algebraMap a
-    6. So ρⱼ(a•x) = ρⱼ((algebraMap a)•x) = (algebraMap a)•ρⱼ(x) = a•ρⱼ(x)
-    7. Then d(a•c) = a•dc by distributing through the sum -/
+    3. Restriction is ℂ-linear: ρⱼ(a•x) = a•ρⱼ(x) (by restrictionToFace_smul)
+    4. Then d(a•c) = a•dc by distributing through the sum -/
 theorem cechDifferential_linear (F : OModule C.toScheme) (𝒰 : OpenCover C.toScheme) (n : ℕ) :
     ∀ (c₁ c₂ : CechCochain F 𝒰 n) (a b : ℂ),
       cechDifferential F 𝒰 n (a • c₁ + b • c₂) =
@@ -184,26 +213,23 @@ theorem cechDifferential_linear (F : OModule C.toScheme) (𝒰 : OpenCover C.toS
               cechDifferential F 𝒰 n (a • c₁) + cechDifferential F 𝒰 n (b • c₂) := by
     exact (cechDifferentialHom F 𝒰 n).map_add (a • c₁) (b • c₂)
   rw [hadd]
-  -- Now we need to show d(a • c) = a • d(c) for each term
-  -- This follows from PresheafOfModules.map_smul + algebraMap_restriction_commute
-  -- The proof uses the fact that ℂ-smul is defined via Module.compHom as:
-  --   s • m = (algebraMap s) • m
-  -- Combined with map_smul and algebraMap_restriction_commute, this gives ℂ-linearity.
-  --
-  -- Due to the complexity of the ModuleCat.restrictScalars type machinery in Mathlib's
-  -- PresheafOfModules, the direct proof requires explicit handling of type coercions.
-  -- The mathematical content is straightforward:
-  --   d(s • c)(σ) = Σⱼ (-1)ʲ • ρⱼ(s • c(δʲσ))
-  --              = Σⱼ (-1)ʲ • (s • ρⱼ(c(δʲσ)))    (restriction is ℂ-linear)
-  --              = s • Σⱼ (-1)ʲ • ρⱼ(c(δʲσ))      (scalar distributes over sum)
-  --              = s • dc(σ)
-  --
-  -- Helper for scalar linearity
+  -- Helper for scalar linearity using restrictionToFace_smul
   have scalar_linear : ∀ (s : ℂ) (c : CechCochain F 𝒰 n),
       cechDifferential F 𝒰 n (s • c) = s • cechDifferential F 𝒰 n c := by
-    -- The proof requires handling ModuleCat.restrictScalars type coercions
-    -- which is technically involved. The mathematical content is standard.
-    intro s c; sorry
+    intro s c
+    funext σ
+    unfold cechDifferential
+    rw [Pi.smul_apply, Finset.smul_sum]
+    apply Finset.sum_congr rfl
+    intro j _
+    -- Goal: (-1)^j • restrictionToFace F 𝒰 σ j ((s • c) (faceMap j σ))
+    --      = s • ((-1)^j • restrictionToFace F 𝒰 σ j (c (faceMap j σ)))
+    -- (s • c)(faceMap j σ) = s • c(faceMap j σ) by Pi.smul_apply
+    rw [Pi.smul_apply]
+    -- Now use restrictionToFace_smul
+    rw [restrictionToFace_smul C]
+    -- (-1)^j • (s • ρⱼ(c(δʲσ))) = s • ((-1)^j • ρⱼ(c(δʲσ)))
+    rw [smul_comm]
   rw [scalar_linear a c₁, scalar_linear b c₂]
 
 /-!
@@ -311,34 +337,140 @@ noncomputable def CechCoboundariesInCocycles.submodule (F : OModule C.toScheme)
     simp only [SetLike.val_smul]
     rw [hlin, hb]
 
-/-- Čech cohomology Hⁿ⁺¹ has ℂ-module structure.
+/-! ## Čech cohomology Hⁿ⁺¹ ℂ-module structure
 
-    The quotient Cocycles/Coboundaries inherits ℂ-module structure because:
-    1. Cocycles form a ℂ-submodule of cochains (by CechCocycles.submodule)
-    2. Coboundaries (comap'd into cocycles) form a ℂ-submodule (by CechCoboundariesInCocycles.submodule)
-    3. Quotient of submodules is naturally a module
+Constructed explicitly using QuotientAddGroup.lift so that the smul
+reduction `a • mk z = mk ⟨a • z.val, ...⟩` holds definitionally via
+QuotientAddGroup.lift_mk', avoiding expensive type unification between
+AddSubgroup and Submodule quotients. -/
 
-    **Implementation note:**
-    CechCohomologySucc is defined as a quotient of AddSubgroups, while the module structure
-    comes from the quotient of submodules. The underlying types are the same, but Lean's
-    type system distinguishes them. We use sorry for the type-level transfer. -/
-noncomputable instance CechCohomologySucc.module (F : OModule C.toScheme) (𝒰 : OpenCover C.toScheme)
-    (n : ℕ) : Module ℂ (CechCohomologySucc F 𝒰 n) := by
-  -- CechCohomologySucc is defined as:
-  -- (CechCocycles F 𝒰 (n + 1)) ⧸ AddSubgroup.comap (CechCocycles F 𝒰 (n + 1)).subtype (CechCoboundariesSucc F 𝒰 n)
-  --
-  -- The module structure comes from CechCocycles.submodule and CechCoboundariesInCocycles.submodule.
-  -- The types are definitionally equal at the carrier level but differ in the wrapper structure.
-  -- We construct the module structure explicitly.
+section CechCohomologySuccModule
 
-  -- The submodule quotient has a module structure
-  let Z := CechCocycles.submodule C F 𝒰 (n + 1)
-  let B := CechCoboundariesInCocycles.submodule C F 𝒰 n
-  haveI hmod : Module ℂ (Z ⧸ B) := Submodule.Quotient.module B
+variable (F : OModule C.toScheme) (𝒰 : OpenCover C.toScheme) (n : ℕ)
 
-  -- The types CechCohomologySucc and Z ⧸ B have the same underlying structure
-  -- Transfer using sorry for the type-level complexity
-  sorry
+noncomputable abbrev N_succ :=
+  AddSubgroup.comap (CechCocycles F 𝒰 (n + 1)).subtype (CechCoboundariesSucc F 𝒰 n)
+
+/-- ℂ-scalar multiplication preserves cocycles. -/
+theorem smul_val_mem_cocycles (a : ℂ) (z : CechCocycles F 𝒰 (n + 1)) :
+    a • z.val ∈ CechCocycles F 𝒰 (n + 1) := by
+  simp only [CechCocycles, AddMonoidHom.mem_ker]
+  -- cechDifferentialHom agrees with cechDifferential on values
+  show cechDifferential F 𝒰 (n + 1) (a • z.val) = 0
+  have hlin := cechDifferential_linear C F 𝒰 (n + 1) z.val 0 a 0
+  simp only [smul_zero, add_zero, zero_smul] at hlin
+  rw [hlin]
+  have hz : cechDifferential F 𝒰 (n + 1) z.val = 0 :=
+    AddMonoidHom.mem_ker.mp z.prop
+  rw [hz, smul_zero]
+
+/-- Build the smul'd cocycle element. -/
+noncomputable def smulCocycle (a : ℂ) (z : CechCocycles F 𝒰 (n + 1)) :
+    CechCocycles F 𝒰 (n + 1) :=
+  ⟨a • z.val, smul_val_mem_cocycles C F 𝒰 n a z⟩
+
+/-- smulCocycle sends N_succ to N_succ (needed for well-definedness of quotient smul). -/
+theorem smulCocycle_mem_N (a : ℂ) (z : CechCocycles F 𝒰 (n + 1))
+    (hz : z ∈ N_succ C F 𝒰 n) : smulCocycle C F 𝒰 n a z ∈ N_succ C F 𝒰 n := by
+  simp only [N_succ, AddSubgroup.mem_comap, CechCoboundariesSucc,
+    AddMonoidHom.mem_range] at hz ⊢
+  obtain ⟨b, hb⟩ := hz
+  refine ⟨a • b, ?_⟩
+  -- Unfold everything to get goal in terms of cechDifferential
+  simp only [smulCocycle, AddSubgroup.coe_subtype, cechDifferentialHom,
+    AddMonoidHom.coe_mk, ZeroHom.coe_mk] at hb ⊢
+  have hlin := cechDifferential_linear C F 𝒰 n b 0 a 0
+  simp only [smul_zero, add_zero, zero_smul] at hlin
+  rw [hlin, hb]
+
+/-- The AddMonoidHom for smul by a on cocycles, landing in the quotient. -/
+noncomputable def smulCocycleHom (a : ℂ) :
+    CechCocycles F 𝒰 (n + 1) →+ CechCohomologySucc F 𝒰 n where
+  toFun z := QuotientAddGroup.mk' (N_succ C F 𝒰 n) (smulCocycle C F 𝒰 n a z)
+  map_zero' := by
+    show QuotientAddGroup.mk' _ (smulCocycle C F 𝒰 n a 0) = 0
+    have : smulCocycle C F 𝒰 n a 0 = 0 :=
+      Subtype.ext (show a • (0 : CechCocycles F 𝒰 (n + 1)).val = 0 from smul_zero a)
+    rw [this, map_zero]
+  map_add' z₁ z₂ := by
+    show QuotientAddGroup.mk' _ (smulCocycle C F 𝒰 n a (z₁ + z₂)) =
+         QuotientAddGroup.mk' _ (smulCocycle C F 𝒰 n a z₁) +
+         QuotientAddGroup.mk' _ (smulCocycle C F 𝒰 n a z₂)
+    rw [← map_add (QuotientAddGroup.mk' (N_succ C F 𝒰 n))]
+    congr 1; exact Subtype.ext (smul_add a z₁.val z₂.val)
+
+/-- The smul operation on CechCohomologySucc, defined via QuotientAddGroup.lift
+    so that `smul_mk' : smulSucc a (mk z) = mk (smulCocycle a z)` holds by lift_mk'. -/
+noncomputable def smulSucc (a : ℂ) :
+    CechCohomologySucc F 𝒰 n → CechCohomologySucc F 𝒰 n :=
+  QuotientAddGroup.lift (N_succ C F 𝒰 n) (smulCocycleHom C F 𝒰 n a)
+    (fun z hz => by
+      rw [AddMonoidHom.mem_ker]
+      show QuotientAddGroup.mk' (N_succ C F 𝒰 n) (smulCocycle C F 𝒰 n a z) = 0
+      have hmem := smulCocycle_mem_N C F 𝒰 n a z hz
+      exact (QuotientAddGroup.eq_zero_iff (smulCocycle C F 𝒰 n a z)).mpr hmem)
+
+/-- Key reduction lemma: smul on CechCohomologySucc reduces on mk representatives.
+    Uses `•` notation which unfolds to `smulSucc` via the Module instance. -/
+theorem CechCohomologySucc.smul_mk' (a : ℂ) (z : CechCocycles F 𝒰 (n + 1)) :
+    smulSucc C F 𝒰 n a (QuotientAddGroup.mk' _ z) =
+    QuotientAddGroup.mk' _ (smulCocycle C F 𝒰 n a z) :=
+  QuotientAddGroup.lift_mk' _ _ z
+
+noncomputable instance CechCohomologySucc.module :
+    Module ℂ (CechCohomologySucc F 𝒰 n) where
+  smul := smulSucc C F 𝒰 n
+  one_smul x := by
+    induction x using QuotientAddGroup.induction_on with
+    | H z =>
+      show smulSucc C F 𝒰 n 1 (QuotientAddGroup.mk' _ z) = QuotientAddGroup.mk' _ z
+      rw [CechCohomologySucc.smul_mk']
+      congr 1; exact Subtype.ext (one_smul ℂ z.val)
+  mul_smul a b x := by
+    induction x using QuotientAddGroup.induction_on with
+    | H z =>
+      show smulSucc C F 𝒰 n (a * b) (QuotientAddGroup.mk' _ z) =
+           smulSucc C F 𝒰 n a (smulSucc C F 𝒰 n b (QuotientAddGroup.mk' _ z))
+      rw [CechCohomologySucc.smul_mk', CechCohomologySucc.smul_mk',
+          CechCohomologySucc.smul_mk']
+      congr 1; exact Subtype.ext (mul_smul a b z.val)
+  smul_zero a := by
+    show smulSucc C F 𝒰 n a 0 = 0
+    have h0 : (0 : CechCohomologySucc F 𝒰 n) = QuotientAddGroup.mk' _ 0 :=
+      (map_zero (QuotientAddGroup.mk' (N_succ C F 𝒰 n))).symm
+    rw [h0, CechCohomologySucc.smul_mk']
+    have : smulCocycle C F 𝒰 n a 0 = 0 :=
+      Subtype.ext (by simp [smulCocycle, smul_zero, ZeroMemClass.coe_zero])
+    rw [this, map_zero]
+  smul_add a x y := by
+    induction x using QuotientAddGroup.induction_on with
+    | H zx =>
+      induction y using QuotientAddGroup.induction_on with
+      | H zy =>
+        show smulSucc C F 𝒰 n a (QuotientAddGroup.mk' _ zx + QuotientAddGroup.mk' _ zy) =
+             smulSucc C F 𝒰 n a (QuotientAddGroup.mk' _ zx) +
+             smulSucc C F 𝒰 n a (QuotientAddGroup.mk' _ zy)
+        rw [← map_add (QuotientAddGroup.mk' _), CechCohomologySucc.smul_mk',
+            CechCohomologySucc.smul_mk', CechCohomologySucc.smul_mk',
+            ← map_add (QuotientAddGroup.mk' _)]
+        congr 1; exact Subtype.ext (smul_add a zx.val zy.val)
+  add_smul a b x := by
+    induction x using QuotientAddGroup.induction_on with
+    | H z =>
+      show smulSucc C F 𝒰 n (a + b) (QuotientAddGroup.mk' _ z) =
+           smulSucc C F 𝒰 n a (QuotientAddGroup.mk' _ z) +
+           smulSucc C F 𝒰 n b (QuotientAddGroup.mk' _ z)
+      simp only [CechCohomologySucc.smul_mk', ← map_add (QuotientAddGroup.mk' _)]
+      congr 1; exact Subtype.ext (add_smul a b z.val)
+  zero_smul x := by
+    induction x using QuotientAddGroup.induction_on with
+    | H z =>
+      show smulSucc C F 𝒰 n 0 (QuotientAddGroup.mk' _ z) = 0
+      rw [CechCohomologySucc.smul_mk']
+      have : smulCocycle C F 𝒰 n 0 z = 0 := Subtype.ext (zero_smul ℂ z.val)
+      rw [this, map_zero]
+
+end CechCohomologySuccModule
 
 /-- Čech cohomology in degree 0 has AddCommMonoid structure. -/
 noncomputable instance CechCohomologyCurve.addCommMonoid0 (F : OModule C.toScheme) :

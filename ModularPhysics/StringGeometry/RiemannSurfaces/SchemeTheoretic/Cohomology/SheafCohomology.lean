@@ -3,7 +3,8 @@ Copyright (c) 2026 ModularPhysics Authors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
-import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.CechComplex
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.CohomologyModuleStructure
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.CohomologyFunctoriality
 import Mathlib.CategoryTheory.Abelian.RightDerived
 import Mathlib.Algebra.Category.ModuleCat.Abelian
 
@@ -78,45 +79,18 @@ We define sheaf cohomology using Čech cohomology with respect to the standard
 affine cover. For curves, this gives the correct answer.
 -/
 
-/-- The i-th sheaf cohomology group Hⁱ(C, F).
-
-    **Definition:**
-    Hⁱ(C, F) = Ȟⁱ(U, F) where U is the standard affine cover.
-
-    **For curves over ℂ:**
-    - H⁰(C, F) = Γ(C, F) = global sections
-    - H¹(C, F) = measures "obstructions" to extending local sections
-    - Hⁱ(C, F) = 0 for i ≥ 2 (cohomological dimension of curves is 1) -/
-noncomputable def SheafCohomology (i : ℕ) (F : OModule C.toScheme) : Type _ :=
-  CechCohomologyCurve C F i
-
-/-- Sheaf cohomology is an additive group. -/
-noncomputable instance SheafCohomology.addCommGroup (i : ℕ) (F : OModule C.toScheme) :
-    AddCommGroup (SheafCohomology C i F) := by
-  unfold SheafCohomology CechCohomologyCurve CechCohomology
-  cases i with
-  | zero => exact CechCohomology0.addCommGroup F (standardAffineCover C)
-  | succ n => exact CechCohomologySucc.addCommGroup F (standardAffineCover C) n
-
 /-- The dimension hⁱ(F) = dim_ℂ Hⁱ(C, F).
 
     For coherent sheaves on proper curves, these are finite.
 
     **Implementation:**
-    We define this using Module.finrank on the Čech cohomology.
-    The ℂ-module structure comes from the algebra structure ℂ → O_C(U).
-    Finite dimensionality (Serre's theorem) ensures this is well-defined.
-
-    See `Helpers/CohomologyModuleStructure.lean` for the full infrastructure
-    and `h_i_proper` for the fully rigorous definition. -/
+    Uses Module.finrank on the Čech cohomology with ℂ-module structure
+    from CohomologyModuleStructure.lean. Finite dimensionality (Serre's theorem)
+    ensures this is well-defined. -/
 noncomputable def h_i (C : ProperCurve) (i : ℕ) (F : CoherentSheaf C.toAlgebraicCurve) : ℕ :=
-  -- The proper definition requires ℂ-module structure on SheafCohomology
-  -- which is developed in Helpers/CohomologyModuleStructure.lean
-  -- The definition is: Module.finrank ℂ (SheafCohomology C.toAlgebraicCurve i F.toModule)
-  -- with the Module instance from sheafCohomologyModule
-  -- See h_i_proper in CohomologyModuleStructure.lean for the full definition
-  let _ := SheafCohomology C.toAlgebraicCurve i F.toModule  -- Use parameters
-  sorry
+  haveI : Module ℂ (SheafCohomology C.toAlgebraicCurve i F.toModule) :=
+    sheafCohomologyModule C.toAlgebraicCurve i F.toModule
+  Module.finrank ℂ (SheafCohomology C.toAlgebraicCurve i F.toModule)
 
 /-- Notation: h⁰(F), h¹(F), etc. -/
 notation "h⁰" => h_i _ 0
@@ -159,7 +133,33 @@ theorem h0_eq_globalSections (F : OModule C.toScheme) :
     **Type:** There exists a map between cohomology groups induced by f. -/
 theorem cohomology_functorial (i : ℕ) {F G : OModule C.toScheme} (f : F ⟶ G) :
     Nonempty (SheafCohomology C.toAlgebraicCurve i F → SheafCohomology C.toAlgebraicCurve i G) := by
-  sorry
+  let 𝒰 := standardAffineCover C.toAlgebraicCurve
+  cases i with
+  | zero =>
+    -- H⁰ = cocycles in degree 0; cochainMap preserves cocycles
+    exact ⟨fun ⟨c, hc⟩ => ⟨cochainMap f 𝒰 0 c,
+      cochainMap_preserves_cocycles f 𝒰 0 c hc⟩⟩
+  | succ n =>
+    -- H^{n+1} = cocycles/coboundaries; cochainMap preserves both
+    let φ : CechCocycles F 𝒰 (n + 1) →+ CechCocycles G 𝒰 (n + 1) := {
+      toFun := fun ⟨c, hc⟩ => ⟨cochainMap f 𝒰 (n + 1) c,
+        cochainMap_preserves_cocycles f 𝒰 (n + 1) c hc⟩
+      map_zero' := Subtype.ext (cochainMap_zero f 𝒰 (n + 1))
+      map_add' := fun ⟨c₁, _⟩ ⟨c₂, _⟩ =>
+        Subtype.ext (cochainMap_add f 𝒰 (n + 1) c₁ c₂)
+    }
+    have hφN : ∀ x, x ∈ AddSubgroup.comap (CechCocycles F 𝒰 (n + 1)).subtype
+          (CechCoboundariesSucc F 𝒰 n) →
+        φ x ∈ AddSubgroup.comap (CechCocycles G 𝒰 (n + 1)).subtype
+          (CechCoboundariesSucc G 𝒰 n) := by
+      intro ⟨c, hc⟩ hmem
+      simp only [AddSubgroup.mem_comap] at hmem ⊢
+      -- hmem : c ∈ CechCoboundariesSucc F 𝒰 n  (i.e., ∃ b, d(b) = c)
+      -- goal : cochainMap f c ∈ CechCoboundariesSucc G 𝒰 n
+      simp only [CechCoboundariesSucc, AddMonoidHom.mem_range, cechDifferentialHom,
+        AddMonoidHom.coe_mk, ZeroHom.coe_mk] at hmem ⊢
+      exact cochainMap_preserves_coboundaries f 𝒰 n c hmem
+    exact ⟨QuotientAddGroup.map _ _ φ hφN⟩
 
 end Properties
 
@@ -299,9 +299,8 @@ theorem euler_char_structure_sheaf (C : SmoothProjectiveCurve) :
     for all i. Isomorphic vector spaces have the same dimension. -/
 theorem h_i_of_iso (C : ProperCurve) (i : ℕ) (F G : CoherentSheaf C.toAlgebraicCurve)
     (iso : F.toModule ≅ G.toModule) : h_i C i F = h_i C i G := by
-  -- Isomorphic modules induce isomorphic cohomology groups
-  -- Isomorphic vector spaces have the same dimension
-  sorry
+  unfold h_i
+  exact cohomology_finrank_eq_of_iso C.toAlgebraicCurve iso i
 
 /-- Isomorphic coherent sheaves have the same Euler characteristic.
 

@@ -34,6 +34,7 @@ Given a divisor D, the associated line bundle O(D) has:
 namespace RiemannSurfaces.Analytic
 
 open Divisor
+open scoped Manifold
 
 /-!
 ## Holomorphic Line Bundles
@@ -108,6 +109,18 @@ structure LinearSystem (RS : RiemannSurface) (D : Divisor RS) where
   fn : AnalyticMeromorphicFunction RS
   /-- The divisor condition: div(f) + D is effective -/
   effective : Divisor.Effective (divisorOf fn + D)
+  /-- The regularValue function is holomorphic (MDifferentiable in charts) at non-pole points.
+
+      This is the key analytical condition connecting the abstract AMF structure
+      to the complex geometry of the Riemann surface. At any point p where
+      fn.order p ≥ 0 (non-pole), the function fn.regularValue is complex-differentiable
+      in the manifold sense, i.e., holomorphic in local coordinates.
+
+      Without this condition, the AMF is purely algebraic and has no connection
+      to the smooth/holomorphic structure of the underlying Riemann surface. -/
+  holomorphicAway : ∀ p, 0 ≤ fn.order p →
+    @MDifferentiableAt ℂ _ ℂ _ _ ℂ _ 𝓘(ℂ, ℂ) RS.carrier RS.topology RS.chartedSpace
+      ℂ _ _ ℂ _ 𝓘(ℂ, ℂ) ℂ _ _ fn.regularValue p
 
 /-- The linear system L(D) is empty when deg(D) < 0.
 
@@ -119,7 +132,7 @@ theorem linearSystem_empty_negative_degree (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) (hdeg : D.degree < 0) :
     IsEmpty (LinearSystem CRS.toRiemannSurface D) := by
   constructor
-  intro ⟨f, heff⟩
+  intro ⟨f, heff, _⟩
   -- div(f) + D ≥ 0 means deg(div(f) + D) ≥ 0
   have hdeg_sum : (divisorOf f + D).degree ≥ 0 := Divisor.degree_nonneg_of_effective heff
   rw [Divisor.degree_add] at hdeg_sum

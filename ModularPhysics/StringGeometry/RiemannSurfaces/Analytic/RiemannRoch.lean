@@ -55,7 +55,7 @@ a direct computation via the Hodge Laplacian.
 
 namespace RiemannSurfaces.Analytic
 
-open Complex Topology
+open Complex Topology Classical
 open scoped Manifold
 
 /-!
@@ -95,86 +95,121 @@ theorem deg_canonical_eq_2g_minus_2 (CRS : CompactRiemannSurface)
   K.degree_eq
 
 /-!
-## Cohomology Spaces
+## Linear Independence in L(D)
 
-We define the cohomology spaces H⁰(O(D)) and H¹(O(D)) abstractly.
-The key property is finite-dimensionality on compact surfaces.
+To define h⁰(D) correctly as the dimension of L(D), we use ℂ-linear independence
+of meromorphic functions. This avoids the need to construct a full ℂ-module structure
+on L(D), while correctly measuring the vector space dimension.
+
+**Key idea:** Functions f₁,...,fₙ in L(D) are ℂ-linearly independent if the only
+ℂ-linear combination that vanishes at all non-pole points is the trivial one.
+Since poles form a finite set, the non-pole locus is dense, and the identity principle
+for meromorphic functions ensures this correctly captures linear independence.
 -/
 
-/-- The vector space H⁰(X, O(D)) of global sections.
+/-- The type H⁰(X, O(D)) of global sections (non-zero meromorphic functions in L(D)).
 
-    For a divisor D, this is the ℂ-vector space of meromorphic functions f
-    such that div(f) + D ≥ 0 (i.e., poles are bounded by D).
-
-    Elements are in bijection with `LinearSystem RS D`. -/
+    For a divisor D, elements are meromorphic functions f with div(f) + D ≥ 0.
+    The zero function is NOT included in this type (it is handled separately
+    by the IsLinIndepLS definition). -/
 noncomputable def H0VectorSpace (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) : Type :=
-  -- The underlying type: meromorphic functions with poles bounded by D
-  -- This is the linear system L(D) viewed as a vector space
   LinearSystem CRS.toRiemannSurface D
 
-/-- H⁰(O(D)) is finite-dimensional for compact Riemann surfaces.
-    This is a fundamental result of complex analysis. -/
-theorem h0_finite_dimensional (CRS : CompactRiemannSurface)
+/-- ℂ-linear independence of elements in the linear system L(D).
+
+    Functions f₁,...,fₙ in L(D) are ℂ-linearly independent if:
+    for any coefficients c₁,...,cₙ ∈ ℂ, if the ℂ-linear combination
+    Σ cᵢ fᵢ vanishes at every point where ALL fᵢ are regular (non-pole),
+    then all cᵢ = 0.
+
+    Since each fᵢ has only finitely many poles (by `order_finiteSupport`),
+    the set of points where all fᵢ are regular is cofinite, hence dense
+    on any connected Riemann surface. By the identity principle for
+    meromorphic functions, vanishing on a dense set implies vanishing
+    identically. Therefore this correctly captures ℂ-linear independence.
+
+    **Comparison with standard linear algebra:**
+    - In a ℂ-vector space V, {v₁,...,vₙ} are independent iff Σ cᵢ vᵢ = 0 ⟹ all cᵢ = 0
+    - Here, "Σ cᵢ fᵢ = 0" is expressed pointwise at non-pole points
+    - The `regularValue` function gives the ℂ-value at non-poles, and 0 at poles -/
+def IsLinIndepLS (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface) {n : ℕ}
+    (basis : Fin n → LinearSystem CRS.toRiemannSurface D) : Prop :=
+  ∀ c : Fin n → ℂ,
+    (∀ p : CRS.toRiemannSurface.carrier,
+      (∀ i, (basis i).fn.order p ≥ 0) →
+      Finset.univ.sum (fun i => c i * (basis i).fn.regularValue p) = 0) →
+    ∀ i, c i = 0
+
+/-- The empty family is vacuously linearly independent -/
+theorem isLinIndepLS_empty (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface)
+    (basis : Fin 0 → LinearSystem CRS.toRiemannSurface D) :
+    IsLinIndepLS CRS D basis := by
+  intro c _ i; exact Fin.elim0 i
+
+/-- L(D) is finite-dimensional on compact Riemann surfaces:
+    there exists N such that no family of N+1 elements in L(D) is ℂ-linearly independent.
+
+    This is a fundamental result of compact complex geometry: coherent sheaves
+    on compact complex manifolds have finite-dimensional cohomology. -/
+theorem h0_bounded (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) :
-    ∃ (n : ℕ), ∃ (basis : Fin n → H0VectorSpace CRS D), Function.Injective basis := by
-  sorry  -- Requires: finite-dimensionality theorem for coherent sheaves
+    ∃ N : ℕ, ∀ m, m > N →
+      ¬ ∃ (basis : Fin m → LinearSystem CRS.toRiemannSurface D),
+        IsLinIndepLS CRS D basis := by
+  sorry -- Requires: finite-dimensionality theorem for coherent sheaves on compact RS
+
+/-- Helper: reformulation for Nat.find -/
+private theorem h0_find_pred (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface) :
+    ∃ N : ℕ, ¬ ∃ (basis : Fin (N + 1) → LinearSystem CRS.toRiemannSurface D),
+      IsLinIndepLS CRS D basis := by
+  obtain ⟨N, hN⟩ := h0_bounded CRS D
+  exact ⟨N, hN (N + 1) (Nat.lt_succ_of_le le_rfl)⟩
 
 /-- The dimension h⁰(D) = dim H⁰(X, O(D)).
 
-    This is the number of linearly independent meromorphic functions
+    This is the maximum number of ℂ-linearly independent meromorphic functions
     with poles bounded by D.
 
-    **Key properties:**
-    - h⁰(0) = 1 (only constant functions)
-    - h⁰(D) = 0 if deg(D) < 0 (no sections for negative degree)
-    - h⁰(K) = g (holomorphic 1-forms have dimension g)
+    **Definition:** h⁰(D) is the smallest N such that no family of N+1 elements
+    in L(D) is ℂ-linearly independent. Equivalently, it is the maximum n such
+    that there exist n linearly independent elements.
 
-    The definition uses Classical.choose to extract the dimension from
-    the finite-dimensionality theorem. -/
+    **Key properties:**
+    - h⁰(0) = 1 (only constant functions on compact surfaces)
+    - h⁰(D) = 0 if deg(D) < 0 (no non-zero sections)
+    - h⁰(K) = g (holomorphic 1-forms have dimension g) -/
 noncomputable def h0 (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) : ℕ :=
-  Classical.choose (h0_finite_dimensional CRS D)
+  Nat.find (h0_find_pred CRS D)
 
-/-- If a type is empty, any injective function from Fin n to it implies n = 0 -/
-lemma injective_fin_to_empty_zero {X : Type*} [IsEmpty X]
-    {n : ℕ} {f : Fin n → X} (hinj : Function.Injective f) :
-    n = 0 := by
-  by_contra h
-  have : Nonempty (Fin n) := Fin.pos_iff_nonempty.mp (Nat.pos_of_ne_zero h)
-  obtain ⟨i⟩ := this
-  exact IsEmpty.false (f i)
+/-- h⁰(D) satisfies: no h⁰(D)+1 linearly independent elements exist -/
+theorem h0_spec (CRS : CompactRiemannSurface)
+    (D : Divisor CRS.toRiemannSurface) :
+    ¬ ∃ (basis : Fin (h0 CRS D + 1) → LinearSystem CRS.toRiemannSurface D),
+      IsLinIndepLS CRS D basis := by
+  unfold h0
+  exact Nat.find_spec (h0_find_pred CRS D)
 
-/-- Helper: if LinearSystem is empty, any valid dimension witness is 0 -/
-lemma h0_finite_dim_witness_zero (CRS : CompactRiemannSurface)
-    (D : Divisor CRS.toRiemannSurface)
-    (hempty : IsEmpty (LinearSystem CRS.toRiemannSurface D))
-    (n : ℕ) (basis : Fin n → H0VectorSpace CRS D)
-    (hinj : Function.Injective basis) :
-    n = 0 := by
-  haveI : IsEmpty (H0VectorSpace CRS D) := hempty
-  exact injective_fin_to_empty_zero hinj
+/-- h⁰ vanishes for divisors of negative degree.
 
-/-- h⁰ vanishes for divisors of negative degree -/
+    When deg(D) < 0, L(D) is empty: no meromorphic function f satisfies
+    div(f) + D ≥ 0 (since deg(div(f)) = 0 by the argument principle,
+    we'd need deg(D) ≥ 0). So no single element exists, hence h⁰ = 0. -/
 theorem h0_vanishes_negative_degree (CRS : CompactRiemannSurface)
     (D : Divisor CRS.toRiemannSurface) (hdeg : D.degree < 0) :
     h0 CRS D = 0 := by
   have hempty := linearSystem_empty_negative_degree CRS D hdeg
+  -- h0 = Nat.find (...), and we need to show the predicate holds at 0
   unfold h0
-  have ⟨basis, hinj⟩ := Classical.choose_spec (h0_finite_dimensional CRS D)
-  exact h0_finite_dim_witness_zero CRS D hempty _ basis hinj
-
-/-- H¹(O(D)) is finite-dimensional for compact Riemann surfaces.
-    By Serre duality, dim H¹(O(D)) = dim H⁰(O(K-D)).
-
-    **Note:** The actual finite-dimensionality follows from Serre duality:
-    h¹(D) = h⁰(K - D), and h⁰ is already shown to be finite-dimensional.
-    This theorem is implied by `h0_finite_dimensional` via Serre duality. -/
-theorem h1_finite_dimensional (CRS : CompactRiemannSurface)
-    (D : Divisor CRS.toRiemannSurface) (K : CanonicalDivisor CRS) :
-    ∃ (n : ℕ), ∃ (basis : Fin n → H0VectorSpace CRS (K.representative + (-D))),
-      Function.Injective basis :=
-  h0_finite_dimensional CRS (K.representative + (-D))
+  rw [Nat.find_eq_zero]
+  -- Need: ¬ ∃ basis : Fin 1 → LinearSystem, IsLinIndepLS
+  intro ⟨basis, _⟩
+  -- LinearSystem is empty, so Fin 1 → LinearSystem is impossible
+  exact hempty.false (basis ⟨0, Nat.zero_lt_one⟩)
 
 /-- The dimension h¹(D) = dim H¹(X, O(D)).
 
@@ -261,46 +296,156 @@ theorem one_in_linearSystem_zero (RS : RiemannSurface) :
   intro p
   rfl
 
+/-- The constant 1 as a LinearSystem element of L(0), with holomorphicity proof -/
+noncomputable def one_linearSystem (RS : RiemannSurface) : LinearSystem RS 0 where
+  fn := 1
+  effective := one_in_linearSystem_zero RS
+  holomorphicAway := by
+    intro p _
+    letI := RS.topology
+    letI := RS.chartedSpace
+    haveI := RS.isManifold
+    -- First prove the constant function is MDifferentiable, then transfer
+    suffices h : MDifferentiableAt 𝓘(ℂ, ℂ) 𝓘(ℂ, ℂ)
+        (fun _ : RS.carrier => (1 : ℂ)) p by
+      exact h.congr_of_eventuallyEq
+        (Filter.Eventually.of_forall
+          (fun q => (AnalyticMeromorphicFunction.regularValue_one q).symm))
+    exact contMDiffAt_const.mdifferentiableAt one_ne_zero
+
 /-- L(0) is nonempty -/
 theorem linearSystem_zero_nonempty (RS : RiemannSurface) :
     Nonempty (LinearSystem RS 0) :=
-  ⟨⟨1, one_in_linearSystem_zero RS⟩⟩
+  ⟨one_linearSystem RS⟩
 
-/-- Any valid dimension witness for L(0) on a compact RS satisfies n ≥ 1 -/
-lemma h0_witness_ge_one (CRS : CompactRiemannSurface)
-    (n : ℕ) (basis : Fin n → H0VectorSpace CRS 0)
-    (hinj : Function.Injective basis) :
-    n ≥ 1 := by
-  by_contra h
-  push_neg at h
-  interval_cases n
-  -- If n = 0, then L(0) would be empty, but we know it's nonempty
-  have hne := linearSystem_zero_nonempty CRS.toRiemannSurface
-  obtain ⟨f⟩ := hne
-  -- But there's no injective function Fin 0 → L(0) that covers f
-  -- Actually, this is wrong - an injective function from Fin 0 is allowed
-  -- The issue is that n = 0 means the space is 0-dimensional, but we have an element
-  -- This contradiction needs more infrastructure about dimension
-  sorry
+/-- The order of the constant 1 function is 0 at every point -/
+private theorem order_one_eq_zero (RS : RiemannSurface) (p : RS.carrier) :
+    (1 : AnalyticMeromorphicFunction RS).order p = 0 := by
+  show AnalyticMeromorphicFunction.one.order p = 0
+  rfl
 
-/-- Any valid dimension witness for L(0) on a compact RS satisfies n ≤ 1 -/
-lemma h0_witness_le_one (CRS : CompactRiemannSurface)
-    (n : ℕ) (basis : Fin n → H0VectorSpace CRS 0)
-    (hinj : Function.Injective basis) :
-    n ≤ 1 := by
-  -- All elements of L(0) are holomorphic (div(f) ≥ 0 means no poles)
-  -- By holomorphicIsConstant, all elements are constant
-  -- Therefore L(0) is 1-dimensional
-  sorry
+/-- The singleton {1} in L(0) is linearly independent -/
+theorem one_linIndep_in_L0 (CRS : CompactRiemannSurface) :
+    IsLinIndepLS CRS 0
+      (fun _ : Fin 1 => one_linearSystem CRS.toRiemannSurface) := by
+  intro c hzero i
+  fin_cases i
+  -- Pick a point from the nonempty carrier (Riemann surfaces are connected, hence nonempty)
+  have ⟨p⟩ := CRS.toRiemannSurface.connected.toNonempty
+  -- The constant 1 has order 0 everywhere, so all points are regular
+  have hreg : ∀ (j : Fin 1),
+      ((fun _ => one_linearSystem CRS.toRiemannSurface) j).fn.order p ≥ 0 := by
+    intro j
+    show (1 : AnalyticMeromorphicFunction CRS.toRiemannSurface).order p ≥ 0
+    rw [order_one_eq_zero]
+  have hzp := hzero p hreg
+  -- Sum over Fin 1 reduces to single term
+  simp only [Fin.sum_univ_one] at hzp
+  -- Beta-reduce the lambda and project .fn to get (1 : AMF).regularValue p = 1
+  have hval : ((fun _ : Fin 1 => one_linearSystem CRS.toRiemannSurface)
+        (0 : Fin 1)).fn.regularValue p = 1 :=
+    AnalyticMeromorphicFunction.regularValue_one p
+  rw [hval, mul_one] at hzp
+  exact hzp
+
+/-- Elements of L(0) have no poles (order ≥ 0 everywhere) -/
+private lemma effective_zero_implies_nonneg_order {RS : RiemannSurface}
+    (f : LinearSystem RS 0) (p : RS.carrier) :
+    0 ≤ f.fn.order p := by
+  have h := f.effective p
+  rw [add_zero] at h
+  exact h
+
+/-- On a compact Riemann surface, an analytic meromorphic function without poles
+    has constant nonzero regularValue. This follows from:
+    1. No poles + holomorphicAway → regularValue is globally holomorphic
+    2. holomorphicIsConstant: holomorphic functions on compact connected surfaces are constant
+    3. The constant is nonzero because the zero function would have order > 0 everywhere,
+       contradicting order_finiteSupport on the infinite carrier -/
+theorem amf_no_poles_is_nonzero_constant (CRS : CompactRiemannSurface)
+    (f : AnalyticMeromorphicFunction CRS.toRiemannSurface)
+    (hord : ∀ p, 0 ≤ f.order p)
+    (hhol : ∀ p, @MDifferentiableAt ℂ _ ℂ _ _ ℂ _ 𝓘(ℂ, ℂ)
+      CRS.toRiemannSurface.carrier CRS.toRiemannSurface.topology
+      CRS.toRiemannSurface.chartedSpace ℂ _ _ ℂ _ 𝓘(ℂ, ℂ) ℂ _ _
+      f.regularValue p) :
+    ∃ c : ℂ, c ≠ 0 ∧ ∀ p, f.regularValue p = c := by
+  -- Step 1: regularValue is holomorphic everywhere (since no poles, hhol at all points)
+  have hholAll : CRS.toRiemannSurface.IsHolomorphic f.regularValue := hhol
+  -- Step 2: By holomorphicIsConstant, regularValue is constant
+  obtain ⟨c, hc⟩ := CRS.holomorphicIsConstant f.regularValue hholAll
+  refine ⟨c, ?_, hc⟩
+  -- Step 3: Show c ≠ 0
+  -- If c = 0, then regularValue = 0 everywhere, so toFun = Sum.inl 0 everywhere
+  -- Then order > 0 everywhere, but {p | order p ≠ 0} is finite and carrier is infinite
+  intro hc0
+  have hfun_zero : ∀ p, f.toFun p = Sum.inl 0 := by
+    intro p
+    have hval := hc p
+    rw [hc0] at hval
+    -- regularValue p = 0
+    unfold AnalyticMeromorphicFunction.regularValue at hval
+    -- f has no poles (order ≥ 0), so toFun p ≠ Sum.inr ()
+    have hnotpole : ¬(f.order p < 0) := not_lt.mpr (hord p)
+    cases hfp : f.toFun p with
+    | inl z =>
+      -- regularValue = z, so z = 0
+      simp only [hfp] at hval
+      rw [hval]
+    | inr _ =>
+      -- f has a pole, contradicting order ≥ 0
+      exact absurd ((f.order_neg_iff_pole p).mpr hfp) hnotpole
+  have hord_pos : ∀ p, 0 < f.order p := fun p =>
+    (f.order_pos_iff_zero p).mpr (hfun_zero p)
+  -- Every point has order > 0, so every point is in the support
+  have hsub : (Set.univ : Set CRS.toRiemannSurface.carrier) ⊆
+      { p | f.order p ≠ 0 } := by
+    intro p _
+    exact ne_of_gt (hord_pos p)
+  -- But univ is infinite (carrier is infinite) and the support is finite
+  haveI := RiemannSurface.carrier_infinite CRS.toRiemannSurface
+  exact (Set.infinite_univ.mono hsub) f.order_finiteSupport
+
+/-- Any two elements of L(0) on a compact RS are proportional.
+    Elements of L(0) have div(f) ≥ 0 (no poles), so they are holomorphic
+    on the compact surface, hence constant by holomorphicIsConstant.
+    Any two nonzero constants are proportional over ℂ. -/
+theorem linearSystem_zero_no_two_indep (CRS : CompactRiemannSurface) :
+    ¬ ∃ (basis : Fin 2 → LinearSystem CRS.toRiemannSurface 0),
+      IsLinIndepLS CRS 0 basis := by
+  intro ⟨basis, hli⟩
+  -- Both elements are nonzero constants (no poles on compact surface)
+  obtain ⟨c₀, hc₀ne, hc₀⟩ := amf_no_poles_is_nonzero_constant CRS (basis 0).fn
+    (fun p => effective_zero_implies_nonneg_order (basis 0) p)
+    (fun p => (basis 0).holomorphicAway p (effective_zero_implies_nonneg_order (basis 0) p))
+  obtain ⟨c₁, hc₁ne, hc₁⟩ := amf_no_poles_is_nonzero_constant CRS (basis 1).fn
+    (fun p => effective_zero_implies_nonneg_order (basis 1) p)
+    (fun p => (basis 1).holomorphicAway p (effective_zero_implies_nonneg_order (basis 1) p))
+  -- Define coefficients c₁ for basis₀, -c₀ for basis₁
+  -- Then c₁ · c₀ + (-c₀) · c₁ = 0, showing linear dependence
+  have h := hli (fun i : Fin 2 => if i = 0 then c₁ else -c₀) (fun p hreg => by
+    simp only [Fin.sum_univ_two]
+    simp only [ite_true, show ¬((1 : Fin 2) = 0) from by decide, ite_false]
+    rw [hc₀ p, hc₁ p]; ring)
+  -- h says all coefficients are zero, but c₁ ≠ 0
+  have hc₁_zero := h ⟨0, by omega⟩
+  simp only [show (⟨0, by omega⟩ : Fin 2) = 0 from rfl, ite_true] at hc₁_zero
+  exact hc₁ne hc₁_zero
 
 /-- For the trivial bundle (D = 0), h⁰ = 1 (constant functions) -/
 theorem h0_trivial (CRS : CompactRiemannSurface) :
     h0 CRS (0 : Divisor CRS.toRiemannSurface) = 1 := by
-  unfold h0
-  have ⟨basis, hinj⟩ := Classical.choose_spec (h0_finite_dimensional CRS 0)
-  have hge := h0_witness_ge_one CRS _ basis hinj
-  have hle := h0_witness_le_one CRS _ basis hinj
-  omega
+  show Nat.find (h0_find_pred CRS 0) = 1
+  apply le_antisymm
+  · -- h0 ≤ 1: No 2 linearly independent elements exist in L(0)
+    exact Nat.find_le (linearSystem_zero_no_two_indep CRS)
+  · -- h0 ≥ 1: The constant 1 is linearly independent in L(0), so P(0) fails
+    have h0ne : Nat.find (h0_find_pred CRS 0) ≠ 0 := by
+      intro heq
+      rw [Nat.find_eq_zero] at heq
+      exact heq ⟨fun _ => one_linearSystem CRS.toRiemannSurface,
+             one_linIndep_in_L0 CRS⟩
+    omega
 
 /-- For the canonical bundle (D = K), h⁰ = g -/
 theorem h0_canonical (CRS : CompactRiemannSurface) (K : CanonicalDivisor CRS) :

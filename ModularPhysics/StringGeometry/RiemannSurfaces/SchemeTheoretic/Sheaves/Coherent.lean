@@ -148,9 +148,7 @@ variable {C : AlgebraicCurve}
     This is the free rank-1 module over itself. In Mathlib, this is
     constructed via the unit of the Modules adjunction. -/
 noncomputable def structureSheafModule (C : AlgebraicCurve) : OModule C.toScheme :=
-  -- The structure sheaf viewed as a module over itself
-  -- This uses Mathlib's Scheme.Modules.unit or similar construction
-  sorry
+  SheafOfModules.unit C.toScheme.ringCatSheaf
 
 /-- The structure sheaf O_C is quasi-coherent. -/
 instance structureSheafModule_isQuasiCoherent (C : AlgebraicCurve) :
@@ -163,8 +161,8 @@ instance structureSheafModule_isQuasiCoherent (C : AlgebraicCurve) :
 instance structureSheafModule_isCoherent (C : AlgebraicCurve) :
     IsCoherent C.toScheme (structureSheafModule C) where
   locallyPresentable := fun i => ⟨Iso.refl _⟩
-  locallyFinitelyGenerated := fun i => sorry
-    -- The ring Γ(U, O_C) is a finitely generated module over itself (by 1)
+  locallyFinitelyGenerated := fun i => Module.Finite.self _
+    -- Module.Finite.self: any ring R is finitely generated as a module over itself
 
 /-- The structure sheaf O_C is coherent. -/
 noncomputable def structureSheaf (C : AlgebraicCurve) : CoherentSheaf C where
