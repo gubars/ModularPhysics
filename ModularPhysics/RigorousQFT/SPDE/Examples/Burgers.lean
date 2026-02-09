@@ -567,28 +567,16 @@ end BurgersStatistics
 
 /-! ## Regularity Structure for Stochastic Burgers -/
 
-/-- The regularity structure for stochastic Burgers with rough forcing.
-    Index set corresponds to homogeneities of noise and solution terms. -/
-noncomputable def Burgers_RegularityStructure : RegularityStructure 1 where
-  A := {
-    indices := {-5/2, -3/2, -1/2, 0, 1/2}
-    bdd_below := ⟨-5/2, by
-      intro x hx
-      simp only [Set.mem_insert_iff] at hx
-      rcases hx with rfl | rfl | rfl | rfl | rfl <;> norm_num⟩
-    locally_finite := fun _ => Set.toFinite _
-    contains_zero := by simp
-  }
-  T := fun _α _ => ℝ
-  banach := fun _ _ => inferInstance
-  normed_space := fun _ _ => inferInstance
-  fin_dim := fun _ _ => inferInstance
-  G := Unit
-  group := inferInstance
-  action := fun _ _ _ => LinearMap.id
-  action_mul := fun _ _ _ _ => rfl
-  action_one := fun _ _ => rfl
-  triangular_unipotent := fun _ _ _ => ⟨1, fun τ => by simp⟩
+/-- Model parameters for stochastic Burgers with rough forcing.
+    Uses the tree-based infrastructure from `RegularityStructures/`.
+    - Noise regularity α = -5/2 (rough forcing in 1D)
+    - Kernel order β = 2 (heat kernel) -/
+noncomputable def Burgers_ModelParameters : SPDE.RegularityStructures.ModelParameters 1 where
+  noiseRegularity := -5/2
+  kernelOrder := 2
+  minHomogeneity := -5/2
+  maxHomogeneity := 2
+  hom_lt := by norm_num
 
 /-! ## Well-Posedness Results -/
 

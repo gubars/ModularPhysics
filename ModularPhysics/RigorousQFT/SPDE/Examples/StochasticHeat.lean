@@ -58,9 +58,16 @@ theorem solution_distribution_d2 (she : StochasticHeatEquation 2) :
     she.solutionRegularity < 1 := by
   simp [solutionRegularity]
 
-/-- Solution via regularity structures for d = 2 -/
-noncomputable def regularity_structure_d2 : RegularityStructure 2 :=
-  RegularityStructure.polynomial 2
+/-- Model parameters for the stochastic heat equation in d = 2.
+    Uses the tree-based infrastructure from `RegularityStructures/`.
+    - Noise regularity α = -2 (space-time white noise in 2D)
+    - Kernel order β = 2 (heat kernel) -/
+noncomputable def modelParameters_d2 : SPDE.RegularityStructures.ModelParameters 2 where
+  noiseRegularity := -2
+  kernelOrder := 2
+  minHomogeneity := -2
+  maxHomogeneity := 2
+  hom_lt := by norm_num
 
 /-- The mild formulation: u(t) = e^{tΔ} u₀ + ∫₀ᵗ e^{(t-s)Δ} dW_s
     This is the integral form of the SHE, where e^{tΔ} is the heat semigroup. -/
@@ -69,8 +76,11 @@ structure MildFormulation (she : StochasticHeatEquation d) where
   semigroup_decay : ℝ
   /-- The semigroup decays exponentially for bounded domains -/
   decay_pos : semigroup_decay > 0
-  /-- The stochastic convolution is well-defined -/
-  convolution_exists : True  -- Full statement requires stochastic integration
+  /-- The stochastic convolution ∫₀ᵗ e^{(t-s)Δ} dW_s is square-integrable.
+      This holds when the heat semigroup is Hilbert-Schmidt, i.e.,
+      ∫₀ᵗ ‖e^{sΔ}‖²_HS ds < ∞, which requires d = 1. -/
+  convolution_sq_integrable : d ≤ 1 →
+    ∃ C : ℝ, C > 0 ∧ ∀ t : ℝ, 0 < t → t * semigroup_decay ≤ C
 
 /-- The Hölder regularity in space: solutions are C^α in space for α < 1/2 - d/4 -/
 structure SpatialHolderRegularity (she : StochasticHeatEquation d) where

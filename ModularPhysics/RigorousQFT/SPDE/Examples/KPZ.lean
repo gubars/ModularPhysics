@@ -91,32 +91,13 @@ structure InverseColeHopf (kpz : KPZEquation) where
 
 /-! ## Regularity Structure for KPZ -/
 
-/-- The regularity structure for KPZ (Hairer 2013).
-    Index set A = {-3/2, -1, -1/2, 0, 1/2, 1, ...}
-    The key regularities:
-    - ξ has regularity -3/2 - ε (space-time white noise in 1D)
-    - h has regularity 1/2 - ε
-    - (∇h)² is critically singular at regularity 0 -/
-noncomputable def KPZ_RegularityStructure : RegularityStructure 1 where
-  A := {
-    indices := {-3/2, -1, -1/2, 0, 1/2, 1}
-    bdd_below := ⟨-3/2, by
-      intro x hx
-      simp only [Set.mem_insert_iff] at hx
-      rcases hx with rfl | rfl | rfl | rfl | rfl | rfl <;> norm_num⟩
-    locally_finite := fun _ => Set.toFinite _
-    contains_zero := by simp
-  }
-  T := fun _α _ => ℝ
-  banach := fun _ _ => inferInstance
-  normed_space := fun _ _ => inferInstance
-  fin_dim := fun _ _ => inferInstance
-  G := Unit  -- Trivial structure group for this simplified example
-  group := inferInstance
-  action := fun _ _ _ => LinearMap.id
-  action_mul := fun _ _ _ _ => rfl
-  action_one := fun _ _ => rfl
-  triangular_unipotent := fun _ _ _ => ⟨1, fun τ => by simp⟩
+/-- Model parameters for the KPZ regularity structure (Hairer 2013).
+    Uses the tree-based infrastructure from `RegularityStructures/`.
+    - Noise regularity α = -3/2 (space-time white noise in 1D)
+    - Kernel order β = 2 (heat kernel)
+    - Homogeneity range covers all relevant tree symbols -/
+noncomputable def KPZ_ModelParameters : SPDE.RegularityStructures.ModelParameters 1 :=
+  SPDE.RegularityStructures.ModelParameters.kpz
 
 /-- The symbols in the KPZ regularity structure -/
 inductive KPZSymbol
@@ -132,6 +113,26 @@ noncomputable def symbolHomogeneity : KPZSymbol → ℝ
   | KPZSymbol.D s => symbolHomogeneity s - 1
   | KPZSymbol.Mult s₁ s₂ => symbolHomogeneity s₁ + symbolHomogeneity s₂
 
+/-! ## KPZ as a Singular SPDE -/
+
+/-- The KPZ equation as a singular SPDE in the framework of `SPDE.SingularSPDE`.
+    - Spatial dimension d = 1
+    - Operator: Laplacian (order β = 2)
+    - Nonlinearity: (∇h)² modeled as u² in abstract setting
+    - Noise: space-time white noise with regularity α = -3/2
+    - Solution regularity: γ = α + β = 1/2 -/
+noncomputable def kpz_singular_spde (_kpz : KPZEquation) : SPDE.SingularSPDE 1 where
+  domain := Set.univ
+  domain_open := isOpen_univ
+  operator_order := 2
+  operator_order_pos := by norm_num
+  nonlinearity := SPDE.PolynomialNonlinearity.kpz
+  noise_regularity := -3/2
+  noise_distributional := by norm_num
+  solution_regularity := 1/2
+  subcritical := by norm_num
+  regularity_from_kernel := by norm_num
+
 /-! ## Renormalization -/
 
 /-- The renormalization constant for KPZ -/
@@ -141,13 +142,23 @@ structure KPZRenormalization (kpz : KPZEquation) where
   /-- The divergence is linear: C_ε ~ c/ε -/
   linear_divergence : ∃ c : ℝ, ∀ ε > 0, |constant ε - c/ε| ≤ 1
 
-/-- The renormalized KPZ equation:
-    ∂_t h = Δh + (∇h)² - C_ε + ξ_ε → limit as ε → 0 -/
-structure RenormalizedLimit (kpz : KPZEquation) (r : KPZRenormalization kpz) where
-  /-- The limit exists in the appropriate topology -/
-  limit_exists : True  -- Full statement requires solution spaces
-  /-- The limit is independent of the regularization -/
-  universal : True
+/-- The renormalization constants for KPZ in the framework of `SPDE.RenormalizationConstants`.
+    The single divergent constant C_ε ~ λ²D/(4νε) arises from the Wick renormalization
+    of the nonlinearity (∇h)². -/
+noncomputable def kpz_renormalization_constants (kpz : KPZEquation) :
+    SPDE.RenormalizationConstants 1 (kpz_singular_spde kpz) where
+  constants := fun ε => kpz.lambda^2 * kpz.noise_strength^2 / (4 * kpz.nu * ε)
+  divergence_exponent := 1
+  divergence_bound := by
+    refine ⟨kpz.lambda^2 * kpz.noise_strength^2 / (4 * kpz.nu) + 1, 1, ?_, by norm_num, ?_⟩
+    · linarith [sq_nonneg kpz.lambda, sq_nonneg kpz.noise_strength,
+        div_nonneg (mul_nonneg (sq_nonneg kpz.lambda) (sq_nonneg kpz.noise_strength))
+          (mul_pos (by norm_num : (0:ℝ) < 4) kpz.nu_pos).le]
+    · intro ε hε _
+      sorry -- bound on |C_ε| ≤ K * ε^{-1}
+  renormalized_limit := by
+    intro ε₁ ε₂ hε₁ _
+    sorry
 
 /-! ## Well-Posedness -/
 
@@ -164,14 +175,11 @@ structure KPZLocalWellPosedness (kpz : KPZEquation) where
   existence_time_pos : ∀ R : ℝ, R > 0 → existence_time R > 0
 
 /-- Global well-posedness with sublinear initial data.
-    If h₀(x) = o(|x|) as |x| → ∞, then the solution exists for all time. -/
-structure KPZGlobalWellPosedness (kpz : KPZEquation) where
-  /-- The growth rate of initial data -/
-  initial_growth_rate : ℝ
-  /-- Sublinear growth: rate < 1 -/
-  sublinear : initial_growth_rate < 1
-  /-- Global existence -/
-  global_exists : True  -- Full statement requires solution spaces
+    If h₀(x) = o(|x|) as |x| → ∞, then the solution exists for all time.
+    Uses the `SPDE.GlobalWellPosedness` framework from SPDE.lean. -/
+theorem kpz_global_wellposedness (kpz : KPZEquation) :
+    SPDE.GlobalWellPosedness 1 (kpz_singular_spde kpz) KPZ_ModelParameters :=
+  sorry
 
 /-! ## KPZ Universality -/
 

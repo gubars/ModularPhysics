@@ -54,6 +54,19 @@ namespace RiemannSurfaces.SchemeTheoretic
 /-- The base scheme Spec ℂ. -/
 noncomputable def SpecComplex : Scheme := Scheme.Spec.obj (Opposite.op (CommRingCat.of ℂ))
 
+/-- The canonical ring homomorphism from ℂ to the residue field at a point x,
+    induced by a structure morphism f : X → Spec ℂ.
+
+    This is the composition:
+    ℂ →[ΓSpecIso⁻¹]→ Γ(Spec ℂ, ⊤) →[f*.appTop]→ Γ(X, ⊤) →[evaluation]→ κ(x)
+
+    For schemes of finite type over an algebraically closed field, this map
+    is bijective at all closed points (by the Nullstellensatz). -/
+noncomputable def canonicalToResidueField (X : Scheme) (f : X ⟶ SpecComplex) (x : X) :
+    ℂ →+* (X.residueField x : Type _) :=
+  ((X.evaluation ⊤ x (Set.mem_univ x)).hom).comp
+    (f.appTop.hom.comp (Scheme.ΓSpecIso (CommRingCat.of ℂ)).inv.hom)
+
 /-!
 ## Algebraic Curves (General)
 
@@ -96,13 +109,19 @@ structure AlgebraicCurve where
   [irreducible : IrreducibleSpace toScheme]
   /-- The scheme is reduced (no nilpotent elements in the structure sheaf). -/
   [reduced : IsReduced toScheme]
-  /-- Residue fields are ℂ: at each point, κ(x) ≅ ℂ.
+  /-- The canonical map ℂ → κ(x) is bijective at every point.
 
       **Mathematical content:**
-      For a variety over an algebraically closed field k, closed points
-      have residue field k (by Hilbert's Nullstellensatz). This encodes
-      that our curve is "geometrically over ℂ". -/
-  residueFieldIsComplex : ∀ x : toScheme, Nonempty (toScheme.residueField x ≅ CommRingCat.of ℂ)
+      For a variety of finite type over an algebraically closed field k,
+      the canonical map k → κ(x) is bijective at all closed points
+      (by Hilbert's Nullstellensatz / Zariski's lemma). This is the
+      scheme-theoretic content of "the curve is over ℂ".
+
+      This is stronger than merely asserting ∃ iso : κ(x) ≅ ℂ, because
+      it asserts the CANONICAL map (induced by the structure morphism)
+      is the one witnessing the isomorphism. -/
+  residueFieldIsComplex : ∀ x : toScheme,
+    Function.Bijective (canonicalToResidueField toScheme structureMorphism x)
 
 attribute [instance] AlgebraicCurve.separated
 attribute [instance] AlgebraicCurve.finiteType
@@ -121,6 +140,32 @@ instance toSchemeNonempty : Nonempty C.toScheme := by
 /-- The scheme is integral (from irreducible + reduced). -/
 instance toSchemeIsIntegral : IsIntegral C.toScheme :=
   isIntegral_of_irreducibleSpace_of_isReduced C.toScheme
+
+/-- The canonical map ℂ → κ(x) for the curve. -/
+noncomputable def canonicalToResidue (x : C.toScheme) :
+    ℂ →+* (C.toScheme.residueField x : Type _) :=
+  canonicalToResidueField C.toScheme C.structureMorphism x
+
+/-- The canonical map ℂ → κ(x) is bijective. -/
+theorem canonicalToResidue_bijective (x : C.toScheme) :
+    Function.Bijective (C.canonicalToResidue x) :=
+  C.residueFieldIsComplex x
+
+/-- The canonical map as a ring equivalence ℂ ≃+* κ(x). -/
+noncomputable def residueFieldEquiv (x : C.toScheme) :
+    ℂ ≃+* (C.toScheme.residueField x : Type _) :=
+  RingEquiv.ofBijective (C.canonicalToResidue x) (C.canonicalToResidue_bijective x)
+
+/-- Derived: the residue field is isomorphic to ℂ as CommRingCat (backwards-compatible). -/
+theorem residueFieldIso (x : C.toScheme) :
+    Nonempty (C.toScheme.residueField x ≅ CommRingCat.of ℂ) := by
+  let e := C.residueFieldEquiv x
+  exact ⟨{
+    hom := CommRingCat.ofHom e.symm.toRingHom
+    inv := CommRingCat.ofHom e.toRingHom
+    hom_inv_id := by ext a; exact e.apply_symm_apply a
+    inv_hom_id := by ext a; exact e.symm_apply_apply a
+  }⟩
 
 /-- The set of points of the curve (as a type). -/
 def PointType : Type _ := C.toScheme.carrier

@@ -77,9 +77,7 @@ end Phi4Model
 /-! ## Φ⁴ in 2D -/
 
 /-- The 2D Φ⁴ model (solved by Da Prato-Debussche 2003) -/
-structure Phi4_2 extends Phi4Model 2 where
-  /-- 2D constraint -/
-  dim_constraint : True := trivial
+structure Phi4_2 extends Phi4Model 2
 
 namespace Phi4_2
 
@@ -115,29 +113,37 @@ structure InvariantMeasureQFT (phi : Phi4_2) where
   partition_function : ℝ
   /-- The partition function is positive -/
   partition_pos : partition_function > 0
-  /-- The measure is a probability measure -/
-  is_probability : True  -- Full formalization requires constructive QFT
 
-/-- Global well-posedness for Φ⁴₂: existence, uniqueness, and continuous dependence
-    for all time and all initial data in appropriate spaces. -/
-structure GlobalWellPosedness2D (phi : Phi4_2) where
-  /-- The solution regularity (α < 0 in 2D) -/
-  solution_regularity : ℝ
-  /-- Negative regularity -/
-  regularity_bound : solution_regularity < 0
-  /-- Existence: for any initial data, a solution exists for all time -/
-  global_existence : ∀ T : ℝ, T > 0 → True  -- Placeholder for solution existence
-  /-- Uniqueness: solutions are unique in the appropriate class -/
-  uniqueness : True  -- Placeholder for uniqueness statement
+/-- The Φ⁴₂ equation as a singular SPDE. In 2D the noise has regularity α = -2
+    and the solution regularity is γ = α + β = 0 (distribution-valued). -/
+noncomputable def phi4_2_spde (phi : Phi4_2) : SPDE.SingularSPDE 2 where
+  domain := phi.domain
+  domain_open := sorry -- requires domain to be open
+  operator_order := 2
+  operator_order_pos := by norm_num
+  nonlinearity := SPDE.PolynomialNonlinearity.phi4 phi.mass_squared
+  noise_regularity := phi.toPhi4Model.noiseRegularity
+  noise_distributional := by simp [Phi4Model.noiseRegularity]
+  solution_regularity := phi.toPhi4Model.solutionRegularity
+  subcritical := by simp [Phi4Model.solutionRegularity, Phi4Model.noiseRegularity]
+  regularity_from_kernel := by
+    simp [Phi4Model.solutionRegularity, Phi4Model.noiseRegularity]
+
+/-- Global well-posedness for Φ⁴₂ (Da Prato-Debussche 2003).
+    The 2D case is subcritical: the cubic nonlinearity φ³ is well-defined as a distribution,
+    so classical fixed-point arguments in Besov spaces suffice.
+    Uses the `SPDE.GlobalWellPosedness` framework. -/
+noncomputable def phi4_2_global_wellposedness (phi : Phi4_2) :
+    SPDE.GlobalWellPosedness 2 (phi4_2_spde phi)
+      (SPDE.RegularityStructures.ModelParameters.mk (-2) 2 (-2) 2 (by norm_num)) :=
+  sorry
 
 end Phi4_2
 
 /-! ## Φ⁴ in 3D -/
 
 /-- The 3D Φ⁴ model (Hairer 2014, Catellier-Chouk 2018) -/
-structure Phi4_3 extends Phi4Model 3 where
-  /-- 3D constraint -/
-  dim_constraint : True := trivial
+structure Phi4_3 extends Phi4Model 3
 
 namespace Phi4_3
 
@@ -147,28 +153,13 @@ theorem cubic_requires_renormalization (phi : Phi4_3) :
   simp [Phi4Model.cubicWellDefined, Phi4Model.solutionRegularity]
   norm_num
 
-/-- The regularity structure for Φ⁴₃.
-    The index set contains the regularities needed for the solution theory:
-    - ξ has regularity α = -5/2 - ε
-    - Φ has regularity 1/2 - ε
-    - Products like Φ², Φ³ have correspondingly lower regularities -/
-noncomputable def regularity_structure : RegularityStructure 3 where
-  A := {
-    indices := {-5/2, -3/2, -1/2, -1, 0, 1/2, 1}
-    bdd_below := ⟨-5/2, by intro x hx; simp only [Set.mem_insert_iff] at hx; rcases hx with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> norm_num⟩
-    locally_finite := fun _ => Set.toFinite _
-    contains_zero := by simp
-  }
-  T := fun α _ => ℝ  -- Simplified: in full theory, T_α is spanned by abstract symbols
-  banach := fun _ _ => inferInstance
-  normed_space := fun _ _ => inferInstance
-  fin_dim := fun _ _ => inferInstance
-  G := Unit  -- Trivial structure group for this simplified example
-  group := inferInstance
-  action := fun _ _ _ => LinearMap.id
-  action_mul := fun _ _ _ _ => rfl
-  action_one := fun _ _ => rfl
-  triangular_unipotent := fun _ _ _ => ⟨1, fun τ => by simp⟩
+/-- Model parameters for Φ⁴₃ regularity structure.
+    Uses the tree-based infrastructure from `RegularityStructures/`.
+    - Noise regularity α = -5/2 (space-time white noise in 3D)
+    - Kernel order β = 2 (heat kernel)
+    - Homogeneity range covers all relevant tree symbols -/
+noncomputable def modelParameters : SPDE.RegularityStructures.ModelParameters 3 :=
+  SPDE.RegularityStructures.ModelParameters.phi4_3
 
 /-- Renormalization constants for Φ⁴₃.
     The mass counterterm diverges logarithmically as the UV cutoff ε → 0. -/
@@ -198,24 +189,40 @@ structure LocalWellPosedness3D (phi : Phi4_3) (r : Renormalization phi) where
   /-- Existence time is positive for bounded data -/
   existence_time_pos : ∀ R : ℝ, R > 0 → existence_time R > 0
 
-/-- Coming down from infinity (Mourrat-Weber): solutions starting from rough initial
-    data instantaneously regularize. The solution at any positive time t > 0 is
-    independent of the precise initial condition in the class of "coming from infinity". -/
-structure ComingDownFromInfinity (phi : Phi4_3) where
-  /-- The regularization time: solutions become regular after time ε -/
-  regularization : ∀ ε : ℝ, ε > 0 → True  -- Solutions at time ε are well-defined
-  /-- Independence of initial condition in the limit: two solutions with different
-      "infinite" initial conditions agree for t > 0 -/
-  independence : True  -- Full statement requires abstract initial conditions
+/-- The Φ⁴₃ equation as a singular SPDE. In 3D the noise has regularity α = -5/2
+    and the solution regularity is γ = α + β = -1/2 (requires renormalization). -/
+noncomputable def phi4_3_spde (phi : Phi4_3) : SPDE.SingularSPDE 3 where
+  domain := phi.domain
+  domain_open := sorry -- requires domain to be open
+  operator_order := 2
+  operator_order_pos := by norm_num
+  nonlinearity := SPDE.PolynomialNonlinearity.phi4 phi.mass_squared
+  noise_regularity := phi.toPhi4Model.noiseRegularity
+  noise_distributional := by simp [Phi4Model.noiseRegularity]; norm_num
+  solution_regularity := phi.toPhi4Model.solutionRegularity
+  subcritical := by simp [Phi4Model.solutionRegularity, Phi4Model.noiseRegularity]; norm_num
+  regularity_from_kernel := by
+    simp [Phi4Model.solutionRegularity, Phi4Model.noiseRegularity]; norm_num
 
-/-- The invariant measure for Φ⁴₃ exists and is unique -/
-structure InvariantMeasure3D (phi : Phi4_3) where
-  /-- Existence: there is an invariant probability measure -/
-  existence : True  -- Full statement requires constructive proof
-  /-- Uniqueness: the invariant measure is unique -/
-  uniqueness : True  -- Follows from "coming down from infinity"
-  /-- The measure is related to the Φ⁴₃ Euclidean QFT (if it exists) -/
-  qft_relation : True
+/-- Coming down from infinity (Mourrat-Weber 2017): for any two solutions u₁, u₂
+    of the Φ⁴₃ equation with potentially different initial data,
+    the modelled distributions converge: ‖u₁(t) - u₂(t)‖_{D^γ} → 0 as t → ∞.
+
+    This implies uniqueness of the invariant measure and is proved using
+    the regularity structure framework. -/
+theorem coming_down_from_infinity (phi : Phi4_3) :
+    ∀ (sol₁ sol₂ : SPDE.RegularityStructureSolution 3 (phi4_3_spde phi) modelParameters),
+      ∃ C : ℝ, C > 0 ∧
+      ∀ t : ℝ, t > 0 →
+        |sol₁.reconstruction.bound_const - sol₂.reconstruction.bound_const| ≤ C / t :=
+  sorry
+
+/-- Ergodicity for Φ⁴₃: the invariant measure exists, is unique, and the dynamics
+    converge to it exponentially fast. Uses the `SPDE.Ergodicity` framework.
+    Uniqueness follows from "coming down from infinity" (Mourrat-Weber). -/
+noncomputable def phi4_3_ergodicity (phi : Phi4_3) :
+    SPDE.Ergodicity 3 (phi4_3_spde phi) modelParameters :=
+  sorry
 
 end Phi4_3
 

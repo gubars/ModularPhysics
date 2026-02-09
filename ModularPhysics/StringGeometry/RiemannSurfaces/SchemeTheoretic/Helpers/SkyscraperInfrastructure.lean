@@ -97,10 +97,11 @@ For curves over ℂ, κ(p) ≅ ℂ has dimension 1.
 
 variable (C : AlgebraicCurve)
 
-/-- The residue field of C at p is isomorphic to ℂ as a ring. -/
+/-- The residue field of C at p is isomorphic to ℂ as a ring.
+    Derived from the canonical map bijectivity axiom. -/
 noncomputable def residueFieldIsoComplex (p : C.PointType) :
     C.toScheme.residueField p ≅ CommRingCat.of ℂ :=
-  (C.residueFieldIsComplex p).some
+  (C.residueFieldIso p).some
 
 /-- The residue field κ(p) is a ℂ-algebra. -/
 noncomputable instance residueFieldComplexAlgebra (p : C.PointType) :
@@ -242,15 +243,16 @@ theorem canonicalResidueMap_injective (p : C.PointType) :
 
 /-- The canonical residue map is surjective.
 
-    This follows from the algebraic Nullstellensatz: for schemes of finite type
-    over algebraically closed fields, residue fields at closed points equal
-    the base field. Since our curves are of finite type over ℂ (algebraically
-    closed), the canonical map ℂ → κ(p) is surjective.
+    This follows from the `residueFieldIsComplex` axiom in `AlgebraicCurve`,
+    which asserts bijectivity of the canonical map ℂ → κ(p).
+    Mathematically, this is the algebraic Nullstellensatz: for schemes of finite
+    type over algebraically closed fields, residue fields at closed points equal
+    the base field.
 
     References: Stacks Project Tag 00FJ, Hartshorne Exercise II.2.13. -/
 theorem canonicalResidueMap_surjective (p : C.PointType) :
-    Function.Surjective (canonicalResidueMap C p) := by
-  sorry
+    Function.Surjective (canonicalResidueMap C p) :=
+  (C.residueFieldIsComplex p).2
 
 /-- The canonical residue map as a ring equivalence. -/
 noncomputable def canonicalResidueEquiv (p : C.PointType) :
@@ -272,5 +274,34 @@ theorem residueField_finrank_one_canonical (p : C.PointType) :
   intro w
   obtain ⟨c, hc⟩ := canonicalResidueMap_surjective C p w
   exact ⟨c, by show canonicalResidueMap C p c * 1 = w; rw [mul_one]; exact hc⟩
+
+/-- κ(p) ≃ₗ[ℂ] ℂ as a ℂ-linear equiv, using the canonical map module structure.
+
+    The ℂ-module structure on κ(p) is a • v = canonicalResidueMap(a) * v.
+    The forward map is canonicalResidueEquiv.symm : κ(p) → ℂ.
+    It is ℂ-linear because:
+      e(a • v) = e(f(a) * v) = e(f(a)) * e(v) = a * e(v) = a • e(v)
+    where e = canonicalResidueEquiv.symm and f = canonicalResidueMap. -/
+noncomputable def canonicalResidueLinearEquiv (p : C.PointType) :
+    letI : Module ℂ (C.toScheme.residueField p) :=
+      Module.compHom (C.toScheme.residueField p) (canonicalResidueMap C p)
+    (C.toScheme.residueField p) ≃ₗ[ℂ] ℂ := by
+  letI : Module ℂ (C.toScheme.residueField p) :=
+    Module.compHom (C.toScheme.residueField p) (canonicalResidueMap C p)
+  let e := (canonicalResidueEquiv C p).symm
+  exact {
+    toFun := e
+    invFun := e.symm
+    left_inv := e.left_inv
+    right_inv := e.right_inv
+    map_add' := e.map_add
+    map_smul' := fun a v => by
+      simp only [RingHom.id_apply]
+      -- a • v = canonicalResidueMap(a) * v (Module.compHom definition)
+      show e (canonicalResidueMap C p a * v) = a * e v
+      rw [e.map_mul]
+      -- e(canonicalResidueMap(a)) = (canonicalResidueEquiv.symm)(canonicalResidueEquiv(a)) = a
+      congr 1
+      exact (canonicalResidueEquiv C p).symm_apply_apply a }
 
 end RiemannSurfaces.SchemeTheoretic

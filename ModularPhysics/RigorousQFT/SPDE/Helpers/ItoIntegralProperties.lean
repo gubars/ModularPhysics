@@ -7,6 +7,12 @@ import ModularPhysics.RigorousQFT.SPDE.Helpers.SimpleIntegralMartingale
 import ModularPhysics.RigorousQFT.SPDE.Helpers.L2LimitInfrastructure
 
 /-!
+Note: `ItoIntegral.is_martingale_proof` and `ItoIntegral.ito_isometry_proof` were
+formerly in this file but have been moved to `StochasticIntegration.lean` to avoid
+import cycles (these reference `ItoIntegral` which is defined there).
+-/
+
+/-!
 # Itô Integral Properties
 
 This file proves that the Itô integral is a martingale by combining:
@@ -230,74 +236,5 @@ theorem ito_integral_martingale_setIntegral
     -- h_mart: each approximant satisfies the martingale set-integral property
     (fun n => SimpleProcess.stochasticIntegral_at_martingale (approx n) W
       (hH_adapted n) (hH_bdd n) (hH_times_nn n) s t hs hst A hA)
-
-/-! ## Itô integral martingale property (structure-aware version) -/
-
-/-- The Itô integral satisfies the martingale set-integral property on [0, T].
-    This is the structure-aware version that takes an `ItoIntegral` and
-    extracts the approximating sequence from `is_L2_limit`.
-
-    This is the full proof of `ItoIntegral.is_martingale` (which is sorry'd in
-    StochasticIntegration.lean due to import limitations). -/
-theorem ItoIntegral.is_martingale_proof
-    {F : Filtration Ω ℝ} {μ : Measure Ω} {T : ℝ}
-    (I : ItoIntegral F μ T) [IsProbabilityMeasure μ]
-    {s t : ℝ} (hs : 0 ≤ s) (hst : s ≤ t) (ht : t ≤ T)
-    {A : Set Ω} (hA : MeasurableSet[I.BM.F.σ_algebra s] A) :
-    ∫ ω in A, I.integral t ω ∂μ = ∫ ω in A, I.integral s ω ∂μ := by
-  -- Extract the approximating sequence with all its properties
-  obtain ⟨approx, hadapted, hbdd, hnn, hL2, _⟩ := I.is_L2_limit
-  exact ito_integral_martingale_setIntegral I.BM I.integral approx
-    hadapted hbdd hnn hL2 I.integrable_limit I.sq_integrable_limit hs hst ht hA
-
-/-! ## Itô isometry proof -/
-
-/-- Cross-term integrability: if `g, f ∈ L¹`, `(g - f)² ∈ L¹` and `f² ∈ L¹`, then `(g - f)*f ∈ L¹`.
-    Proof: `|(g-f)*f| ≤ (g-f)² + f²` by AM-GM. -/
-private theorem cross_term_integrable
-    {f g : Ω → ℝ} (hg_int : Integrable g μ) (hf_int : Integrable f μ)
-    (hgf_sq : Integrable (fun ω => (g ω - f ω) ^ 2) μ)
-    (hf_sq : Integrable (fun ω => f ω ^ 2) μ) :
-    Integrable (fun ω => (g ω - f ω) * f ω) μ := by
-  refine (hgf_sq.add hf_sq).mono'
-    ((hg_int.sub hf_int).aestronglyMeasurable.mul hf_int.aestronglyMeasurable) ?_
-  filter_upwards with ω
-  simp only [Pi.add_apply, Real.norm_eq_abs, abs_mul]
-  nlinarith [sq_nonneg (|g ω - f ω| - |f ω|), sq_abs (g ω - f ω), sq_abs (f ω)]
-
-/-- The Itô isometry: `E[(∫₀ᵗ H dW)²] = E[∫₀ᵗ H² ds]`.
-
-    Proof: By `is_L2_limit`, simple integrals S_n converge to I in L².
-    - `sq_integral_tendsto_of_L2_tendsto` gives `∫ S_n² → ∫ I²`
-    - Isometry convergence field gives `∫ S_n² → ∫∫ H²`
-    - By uniqueness of limits: `∫ I² = ∫∫ H²` -/
-theorem ItoIntegral.ito_isometry_proof
-    {F : Filtration Ω ℝ} {μ : Measure Ω} {T : ℝ}
-    (I : ItoIntegral F μ T) [IsProbabilityMeasure μ]
-    (t : ℝ) (ht0 : 0 ≤ t) (ht : t ≤ T) :
-    ∫ ω, (I.integral t ω)^2 ∂μ =
-    ∫ ω, (∫ (s : ℝ) in Set.Icc 0 t, (I.integrand.process s ω)^2 ∂volume) ∂μ := by
-  -- Extract the approximating sequence
-  obtain ⟨approx, hadapted, hbdd, hnn, hL2, hiso⟩ := I.is_L2_limit
-  -- L² convergence → squared norm convergence: ∫ S_n(t)² → ∫ I(t)²
-  have h_sq_conv : Filter.Tendsto
-      (fun n => ∫ ω, (SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω)^2 ∂μ)
-      Filter.atTop (nhds (∫ ω, (I.integral t ω) ^ 2 ∂μ)) := by
-    have hI_int := I.integrable_limit t ht0 ht
-    have hI_sq := I.sq_integrable_limit t ht0 ht
-    have hSn_int : ∀ n, Integrable (SimpleProcess.stochasticIntegral_at (approx n) I.BM t) μ :=
-      fun n => SimpleProcess.stochasticIntegral_at_integrable (approx n) I.BM
-        (hadapted n) (hbdd n) (hnn n) t ht0
-    have hSub_sq : ∀ n, Integrable (fun ω =>
-        (SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω - I.integral t ω) ^ 2) μ :=
-      fun n => SimpleProcess.stochasticIntegral_at_sub_sq_integrable (approx n) I.BM
-        (hadapted n) (hbdd n) (hnn n) (I.integral t) hI_int hI_sq t ht0
-    exact sq_integral_tendsto_of_L2_tendsto hI_sq hSub_sq
-      (fun n => cross_term_integrable (hSn_int n) hI_int (hSub_sq n) hI_sq)
-      (hL2 t ht0 ht)
-  -- Isometry convergence: ∫ S_n(t)² → ∫∫ H²
-  have h_iso_conv := hiso t ht0 ht
-  -- Uniqueness of limits
-  exact tendsto_nhds_unique h_sq_conv h_iso_conv
 
 end SPDE

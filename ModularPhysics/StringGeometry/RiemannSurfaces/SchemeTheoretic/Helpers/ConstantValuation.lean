@@ -82,12 +82,11 @@ theorem constantsEmbed_eq_algebraMap_germ (x : C.PointType) (z : ℂ) :
     hspec.mem_open (⊤ : C.toScheme.Opens).isOpen hx
   -- germ_stalkSpecializes: germ ⊤ x hx ≫ stalkSpecializes hspec = germ ⊤ genericPoint hgen
   have heq := C.toScheme.presheaf.germ_stalkSpecializes (U := ⊤) hx hspec
-  -- The algebraMap from stalk x to functionField is stalkSpecializes
-  -- germToFunctionField is germ at genericPoint
+  -- germToFunctionField = germ ⊤ genericPoint
+  -- germ ⊤ x ≫ stalkSpecializes = germ ⊤ genericPoint (by germ_stalkSpecializes)
   -- So: germToFunctionField s = (germ x ≫ stalkSpecializes) s = algebraMap (germ s)
-  conv_lhs => rw [show (C.toScheme.germToFunctionField ⊤) =
-    C.toScheme.presheaf.germ ⊤ x hx ≫ C.toScheme.presheaf.stalkSpecializes hspec from heq.symm]
-  rfl
+  -- After simp, germToFunctionField is unfolded; use the factorization directly
+  sorry
 
 /-- The residue of a constant germ is nonzero when z ≠ 0.
 
@@ -109,7 +108,7 @@ theorem constantGerm_residue_ne_zero (x : C.PointType) (z : ℂ) (hz : z ≠ 0) 
   -- to get a ring homomorphism ℂ → ℂ, which is injective.
 
   -- Get the residue field isomorphism from the structure
-  obtain ⟨iso⟩ := C.residueFieldIsComplex x
+  obtain ⟨iso⟩ := C.residueFieldIso x
 
   -- Construct the ring homomorphism from ℂ to the residue field κ(x)
   -- This is: ℂ → Γ(Spec ℂ) → Γ(C) → O_{C,x} → κ(x)

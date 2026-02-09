@@ -3,9 +3,8 @@ Copyright (c) 2025 ModularPhysics. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: ModularPhysics Contributors
 -/
-import ModularPhysics.RigorousQFT.SPDE.BrownianMotion
+import ModularPhysics.RigorousQFT.SPDE.Helpers.ItoIntegralProperties
 import ModularPhysics.RigorousQFT.SPDE.Probability.IndependenceHelpers
-import ModularPhysics.RigorousQFT.SPDE.Helpers.L2LimitInfrastructure
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Analysis.Calculus.ContDiff.Defs
@@ -35,50 +34,15 @@ open MeasureTheory ProbabilityTheory
 
 variable {Ω : Type*} [MeasurableSpace Ω]
 
-/-! ## Simple Processes -/
+/-! ## Simple Processes
 
-/-- A simple (step) process defined by a finite partition -/
-structure SimpleProcess (F : Filtration Ω ℝ) where
-  /-- Number of partition points -/
-  n : ℕ
-  /-- The partition times (as a function) -/
-  times : Fin n → ℝ
-  /-- The values at each interval -/
-  values : Fin n → Ω → ℝ
-  /-- Partition is increasing -/
-  increasing : ∀ i j : Fin n, i < j → times i < times j
-  /-- Values are predictable (F_{t_{i-1}}-measurable) -/
-  adapted : ∀ i : Fin n, (i : ℕ) > 0 →
-    @Measurable Ω ℝ (F.σ_algebra (times ⟨i - 1, by omega⟩)) _ (values i)
+The `SimpleProcess` structure, `stochasticIntegral`, and `stochasticIntegral_at` are
+defined in `Helpers/SimpleProcessDef.lean` to avoid import cycles with helper files.
+The isometry proof and other theorems are proved here. -/
 
 namespace SimpleProcess
 
 variable {F : Filtration Ω ℝ}
-
-/-- The stochastic integral of a simple process w.r.t. Brownian motion -/
-noncomputable def stochasticIntegral (H : SimpleProcess F) (W : BrownianMotion Ω μ) : Ω → ℝ :=
-  fun ω =>
-    ∑ i : Fin H.n, if h : (i : ℕ) + 1 < H.n then
-      H.values i ω * (W.process (H.times ⟨i + 1, h⟩) ω - W.process (H.times i) ω)
-    else 0
-
-/-- The time-parameterized stochastic integral of a simple process.
-    At time t, this includes:
-    - Full summands Hᵢ · (W_{t_{i+1}} - W_{t_i}) for completed intervals [t_i, t_{i+1}] ⊂ [0, t]
-    - Partial summand H_k · (W_t - W_{t_k}) for the interval containing t
-
-    When t is past the last partition time, this equals `stochasticIntegral`.
-    This is needed for the martingale property and L² limit characterization. -/
-noncomputable def stochasticIntegral_at (H : SimpleProcess F) (W : BrownianMotion Ω μ)
-    (t : ℝ) : Ω → ℝ :=
-  fun ω =>
-    ∑ i : Fin H.n, if h : (i : ℕ) + 1 < H.n then
-      if H.times ⟨i + 1, h⟩ ≤ t then
-        H.values i ω * (W.process (H.times ⟨i + 1, h⟩) ω - W.process (H.times i) ω)
-      else if H.times i ≤ t then
-        H.values i ω * (W.process t ω - W.process (H.times i) ω)
-      else 0
-    else 0
 
 /-! ### Helper lemmas for the Itô isometry -/
 
@@ -489,7 +453,15 @@ variable {F : Filtration Ω ℝ} {μ : Measure Ω} {T : ℝ}
 theorem integrable_limit (I : ItoIntegral F μ T) [IsProbabilityMeasure μ]
     (t : ℝ) (ht0 : 0 ≤ t) (htT : t ≤ T) :
     Integrable (I.integral t) μ := by
-  sorry -- Follows from sq_integrable_limit: L² ⊂ L¹ on probability spaces
+  -- L² ⊂ L¹ on probability spaces: |f(ω)| ≤ f(ω)² + 1
+  have hsq := I.sq_integrable_limit t ht0 htT
+  have hasm : AEStronglyMeasurable (I.integral t) μ :=
+    ((I.adapted t htT).mono (F.le_ambient t) le_rfl).aestronglyMeasurable
+  refine (hsq.add (integrable_const 1)).mono' hasm ?_
+  filter_upwards with ω
+  simp only [Real.norm_eq_abs, Pi.add_apply]
+  nlinarith [sq_nonneg (|I.integral t ω| - 1), sq_abs (I.integral t ω),
+    abs_nonneg (I.integral t ω)]
 
 /-- Linearity of Itô integral in the integrand -/
 theorem linear (I₁ I₂ : ItoIntegral F μ T) (_h : I₁.BM = I₂.BM) (a b : ℝ) :
@@ -500,27 +472,55 @@ theorem linear (I₁ I₂ : ItoIntegral F μ T) (_h : I₁.BM = I₂.BM) (a b : 
 
 /-- Itô isometry: E[(∫₀ᵗ H dW)²] = E[∫₀ᵗ H² ds].
 
-    Fully proved in `Helpers/ItoIntegralProperties.lean` as
-    `ItoIntegral.ito_isometry_proof`. The sorry here is due to import limitations
-    (the proof uses `sq_integral_tendsto_of_L2_tendsto` from L2LimitInfrastructure.lean). -/
+    Proof: By `is_L2_limit`, simple integrals S_n converge to I in L².
+    - `sq_integral_tendsto_of_L2_tendsto` gives `∫ S_n² → ∫ I²`
+    - Isometry convergence field gives `∫ S_n² → ∫∫ H²`
+    - By uniqueness of limits: `∫ I² = ∫∫ H²` -/
 theorem ito_isometry (I : ItoIntegral F μ T) [IsProbabilityMeasure μ]
     (t : ℝ) (ht0 : 0 ≤ t) (ht : t ≤ T) :
     ∫ ω, (I.integral t ω)^2 ∂μ =
     ∫ ω, (∫ (s : ℝ) in Set.Icc 0 t, (I.integrand.process s ω)^2 ∂volume) ∂μ := by
-  sorry -- Proved in Helpers/ItoIntegralProperties.lean as ItoIntegral.ito_isometry_proof
+  obtain ⟨approx, hadapted, hbdd, hnn, hL2, hiso⟩ := I.is_L2_limit
+  have h_sq_conv : Filter.Tendsto
+      (fun n => ∫ ω, (SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω)^2 ∂μ)
+      Filter.atTop (nhds (∫ ω, (I.integral t ω) ^ 2 ∂μ)) := by
+    have hI_int := I.integrable_limit t ht0 ht
+    have hI_sq := I.sq_integrable_limit t ht0 ht
+    have hSn_int : ∀ n, Integrable (SimpleProcess.stochasticIntegral_at (approx n) I.BM t) μ :=
+      fun n => SimpleProcess.stochasticIntegral_at_integrable (approx n) I.BM
+        (hadapted n) (hbdd n) (hnn n) t ht0
+    have hSub_sq : ∀ n, Integrable (fun ω =>
+        (SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω - I.integral t ω) ^ 2) μ :=
+      fun n => SimpleProcess.stochasticIntegral_at_sub_sq_integrable (approx n) I.BM
+        (hadapted n) (hbdd n) (hnn n) (I.integral t) hI_int hI_sq t ht0
+    exact sq_integral_tendsto_of_L2_tendsto hI_sq hSub_sq
+      (fun n => by
+        -- Cross-term integrability: |(g-f)*f| ≤ (g-f)² + f² by AM-GM
+        refine ((hSub_sq n).add hI_sq).mono'
+          (((hSn_int n).sub hI_int).aestronglyMeasurable.mul
+            hI_int.aestronglyMeasurable) ?_
+        filter_upwards with ω
+        simp only [Pi.add_apply, Real.norm_eq_abs, abs_mul]
+        nlinarith [sq_nonneg (|SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω -
+            I.integral t ω| - |I.integral t ω|),
+          sq_abs (SimpleProcess.stochasticIntegral_at (approx n) I.BM t ω - I.integral t ω),
+          sq_abs (I.integral t ω)])
+      (hL2 t ht0 ht)
+  exact tendsto_nhds_unique h_sq_conv (hiso t ht0 ht)
 
 /-- The Itô integral satisfies the martingale set-integral property on [0, T]:
     for 0 ≤ s ≤ t ≤ T and A ∈ F_s, ∫_A I(t) dμ = ∫_A I(s) dμ.
 
     This is the mathematical content of "the Itô integral is a martingale".
-    Fully proved in `Helpers/ItoIntegralProperties.lean` as
-    `ItoIntegral.is_martingale_proof`. The sorry here is due to import limitations
-    (the proof uses infrastructure from files that import this one). -/
+    Proof combines Phase 3 (simple integrals are martingales) and Phase 4
+    (L² limits preserve the martingale property). -/
 theorem is_martingale (I : ItoIntegral F μ T) [IsProbabilityMeasure μ]
     {s t : ℝ} (hs : 0 ≤ s) (hst : s ≤ t) (ht : t ≤ T)
     {A : Set Ω} (hA : MeasurableSet[I.BM.F.σ_algebra s] A) :
     ∫ ω in A, I.integral t ω ∂μ = ∫ ω in A, I.integral s ω ∂μ := by
-  sorry -- Proved in Helpers/ItoIntegralProperties.lean as ItoIntegral.is_martingale_proof
+  obtain ⟨approx, hadapted, hbdd, hnn, hL2, _⟩ := I.is_L2_limit
+  exact ito_integral_martingale_setIntegral I.BM I.integral approx
+    hadapted hbdd hnn hL2 I.integrable_limit I.sq_integrable_limit hs hst ht hA
 
 /-- Burkholder-Davis-Gundy inequality: E[sup|M_t|^p] ≤ C_p E[⟨M⟩_T^{p/2}] -/
 theorem bdg_inequality (I : ItoIntegral F μ T) (p : ℝ) (_hp : 1 ≤ p) :
@@ -578,6 +578,11 @@ structure ItoProcess (F : Filtration Ω ℝ) (μ : Measure Ω) where
       (∫ of non-integrable function = 0). -/
   stoch_integral_sq_integrable : ∀ t : ℝ, t ≥ 0 →
     Integrable (fun ω => (stoch_integral t ω) ^ 2) μ
+  /-- The working filtration F is a sub-filtration of the BM's natural filtration.
+      This is a compatibility condition: if A ∈ F_s then A ∈ BM.F_s, which allows
+      the martingale property (proved w.r.t. BM.F) to imply the F-martingale property.
+      In the standard setup where F = BM.F, this is just `le_refl`. -/
+  F_le_BM_F : ∀ t, F.σ_algebra t ≤ BM.F.σ_algebra t
 
 namespace ItoProcess
 
@@ -589,26 +594,84 @@ variable {F : Filtration Ω ℝ} {μ : Measure Ω}
 theorem stoch_integral_integrable (X : ItoProcess F μ) [IsProbabilityMeasure μ]
     (t : ℝ) (ht : t ≥ 0) :
     Integrable (X.stoch_integral t) μ := by
-  sorry -- Follows from stoch_integral_sq_integrable: L² ⊂ L¹ on probability spaces
+  -- L² ⊂ L¹ on probability spaces: |f(ω)| ≤ f(ω)² + 1
+  have hsq := X.stoch_integral_sq_integrable t ht
+  have hasm : AEStronglyMeasurable (X.stoch_integral t) μ :=
+    ((X.stoch_integral_adapted t).mono (F.le_ambient t) le_rfl).aestronglyMeasurable
+  refine (hsq.add (integrable_const 1)).mono' hasm ?_
+  filter_upwards with ω
+  simp only [Real.norm_eq_abs, Pi.add_apply]
+  nlinarith [sq_nonneg (|X.stoch_integral t ω| - 1), sq_abs (X.stoch_integral t ω),
+    abs_nonneg (X.stoch_integral t ω)]
 
 /-- The stochastic integral at time 0 is 0 a.s.
     Follows from L² convergence: simple process integrals at time 0 are all 0,
     so the L² limit is 0. Proved in Helpers/ from `stoch_integral_is_L2_limit`. -/
 theorem stoch_integral_initial (X : ItoProcess F μ) :
     ∀ᵐ ω ∂μ, X.stoch_integral 0 ω = 0 := by
-  sorry -- Proved from stoch_integral_is_L2_limit in Helpers/
+  obtain ⟨approx, _, _, hnn, hL2⟩ := X.stoch_integral_is_L2_limit
+  -- Step 1: Simple process integrals at t=0 are all 0.
+  -- At t=0, no partition intervals are completed, and the partial interval (if any)
+  -- contributes H_0 * (W(0) - W(0)) = 0.
+  have hSn_zero : ∀ n ω,
+      SimpleProcess.stochasticIntegral_at (approx n) X.BM 0 ω = 0 := by
+    intro n ω
+    unfold SimpleProcess.stochasticIntegral_at
+    apply Finset.sum_eq_zero
+    intro i _
+    by_cases h : (i : ℕ) + 1 < (approx n).n
+    · simp only [dif_pos h]
+      -- times ⟨i+1, h⟩ > 0 (partition is nonneg + strictly increasing)
+      have hpos : ¬ (approx n).times ⟨(i : ℕ) + 1, h⟩ ≤ 0 := by
+        push_neg
+        calc 0 ≤ (approx n).times ⟨0, by omega⟩ := hnn n ⟨0, by omega⟩
+          _ < (approx n).times ⟨(i : ℕ) + 1, h⟩ :=
+            (approx n).increasing ⟨0, by omega⟩ ⟨(i : ℕ) + 1, h⟩
+              (by simp [Fin.lt_def])
+      simp only [if_neg hpos]
+      by_cases hi0 : (approx n).times i ≤ 0
+      · -- times i = 0 (nonneg + ≤ 0), so W(0) - W(0) = 0
+        simp only [if_pos hi0]
+        have : (approx n).times i = 0 := le_antisymm hi0 (hnn n i)
+        rw [this, sub_self, mul_zero]
+      · simp only [if_neg hi0]
+    · simp only [dif_neg h]
+  -- Step 2: L² convergence at 0 with S_n(0) = 0 gives ∫ (stoch_integral 0)² = 0
+  have hconv := hL2 0 le_rfl
+  simp_rw [hSn_zero] at hconv
+  simp only [zero_sub, neg_sq] at hconv
+  -- hconv : constant sequence ∫ (stoch_integral 0)² → 0, so the integral = 0
+  have hint_eq_zero : ∫ ω, (X.stoch_integral 0 ω) ^ 2 ∂μ = 0 :=
+    tendsto_nhds_unique tendsto_const_nhds hconv
+  -- Step 3: ∫ f² = 0 with f² ≥ 0 and integrable implies f = 0 a.e.
+  have hsq_int := X.stoch_integral_sq_integrable 0 le_rfl
+  have h_nonneg : 0 ≤ᵐ[μ] fun ω => (X.stoch_integral 0 ω) ^ 2 :=
+    ae_of_all μ (fun ω => sq_nonneg _)
+  have h_sq_zero : (fun ω => (X.stoch_integral 0 ω) ^ 2) =ᵐ[μ] 0 :=
+    (integral_eq_zero_iff_of_nonneg_ae h_nonneg hsq_int).mp hint_eq_zero
+  filter_upwards [h_sq_zero] with ω hω
+  exact pow_eq_zero_iff two_ne_zero |>.mp hω
 
 /-- The stochastic integral satisfies the martingale set-integral property:
     for 0 ≤ s ≤ t and A ∈ F_s, ∫_A M(t) dμ = ∫_A M(s) dμ.
-    Follows from: simple process integrals are martingales (each summand has
-    zero conditional expectation by independence), and L² limits preserve
-    the martingale set-integral property.
-    Proved in Helpers/ from `stoch_integral_is_L2_limit`. -/
-theorem stoch_integral_martingale (X : ItoProcess F μ) (s t : ℝ)
+    Proof: simple process integrals are martingales (Phase 3), L² limits preserve
+    the martingale set-integral property (Phase 4), and F ≤ BM.F lets us
+    upgrade F-measurability of A to BM.F-measurability. -/
+theorem stoch_integral_martingale (X : ItoProcess F μ) [IsProbabilityMeasure μ] (s t : ℝ)
     (hs : 0 ≤ s) (hst : s ≤ t)
     (A : Set Ω) (hA : @MeasurableSet Ω (F.σ_algebra s) A) :
     ∫ ω in A, X.stoch_integral t ω ∂μ = ∫ ω in A, X.stoch_integral s ω ∂μ := by
-  sorry -- Proved from stoch_integral_is_L2_limit in Helpers/
+  -- Convert F-measurability to BM.F-measurability
+  have hA' : MeasurableSet[X.BM.F.σ_algebra s] A := X.F_le_BM_F s A hA
+  -- Extract approximating sequence
+  obtain ⟨approx, hadapted, hbdd, hnn, hL2⟩ := X.stoch_integral_is_L2_limit
+  -- Apply ito_integral_martingale_setIntegral with T = t
+  exact ito_integral_martingale_setIntegral (T := t) X.BM X.stoch_integral approx
+    hadapted hbdd hnn
+    (fun u hu _ => hL2 u hu)
+    (fun u hu _ => X.stoch_integral_integrable u hu)
+    (fun u hu _ => X.stoch_integral_sq_integrable u hu)
+    hs hst le_rfl hA'
 
 /-- The quadratic variation of an Itô process is ∫₀ᵗ σ²_s ds -/
 theorem quadratic_variation (X : ItoProcess F μ) :

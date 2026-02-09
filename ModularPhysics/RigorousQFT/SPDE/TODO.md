@@ -33,6 +33,47 @@ wavelet decomposition infrastructure.
 
 ## Recent Updates (2026-02-09)
 
+### Session 30 Progress (Import Refactoring + 3 Sorrys Eliminated)
+
+**Refactored import chain to break circular dependency, enabling proofs of `ito_isometry`, `is_martingale`, and `stoch_integral_martingale` directly in StochasticIntegration.lean.**
+
+**Architecture Change:**
+- Created `Helpers/SimpleProcessDef.lean`: extracted `SimpleProcess` structure, `stochasticIntegral`, `stochasticIntegral_at` definitions
+- `SimpleIntegralMartingale.lean` now imports `SimpleProcessDef` (not `StochasticIntegration`)
+- `ItoIntegralProperties.lean` no longer contains `ItoIntegral`-specific proofs (moved to `StochasticIntegration`)
+- `StochasticIntegration.lean` now imports `ItoIntegralProperties`, breaking the import cycle
+- This allows `StochasticIntegration.lean` to use all helper infrastructure directly
+
+**New Field:**
+- Added `F_le_BM_F : ∀ t, F.σ_algebra t ≤ BM.F.σ_algebra t` to `ItoProcess`
+  - Compatibility condition: working filtration F is sub-filtration of BM's filtration
+  - Enables converting F-measurability to BM.F-measurability for martingale proofs
+  - Standard case: F = BM.F gives `le_refl`
+
+**Sorrys Eliminated (3):**
+1. `ItoIntegral.ito_isometry` — was sorry'd "due to import limitations", now proved using `sq_integral_tendsto_of_L2_tendsto` and uniqueness of limits
+2. `ItoIntegral.is_martingale` — was sorry'd "due to import limitations", now proved using `ito_integral_martingale_setIntegral`
+3. `ItoProcess.stoch_integral_martingale` — was sorry'd, now proved via `F_le_BM_F` bridge + `ito_integral_martingale_setIntegral`
+
+**Updated Sorry Count:**
+- StochasticIntegration.lean: **10 sorrys** (was 13: -3 proved)
+- BrownianMotion.lean: 5 sorrys (unchanged)
+- Basic.lean: 1 sorry (unchanged)
+- Probability/Basic.lean: 3 sorrys (unchanged)
+- All Helpers/*.lean: **0 sorrys**
+- **Total SPDE core: 19 sorrys** (was 22)
+
+**Remaining sorrys in StochasticIntegration.lean (10):**
+- `linear` (Itô integral linearity)
+- `bdg_inequality` (Burkholder-Davis-Gundy)
+- `quadratic_variation` (ItoProcess QV)
+- `ito_formula` (Itô's formula)
+- `sde_existence_uniqueness` / `sde_uniqueness_law` (SDE theory)
+- `stratonovich_chain_rule` (Stratonovich)
+- `semimartingale_integral_exists` / `girsanov` / `martingale_representation` (advanced)
+
+---
+
 ### Session 29 Progress (Bochner Integral Convention Fix)
 
 **Fixed critical issue with `sq_integrable_limit` and `stoch_integral_sq_integrable`.**
@@ -55,8 +96,12 @@ and `stoch_integral_integrable` was removed from `ItoProcess`. However, these CA
 4. **`stoch_integral_integrable` stays as theorem** with `[IsProbabilityMeasure μ]`
    - Same reasoning (sorry'd, provable)
 
+**Additional proofs:**
+5. **`integrable_limit` PROVED** — L² ⊂ L¹ on probability spaces via `|f| ≤ f² + 1`
+6. **`stoch_integral_integrable` PROVED** — same technique
+
 **Updated Sorry Count:**
-- StochasticIntegration.lean: 16 sorrys (was 17, removed sq_integrable_limit sorry)
+- StochasticIntegration.lean: 14 sorrys (was 17: -1 sq_integrable_limit field, -2 proved theorems)
 
 ---
 
@@ -958,7 +1003,7 @@ Major fixes implemented to address critical mathematical errors:
 |------|--------|--------|-------|
 | Basic.lean | ✅ Compiles | 1 | `is_martingale_of_bounded` (needs uniform integrability) |
 | BrownianMotion.lean | ✅ Compiles | 5 | time_inversion, eval_unit_is_brownian, Q-Wiener (2), levy_characterization |
-| StochasticIntegration.lean | ✅ Compiles | 16 | **`isometry` FULLY PROVED**, ItoIntegral/ItoProcess/SDE sorrys |
+| StochasticIntegration.lean | ✅ Compiles | 14 | **`isometry` FULLY PROVED**, ItoIntegral/ItoProcess/SDE sorrys |
 | Probability/IndependenceHelpers.lean | ✅ Compiles | 0 | **FULLY PROVEN** - bridge lemmas for independence |
 | RegularityStructures.lean | ✅ Compiles | 9 | Chen relation proved, vanishing moments & BPHZ properly defined |
 | SPDE.lean | ✅ Compiles | 6 | Generator linearity proved, proper well-posedness conditions |

@@ -206,11 +206,169 @@ noncomputable def skyscraperPresheafOfModules (p : X) :
     · -- p ∉ W: target module has PUnit carrier (subsingleton)
       exact (skyscraperObj_restrictScalars_subsingleton' p W hW (f ≫ g)).elim _ _
 
-/-- The skyscraper presheaf of modules satisfies the sheaf condition. -/
+/-!
+## Helper Lemmas for Sheaf Condition
+
+Key properties of the skyscraper presheaf restriction maps:
+1. On elements, the presheaf map equals the skyscraperMap (by presheaf_map_apply_coe)
+2. When both opens contain p, restriction acts as identity on κ(p)
+3. The projection to κ(p) via eqToHom is injective
+-/
+
+/-- The projection from skyscraperObj sections to κ(p) via eqToHom. -/
+noncomputable def toKappa (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) :
+    ↑(skyscraperObj p U) → X.residueField p :=
+  (eqToHom (skyscraperObj_pos p U h)).hom
+
+/-- The embedding from κ(p) to skyscraperObj sections. -/
+noncomputable def fromKappa (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) :
+    X.residueField p → ↑(skyscraperObj p U) :=
+  (eqToHom (skyscraperObj_pos p U h).symm).hom
+
+@[simp] theorem toKappa_fromKappa (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) (v : X.residueField p) :
+    toKappa p U h (fromKappa p U h v) = v :=
+  eqToHom_hom_comp_symm' (skyscraperObj_pos p U h) v
+
+@[simp] theorem fromKappa_toKappa (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) (x : ↑(skyscraperObj p U)) :
+    fromKappa p U h (toKappa p U h x) = x :=
+  eqToHom_hom_symm_comp' (skyscraperObj_pos p U h) x
+
+/-- toKappa is injective. -/
+theorem toKappa_injective (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) :
+    Function.Injective (toKappa p U h) := by
+  intro a b hab
+  have := congr_arg (fromKappa p U h) hab
+  simp only [fromKappa_toKappa] at this
+  exact this
+
+/-- fromKappa is injective. -/
+theorem fromKappa_injective (p : X) (U : (Opens X.carrier)ᵒᵖ)
+    (h : (p : X.carrier) ∈ U.unop) :
+    Function.Injective (fromKappa p U h) := by
+  intro a b hab
+  have := congr_arg (toKappa p U h) hab
+  simp only [toKappa_fromKappa] at this
+  exact this
+
+/-- eqToHom applied to an element equals cast of the carrier equality. -/
+theorem eqToHom_apply_eq_cast' {R : Type*} [Ring R] {A B : ModuleCat R}
+    (h : A = B) (x : ↑A) :
+    (eqToHom h).hom x = cast (congrArg (↑·) h) x := by
+  cases h; rfl
+
+/-- toKappa commutes with cast between carrier types.
+    All casts through κ(p) give the same result by proof irrelevance. -/
+theorem toKappa_cast (p : X) (U V : (Opens X.carrier)ᵒᵖ)
+    (hU : (p : X.carrier) ∈ U.unop) (hV : (p : X.carrier) ∈ V.unop)
+    (heq : (↑(skyscraperObj p U) : Type _) = ↑(skyscraperObj p V))
+    (x : ↑(skyscraperObj p U)) :
+    toKappa p V hV (cast heq x) = toKappa p U hU x := by
+  simp only [toKappa]
+  -- Convert eqToHom applications to cast
+  rw [eqToHom_apply_eq_cast' (skyscraperObj_pos p V hV) (cast heq x),
+      eqToHom_apply_eq_cast' (skyscraperObj_pos p U hU) x]
+  -- Goal: cast _ (cast heq x) = cast _ x
+  -- Both are casts of x to the same target type. Use HEq transitivity.
+  exact eq_of_heq ((cast_heq _ _).trans ((cast_heq _ _).trans (cast_heq _ _).symm))
+
+/-- The skyscraper presheaf of modules satisfies the sheaf condition.
+
+    **Proof:** We prove the sheaf condition directly using the unique gluing
+    characterization. The skyscraper presheaf assigns κ(p) to opens containing p
+    and PUnit to opens not containing p, with identity restriction maps.
+    Unique gluing follows because all sections at opens containing p must agree,
+    and sections at opens not containing p are trivially unique (PUnit). -/
 theorem skyscraper_isSheaf (p : X) :
     Presheaf.IsSheaf (Opens.grothendieckTopology X.carrier)
-      (skyscraperPresheafOfModules p).presheaf :=
-  sorry
+      (skyscraperPresheafOfModules p).presheaf := by
+  classical
+  let F := (skyscraperPresheafOfModules p).presheaf
+  -- Reduce to unique gluing characterization for concrete categories
+  show TopCat.Presheaf.IsSheaf F
+  rw [TopCat.Presheaf.isSheaf_iff_isSheafUniqueGluing]
+  intro ι U sf hcompat
+  -- Case split on whether p is in the union
+  by_cases hp : (p : ↥X.carrier) ∈ (iSup U : Opens ↥X.carrier)
+  · -- p ∈ iSup U: there exists i₀ with p ∈ U i₀
+    obtain ⟨i₀, hi₀⟩ := Opens.mem_iSup.mp hp
+    have hp_sup : (p : ↥X.carrier) ∈ (iSup U : Opens ↥X.carrier) :=
+      Opens.mem_iSup.mpr ⟨i₀, hi₀⟩
+    -- All F.obj carriers when p ∈ U are κ(p). Cast sf i₀ to the union type.
+    have carrier_eq : (↑(skyscraperObj p (op (U i₀))) : Type _) =
+                       (↑(skyscraperObj p (op (iSup U))) : Type _) := by
+      simp only [iSup, skyscraperObj_pos p _ hi₀, skyscraperObj_pos p _ hp_sup]
+    let s : ↑(F.obj (op (iSup U))) := cast carrier_eq (sf i₀)
+    -- Helper: presheaf map on elements equals skyscraperMap (from presheaf_map_apply_coe)
+    -- The restriction map preserves κ(p) value: toKappa(res x) = toKappa(x)
+    have res_toKappa : ∀ {U' V' : (Opens X.carrier)ᵒᵖ} (f' : U' ⟶ V')
+        (hU' : (p : X.carrier) ∈ U'.unop) (hV' : (p : X.carrier) ∈ V'.unop)
+        (x' : ↑(F.obj U')),
+        toKappa p V' hV' (F.map f' x') = toKappa p U' hU' x' := by
+      intro U' V' f' hU' hV' x'
+      -- Strategy: show F.map f' acts as fromKappa ∘ toKappa, then cancel
+      suffices key : (F.map f').hom x' = fromKappa p V' hV' (toKappa p U' hU' x') by
+        rw [show F.map f' x' = (F.map f').hom x' from rfl, key, toKappa_fromKappa]
+      -- F.map on elements = skyscraperMap (definitionally through presheaf construction)
+      change (skyscraperMap p f').hom x' = fromKappa p V' hV' (toKappa p U' hU' x')
+      -- Unfold skyscraperMap in positive case and fromKappa/toKappa
+      simp only [skyscraperMap, dif_pos hV', fromKappa, toKappa]
+      -- The whole expression should be definitionally equal:
+      -- Both sides compose eqToHom's and identity, ending up as the same cast
+      rfl
+    refine ⟨s, fun i => ?_, fun s' hs' => ?_⟩
+    · -- Gluing: F.map (leSupr U i).op s = sf i
+      by_cases hi : (p : ↥X.carrier) ∈ U i
+      · -- p ∈ U i: show both sides project to the same κ(p) element
+        apply toKappa_injective p (op (U i)) hi
+        -- LHS: toKappa (F.map ... s) = toKappa s = toKappa (cast carrier_eq (sf i₀))
+        --     = toKappa (sf i₀) (by toKappa_cast)
+        rw [res_toKappa (Opens.leSupr U i).op hp_sup hi]
+        -- Now goal: toKappa (iSup U) hp_sup s = toKappa (U i) hi (sf i)
+        -- s = cast carrier_eq (sf i₀)
+        rw [show (s : ↑(F.obj (op (iSup U)))) = cast carrier_eq (sf i₀) from rfl]
+        rw [toKappa_cast p (op (U i₀)) (op (iSup U)) hi₀ hp_sup carrier_eq (sf i₀)]
+        -- Now goal: toKappa (U i₀) hi₀ (sf i₀) = toKappa (U i) hi (sf i)
+        -- Use compatibility to show sf i and sf i₀ have same κ(p) value
+        have hp_inf : (p : ↥X.carrier) ∈ (U i ⊓ U i₀ : Opens ↥X.carrier) := ⟨hi, hi₀⟩
+        have hcompat_ii₀ := hcompat i i₀
+        -- Apply toKappa to both sides of compatibility
+        have hk := congr_arg (toKappa p (op (U i ⊓ U i₀)) hp_inf) hcompat_ii₀
+        rw [res_toKappa _ hi hp_inf, res_toKappa _ hi₀ hp_inf] at hk
+        -- hk : toKappa (sf i) = toKappa (sf i₀)
+        exact hk.symm
+      · -- p ∉ U i: target is PUnit (subsingleton)
+        haveI : Subsingleton ↑(F.obj (op (U i))) := by
+          show Subsingleton ↑(skyscraperObj p (op (U i)))
+          exact skyscraperObj_subsingleton' p _ hi
+        exact Subsingleton.elim _ _
+    · -- Uniqueness: show s' = s
+      apply toKappa_injective p (op (iSup U)) hp_sup
+      -- toKappa s' = toKappa (sf i₀) from hs' i₀ and res_toKappa
+      have h_s' := hs' i₀
+      have hk1 : toKappa p (op (U i₀)) hi₀ (F.map (Opens.leSupr U i₀).op s') =
+                  toKappa p (op (U i₀)) hi₀ (sf i₀) := congr_arg _ h_s'
+      rw [res_toKappa (Opens.leSupr U i₀).op hp_sup hi₀] at hk1
+      -- hk1 : toKappa hp_sup s' = toKappa hi₀ (sf i₀)
+      rw [hk1]
+      -- Goal: toKappa hi₀ (sf i₀) = toKappa hp_sup s
+      exact (toKappa_cast p (op (U i₀)) (op (iSup U)) hi₀ hp_sup carrier_eq (sf i₀)).symm
+  · -- p ∉ iSup U: F(iSup U) has carrier PUnit, trivial
+    haveI : Subsingleton ↑(F.obj (op (iSup U))) := by
+      show Subsingleton ↑(skyscraperObj p (op (iSup U)))
+      exact skyscraperObj_subsingleton' p _ hp
+    haveI : Inhabited ↑(F.obj (op (iSup U))) := by
+      show Inhabited ↑(skyscraperObj p (op (iSup U)))
+      simp only [skyscraperObj, dif_neg hp]; exact ⟨PUnit.unit⟩
+    refine ⟨default, fun i => ?_, fun s _ => Subsingleton.elim _ _⟩
+    haveI : Subsingleton ↑(F.obj (op (U i))) := by
+      show Subsingleton ↑(skyscraperObj p (op (U i)))
+      exact skyscraperObj_subsingleton' p _ (fun h => hp (Opens.mem_iSup.mpr ⟨i, h⟩))
+    exact Subsingleton.elim _ _
 
 /-- The skyscraper O_X-module at point p. -/
 noncomputable def constructSkyscraperModule (p : X) :
@@ -288,5 +446,23 @@ theorem skyscraper_globalSections_eq (p : X) :
       ModuleCat.of _ (X.residueField p) :
         ModuleCat ↑(X.ringCatSheaf.val.obj (op ⊤))) :=
   skyscraperObj_pos p (op ⊤) (Set.mem_univ _)
+
+/-- The restriction map of the skyscraper presheaf preserves the κ(p) value.
+
+    For the skyscraper presheaf F at point p, when p ∈ U' and p ∈ V',
+    the presheaf restriction map F.map f' : F(U') → F(V') acts as identity
+    on κ(p) (i.e., toKappa(F.map f' x) = toKappa(x)). -/
+theorem res_toKappa (p : X) {U' V' : (Opens X.carrier)ᵒᵖ} (f' : U' ⟶ V')
+    (hU' : (p : X.carrier) ∈ U'.unop) (hV' : (p : X.carrier) ∈ V'.unop)
+    (x' : ↑((skyscraperPresheafOfModules p).presheaf.obj U')) :
+    toKappa p V' hV' ((skyscraperPresheafOfModules p).presheaf.map f' x') =
+    toKappa p U' hU' x' := by
+  suffices key : ((skyscraperPresheafOfModules p).presheaf.map f').hom x' =
+      fromKappa p V' hV' (toKappa p U' hU' x') by
+    rw [show (skyscraperPresheafOfModules p).presheaf.map f' x' =
+        ((skyscraperPresheafOfModules p).presheaf.map f').hom x' from rfl, key, toKappa_fromKappa]
+  change (skyscraperMap p f').hom x' = fromKappa p V' hV' (toKappa p U' hU' x')
+  simp only [skyscraperMap, dif_pos hV', fromKappa, toKappa]
+  rfl
 
 end RiemannSurfaces.SchemeTheoretic.SkyscraperConstruction
