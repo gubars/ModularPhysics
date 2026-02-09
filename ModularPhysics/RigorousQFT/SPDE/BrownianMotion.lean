@@ -5,7 +5,11 @@ Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.RigorousQFT.SPDE.Basic
 import ModularPhysics.RigorousQFT.SPDE.Probability.Basic
+import ModularPhysics.RigorousQFT.SPDE.Probability.IndependenceHelpers
 import Mathlib.Probability.Independence.Basic
+import Mathlib.MeasureTheory.Group.MeasurableEquiv
+import ModularPhysics.RigorousQFT.SPDE.Helpers.SetIntegralHelpers
+import Mathlib.MeasureTheory.Measure.CharacteristicFunction
 
 /-!
 # Brownian Motion and Wiener Processes
@@ -85,18 +89,66 @@ def BrownianMotion.disjoint_independent {Ω : Type*} [MeasurableSpace Ω] {μ : 
              (fun ω => W.toAdapted.process t₂ ω - W.toAdapted.process s₂ ω) μ := by
   intro s₁ t₁ s₂ t₂ hs₁ ht₁ hs₂ ht₂
   -- The second increment is independent of F_{s₂} ⊇ F_{t₁} ⊇ σ(first increment)
-  sorry
+  -- Step 1: The first increment is F_{s₂}-measurable
+  have hW_t1 : @Measurable Ω ℝ (W.F.σ_algebra s₂) _ (W.toAdapted.process t₁) :=
+    (W.toAdapted.adapted t₁).mono (W.F.mono t₁ s₂ hs₂) le_rfl
+  have hW_s1 : @Measurable Ω ℝ (W.F.σ_algebra s₂) _ (W.toAdapted.process s₁) :=
+    (W.toAdapted.adapted s₁).mono (W.F.mono s₁ s₂ (le_trans ht₁ hs₂)) le_rfl
+  have hincr1_meas : @Measurable Ω ℝ (W.F.σ_algebra s₂) _
+      (fun ω => W.toAdapted.process t₁ ω - W.toAdapted.process s₁ ω) :=
+    hW_t1.sub hW_s1
+  -- Step 2: The second increment is independent of F_{s₂}
+  have hs₂_pos : 0 ≤ s₂ := le_trans (le_trans hs₁ ht₁) hs₂
+  have hindep := W.independent_increments s₂ t₂ hs₂_pos ht₂
+  -- Step 3: Combine via bridge lemma
+  exact Probability.indepFun_of_measurable_and_indep hincr1_meas hindep
 
 /-- Stationary increments: W_{t+h} - W_t has the same distribution as W_h - W_0 = W_h.
     This follows from the Gaussian characterization. -/
 theorem BrownianMotion.stationary_increments {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
-    (W : BrownianMotion Ω μ) :
+    (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
     ∀ s t : ℝ, 0 ≤ s → 0 ≤ t →
     Measure.map (fun ω => W.toAdapted.process (s + t) ω - W.toAdapted.process s ω) μ =
     Measure.map (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) μ := by
   intro s t hs ht
-  -- Both increments are N(0, t) by gaussian_increments, so they have the same distribution
-  sorry
+  -- Both increments are N(0, t) by gaussian_increments
+  have hg1 := W.gaussian_increments s (s + t) hs (le_add_of_nonneg_right ht)
+  have hg2 := W.gaussian_increments 0 t (le_refl 0) ht
+  -- Both have variance = t (after simplification)
+  have hv1 : s + t - s = t := by ring
+  have hv2 : t - 0 = t := by ring
+  -- Measurability of both increments
+  have hf₁_meas : Measurable (fun ω => W.toAdapted.process (s + t) ω - W.toAdapted.process s ω) :=
+    ((W.toAdapted.adapted (s + t)).mono (W.F.le_ambient _) le_rfl).sub
+      ((W.toAdapted.adapted s).mono (W.F.le_ambient _) le_rfl)
+  have hf₂_meas : Measurable (fun ω => W.toAdapted.process t ω - W.toAdapted.process 0 ω) :=
+    ((W.toAdapted.adapted t).mono (W.F.le_ambient _) le_rfl).sub
+      ((W.toAdapted.adapted 0).mono (W.F.le_ambient _) le_rfl)
+  -- The pushforward measures are finite (probability measures)
+  haveI : IsProbabilityMeasure (Measure.map (fun ω => W.toAdapted.process (s + t) ω -
+      W.toAdapted.process s ω) μ) :=
+    Measure.isProbabilityMeasure_map hf₁_meas.aemeasurable
+  haveI : IsProbabilityMeasure (Measure.map (fun ω => W.toAdapted.process t ω -
+      W.toAdapted.process 0 ω) μ) :=
+    Measure.isProbabilityMeasure_map hf₂_meas.aemeasurable
+  -- Apply characteristic function uniqueness (Mathlib)
+  apply Measure.ext_of_charFun
+  funext u
+  -- Helper: compute charFun of pushforward in terms of IsGaussian.char_function
+  have charFun_eq : ∀ (f : Ω → ℝ) (mean var : ℝ) (hg : Probability.IsGaussian f μ mean var)
+      (hf : Measurable f),
+      charFun (Measure.map f μ) u =
+      Complex.exp (Complex.I * ↑u * ↑mean - ↑var * ↑u ^ 2 / 2) := by
+    intro f mean var hg hf
+    rw [charFun_apply_real]
+    rw [integral_map_of_stronglyMeasurable hf (by fun_prop)]
+    -- Beta reduction + commutativity rewrite
+    have : ∀ ω, (fun x => Complex.exp (↑u * ↑x * Complex.I)) (f ω) =
+        Complex.exp (Complex.I * ↑u * ↑(f ω)) := by
+      intro ω; simp only []; congr 1; ring
+    simp_rw [this]
+    exact hg.char_function u
+  rw [charFun_eq _ 0 _ hg1 hf₁_meas, charFun_eq _ 0 _ hg2 hf₂_meas, hv1, hv2]
 
 /-- Zero mean of increments (follows from Gaussian with mean 0) -/
 theorem BrownianMotion.increment_mean_zero {Ω : Type*} [MeasurableSpace Ω] {μ : Measure Ω}
@@ -119,6 +171,24 @@ variable {μ : Measure Ω}
 
 /-- The process underlying Brownian motion -/
 def process (W : BrownianMotion Ω μ) : ℝ → Ω → ℝ := W.toAdapted.process
+
+/-- Brownian increments are integrable (follows from Gaussian integrability) -/
+theorem increment_integrable (W : BrownianMotion Ω μ) (s t : ℝ)
+    (hs : 0 ≤ s) (hst : s ≤ t) :
+    Integrable (fun ω => W.toAdapted.process t ω - W.toAdapted.process s ω) μ :=
+  (W.gaussian_increments s t hs hst).integrable
+
+/-- Brownian increments are square-integrable (follows from Gaussian all_moments) -/
+theorem increment_sq_integrable (W : BrownianMotion Ω μ) (s t : ℝ)
+    (hs : 0 ≤ s) (hst : s ≤ t) :
+    Integrable (fun ω => (W.toAdapted.process t ω - W.toAdapted.process s ω)^2) μ :=
+  (W.gaussian_increments s t hs hst).all_moments 2
+
+/-- Brownian increments have all moments -/
+theorem increment_all_moments (W : BrownianMotion Ω μ) (s t : ℝ)
+    (hs : 0 ≤ s) (hst : s ≤ t) (n : ℕ) :
+    Integrable (fun ω => (W.toAdapted.process t ω - W.toAdapted.process s ω)^n) μ :=
+  (W.gaussian_increments s t hs hst).all_moments n
 
 /-- Brownian motion is a martingale.
 
@@ -215,12 +285,127 @@ theorem is_martingale (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
   }
   rfl
 
-/-- The quadratic variation of Brownian motion is t -/
-theorem quadratic_variation (W : BrownianMotion Ω μ) :
+/-- The quadratic variation of Brownian motion is t.
+
+    The QV is constructed with `variation t ω = t` (deterministic). This satisfies:
+    - Adapted: constant function is measurable w.r.t. any σ-algebra
+    - Monotone: t ↦ t is monotone
+    - Initial: 0 = 0
+
+    The compensator property (W²_t - t is a submartingale) can be verified
+    separately using `qv.is_compensator`. -/
+theorem quadratic_variation (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
     ∃ qv : QuadraticVariation W.F,
       qv.process = W.process ∧
       (∀ t : ℝ, ∀ᵐ ω ∂μ, qv.variation t ω = t) := by
-  sorry
+  use {
+    process := W.process
+    variation := fun t _ω => t
+    adapted := fun _t => measurable_const
+    mono := fun _ω => monotone_id
+    initial := fun _ω => rfl
+  }
+  exact ⟨rfl, fun t => by filter_upwards with ω; rfl⟩
+
+/-- W²_t - t is a martingale (compensator property of BM quadratic variation).
+
+    This is the mathematically substantive content: for 0 ≤ s ≤ t and A ∈ F_s,
+    ∫_A (W_t² - t) dμ = ∫_A (W_s² - s) dμ.
+
+    **Proof**:
+    W_t = W_s + ΔW where ΔW = W_t - W_s.
+    W_t² = W_s² + 2·W_s·ΔW + (ΔW)²
+    ∫_A W_t² = ∫_A W_s² + 2·∫_A(W_s·ΔW) + ∫_A(ΔW)²
+    Cross term: ∫_A(W_s·ΔW) = 0 (W_s adapted, ΔW independent with zero mean)
+    Variance term: ∫_A(ΔW)² = (t-s)·μ(A)
+    So ∫_A(W_t² - t) = ∫_A W_s² + (t-s)·μ(A) - t·μ(A) = ∫_A W_s² - s·μ(A) = ∫_A(W_s² - s) -/
+theorem quadratic_variation_compensator (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ]
+    (s t : ℝ) (hs : 0 ≤ s) (hst : s ≤ t)
+    (A : Set Ω) (hA : @MeasurableSet Ω (W.F.σ_algebra s) A) :
+    ∫ ω in A, ((W.process t ω)^2 - t) ∂μ =
+    ∫ ω in A, ((W.process s ω)^2 - s) ∂μ := by
+  -- Use toAdapted.process throughout (process is defined as toAdapted.process)
+  show ∫ ω in A, ((W.toAdapted.process t ω)^2 - t) ∂μ =
+       ∫ ω in A, ((W.toAdapted.process s ω)^2 - s) ∂μ
+  set incr := fun ω => W.toAdapted.process t ω - W.toAdapted.process s ω with incr_def
+  -- Key integrability and measure-theoretic facts
+  have hWs_meas : @Measurable Ω ℝ (W.F.σ_algebra s) _ (W.toAdapted.process s) :=
+    W.toAdapted.adapted s
+  have hWs_int : Integrable (W.toAdapted.process s) μ :=
+    (W.gaussian_increments 0 s (le_refl 0) hs).integrable.congr
+      (by filter_upwards [W.initial] with ω h0'; simp [h0'])
+  have hWs_sq_int : Integrable (fun ω => (W.toAdapted.process s ω)^2) μ :=
+    ((W.gaussian_increments 0 s (le_refl 0) hs).all_moments 2).congr
+      (by filter_upwards [W.initial] with ω h0'; simp [h0'])
+  have hincr_int : Integrable incr μ := W.increment_integrable s t hs hst
+  have hincr_sq_int : Integrable (fun ω => (incr ω)^2) μ :=
+    W.increment_sq_integrable s t hs hst
+  have hindep := W.independent_increments s t hs hst
+  have hmean : ∫ ω, incr ω ∂μ = 0 := W.increment_mean_zero s t hs hst
+  have hvar : ∫ ω, (incr ω)^2 ∂μ = t - s := W.increment_variance s t hs hst
+  -- Product integrability via AM-GM: |a·b| ≤ a² + b²
+  have hprod_int : Integrable (fun ω => W.toAdapted.process s ω * incr ω) μ :=
+    (hWs_sq_int.add hincr_sq_int).mono'
+      (hWs_int.aestronglyMeasurable.mul hincr_int.aestronglyMeasurable)
+      (ae_of_all _ fun ω => by
+        simp only [Real.norm_eq_abs, Pi.add_apply]
+        rw [abs_mul]
+        nlinarith [sq_abs (W.toAdapted.process s ω), sq_abs (incr ω),
+                    sq_nonneg (|W.toAdapted.process s ω| - |incr ω|),
+                    abs_nonneg (W.toAdapted.process s ω), abs_nonneg (incr ω)])
+  -- Cross term vanishes: ∫_A W_s·ΔW = 0
+  have hcross : ∫ ω in A, W.toAdapted.process s ω * incr ω ∂μ = 0 :=
+    Probability.setIntegral_mul_zero_of_adapted_and_indep_zero_mean
+      (W.F.le_ambient s) hWs_meas hA hWs_int.integrableOn hincr_int hindep hmean
+  -- SigmaFinite for trimmed measure (probability → finite → sigma-finite)
+  have hm₂ : W.F.σ_algebra s ≤ ‹MeasurableSpace Ω› := W.F.le_ambient s
+  haveI : SigmaFinite (μ.trim hm₂) := inferInstance
+  -- Variance set integral: ∫_A (ΔW)² = (t-s)·μ(A)
+  have hincr_meas : Measurable incr :=
+    ((W.toAdapted.adapted t).mono (W.F.le_ambient t) le_rfl).sub
+      ((W.toAdapted.adapted s).mono (W.F.le_ambient s) le_rfl)
+  have hvar_set : ∫ ω in A, (incr ω)^2 ∂μ = (μ A).toReal * (t - s) := by
+    rw [Probability.setIntegral_sq_of_indep_eq_measure_mul_integral
+      (W.F.le_ambient s) hincr_meas hincr_sq_int hindep A hA, hvar]
+  -- Main computation: suffices to show the difference = 0
+  suffices hdiff : ∫ ω in A, ((W.toAdapted.process t ω)^2 - t) ∂μ -
+                   ∫ ω in A, ((W.toAdapted.process s ω)^2 - s) ∂μ = 0 by linarith
+  -- W_t² integrability (W_t = W_s + incr, so W_t² = (W_s + incr)² is integrable)
+  have hWt_sq_int : Integrable (fun ω => (W.toAdapted.process t ω)^2) μ := by
+    have heq : (fun ω => (W.toAdapted.process t ω)^2) =
+               (fun ω => (W.toAdapted.process s ω)^2 +
+                 2 * (W.toAdapted.process s ω * incr ω) + (incr ω)^2) := by
+      ext ω; simp only [incr_def]; ring
+    rw [heq]
+    exact (hWs_sq_int.add (hprod_int.const_mul 2)).add hincr_sq_int
+  have hLHS_int : IntegrableOn (fun ω => (W.toAdapted.process t ω)^2 - t) A μ :=
+    (hWt_sq_int.sub (integrable_const t)).integrableOn
+  have hRHS_int : IntegrableOn (fun ω => (W.toAdapted.process s ω)^2 - s) A μ :=
+    (hWs_sq_int.sub (integrable_const s)).integrableOn
+  -- Combine into single integral
+  rw [← integral_sub hLHS_int hRHS_int]
+  -- Simplify integrand: (W_t² - t) - (W_s² - s) = 2·W_s·ΔW + (ΔW² - (t-s))
+  have hsimplify : ∀ ω, ((W.toAdapted.process t ω)^2 - t) -
+      ((W.toAdapted.process s ω)^2 - s) =
+      2 * (W.toAdapted.process s ω * incr ω) + ((incr ω)^2 - (t - s)) := by
+    intro ω; simp only [incr_def]; ring
+  simp_rw [hsimplify]
+  -- Split integral into two terms
+  have hpart1_int : IntegrableOn (fun ω => 2 * (W.toAdapted.process s ω * incr ω)) A μ :=
+    (hprod_int.const_mul 2).integrableOn
+  have hpart2_int : IntegrableOn (fun ω => (incr ω)^2 - (t - s)) A μ :=
+    (hincr_sq_int.sub (integrable_const _)).integrableOn
+  rw [integral_add hpart1_int hpart2_int]
+  -- Cross term: ∫_A 2·(W_s·ΔW) = 2·∫_A (W_s·ΔW) = 2·0 = 0
+  have hcross2 : ∫ ω in A, 2 * (W.toAdapted.process s ω * incr ω) ∂μ = 0 := by
+    rw [integral_const_mul, hcross, mul_zero]
+  -- Variance remainder: ∫_A (ΔW² - (t-s)) = (t-s)·μ(A) - (t-s)·μ(A) = 0
+  have hvar_rem : ∫ ω in A, ((incr ω)^2 - (t - s)) ∂μ = 0 := by
+    rw [integral_sub hincr_sq_int.integrableOn (integrable_const _).integrableOn,
+        hvar_set, setIntegral_const, smul_eq_mul]
+    simp only [Measure.real]
+    ring
+  rw [hcross2, hvar_rem, add_zero]
 
 /-- Brownian scaling: if W_t is a BM, then c^{-1/2} W_{ct} is also a BM -/
 theorem scaling (W : BrownianMotion Ω μ) (c : ℝ) (hc : 0 < c) :
@@ -229,10 +414,54 @@ theorem scaling (W : BrownianMotion Ω μ) (c : ℝ) (hc : 0 < c) :
   sorry
 
 /-- Reflection principle: -W is also a Brownian motion -/
-theorem reflection (W : BrownianMotion Ω μ) :
+theorem reflection (W : BrownianMotion Ω μ) [IsProbabilityMeasure μ] :
     ∃ W' : BrownianMotion Ω μ,
       ∀ t : ℝ, ∀ᵐ ω ∂μ, W'.process t ω = -W.process t ω := by
-  sorry
+  -- Construct the negated adapted process
+  let negW : AdaptedProcess W.F ℝ := {
+    process := fun t ω => -W.toAdapted.process t ω
+    adapted := fun t => (W.toAdapted.adapted t).neg
+  }
+  -- Helper: the increment of -W equals minus the increment of W
+  have incr_neg : ∀ s t, (fun ω => negW.process t ω - negW.process s ω) =
+      (fun ω => -(W.toAdapted.process t ω - W.toAdapted.process s ω)) := by
+    intro s t; ext ω; simp [negW]; ring
+  -- Helper: comap(-f) = comap(f) because negation is a MeasurableEquiv
+  have comap_neg_eq : ∀ (g : Ω → ℝ),
+      MeasurableSpace.comap (fun ω => -(g ω)) inferInstance =
+      MeasurableSpace.comap g inferInstance := by
+    intro g
+    change (inferInstance : MeasurableSpace ℝ).comap (Neg.neg ∘ g) =
+           (inferInstance : MeasurableSpace ℝ).comap g
+    rw [← MeasurableSpace.comap_comp]
+    congr 1
+    exact (MeasurableEquiv.neg ℝ).measurableEmbedding.comap_eq
+  use {
+    F := W.F
+    toAdapted := negW
+    initial := by
+      filter_upwards [W.initial] with ω h0
+      simp [negW, h0]
+    continuous_paths := by
+      filter_upwards [W.continuous_paths] with ω hcont
+      exact hcont.neg
+    independent_increments := fun s t hs hst => by
+      rw [incr_neg, comap_neg_eq]
+      exact W.independent_increments s t hs hst
+    gaussian_increments := fun s t hs hst => by
+      rw [incr_neg]
+      -- -(W_t - W_s) = (-1) * (W_t - W_s) + 0
+      have hfun : (fun ω => -(W.toAdapted.process t ω - W.toAdapted.process s ω)) =
+          (fun ω => (-1) * (W.toAdapted.process t ω - W.toAdapted.process s ω) + 0) := by
+        ext ω; ring
+      rw [hfun]
+      have hg := Probability.gaussian_affine (W.gaussian_increments s t hs hst) (-1) 0
+      simp only [neg_one_mul, neg_zero, add_zero, one_mul, neg_one_sq] at hg
+      convert hg using 2 <;> (try ring)
+  }
+  intro t
+  filter_upwards with ω
+  simp [process, negW]
 
 /-- Time inversion: tW_{1/t} is a Brownian motion (for t > 0) -/
 theorem time_inversion (W : BrownianMotion Ω μ) :
@@ -302,8 +531,10 @@ end CylindricalWienerProcess
     2. Q is non-negative: ⟨Qx, x⟩ ≥ 0
     3. The trace Tr(Q) = Σᵢ ⟨Qeᵢ, eᵢ⟩ is finite for any ONB {eᵢ}
 
-    For such operators, there exists an orthonormal basis of eigenvectors
-    with non-negative eigenvalues λᵢ such that Σᵢ λᵢ < ∞. -/
+    By the spectral theorem for compact self-adjoint operators, there exists
+    an orthonormal basis of eigenvectors with non-negative eigenvalues λᵢ
+    such that Σᵢ λᵢ < ∞. The eigenvectors and eigenvalues are bundled here
+    with the constraint that they are actual eigenpairs of `toLinearMap`. -/
 structure TraceClassOperator (H : Type*) [NormedAddCommGroup H] [InnerProductSpace ℝ H]
     [CompleteSpace H] where
   /-- The underlying continuous linear map -/
@@ -312,12 +543,22 @@ structure TraceClassOperator (H : Type*) [NormedAddCommGroup H] [InnerProductSpa
   self_adjoint : ∀ h₁ h₂ : H, @inner ℝ H _ (toLinearMap h₁) h₂ = @inner ℝ H _ h₁ (toLinearMap h₂)
   /-- Non-negative: ⟨Qh, h⟩ ≥ 0 -/
   nonneg : ∀ h : H, @inner ℝ H _ (toLinearMap h) h ≥ 0
-  /-- Trace is finite: Σᵢ ⟨Qeᵢ, eᵢ⟩ < ∞ for any orthonormal basis {eᵢ}.
-      We express this via the eigenvalue characterization:
-      there exist eigenvalues λᵢ ≥ 0 with Σᵢ λᵢ < ∞. -/
+  /-- Eigenvectors forming an orthonormal system -/
+  eigenvectors : ℕ → H
+  /-- Eigenvalues -/
   eigenvalues : ℕ → ℝ
+  /-- Eigenvalues are non-negative -/
   eigenvalues_nonneg : ∀ i, eigenvalues i ≥ 0
+  /-- Eigenvalues are summable (trace-class condition) -/
   eigenvalues_summable : Summable eigenvalues
+  /-- Eigenvectors are actual eigenvectors of toLinearMap:
+      Q eᵢ = λᵢ eᵢ. This connects eigenvalues to the operator. -/
+  is_eigenpair : ∀ i, toLinearMap (eigenvectors i) = eigenvalues i • eigenvectors i
+  /-- Eigenvectors are pairwise orthogonal -/
+  eigenvectors_orthogonal : ∀ i j, i ≠ j →
+    @inner ℝ H _ (eigenvectors i) (eigenvectors j) = 0
+  /-- Eigenvectors with non-zero eigenvalue have unit norm -/
+  eigenvectors_normalized : ∀ i, eigenvalues i > 0 → ‖eigenvectors i‖ = 1
 
 /-- The trace is the sum of eigenvalues -/
 noncomputable def TraceClassOperator.trace {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℝ H]
@@ -337,9 +578,13 @@ def zero : TraceClassOperator H where
   toLinearMap := 0
   self_adjoint := fun _ _ => by simp
   nonneg := fun _ => by simp
+  eigenvectors := fun _ => 0
   eigenvalues := fun _ => 0
   eigenvalues_nonneg := fun _ => le_refl 0
   eigenvalues_summable := summable_zero
+  is_eigenpair := fun _ => by simp
+  eigenvectors_orthogonal := fun _ _ _ => by simp
+  eigenvectors_normalized := fun _ h => absurd h (lt_irrefl 0)
 
 end TraceClassOperator
 

@@ -11,6 +11,8 @@ import ModularPhysics.RigorousQFT.SPDE.RegularityStructures
 import ModularPhysics.RigorousQFT.SPDE.SPDE
 import ModularPhysics.RigorousQFT.SPDE.Examples
 import ModularPhysics.RigorousQFT.SPDE.EKMS
+import ModularPhysics.RigorousQFT.SPDE.Helpers.SetIntegralHelpers
+import ModularPhysics.RigorousQFT.SPDE.Helpers.SimpleIntegralMartingale
 
 /-!
 # Stochastic Partial Differential Equations

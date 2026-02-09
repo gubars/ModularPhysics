@@ -258,6 +258,32 @@ theorem cohomology_functorial (i : ℕ) {F G : OModule C.toScheme} (f : F ⟶ G)
       exact cochainMap_preserves_coboundaries f 𝒰 n c hmem
     exact ⟨QuotientAddGroup.map _ _ φ hφN⟩
 
+/-- For flasque sheaves, h¹(F) = 0.
+
+    Every 1-cocycle of a flasque sheaf is a coboundary (by flasque_H1_zero),
+    so the quotient H¹ = Z¹/B¹ is trivial, hence finrank = 0. -/
+theorem flasque_h1_eq_zero (F : CoherentSheaf C.toAlgebraicCurve) [IsFlasque F.toModule] :
+    h_i C 1 F = 0 := by
+  unfold h_i
+  let 𝒰 := standardAffineCover C.toAlgebraicCurve
+  -- Show the cohomology type is subsingleton (every element is 0)
+  haveI : Subsingleton (SheafCohomology C.toAlgebraicCurve 1 F.toModule) := by
+    constructor; intro a b
+    -- Show every element of H¹ is 0
+    suffices allzero : ∀ x : CechCohomologySucc F.toModule 𝒰 0, x = 0 by
+      show (a : CechCohomologySucc F.toModule 𝒰 0) = b
+      rw [allzero a, allzero b]
+    intro x
+    induction x using QuotientAddGroup.induction_on with
+    | H z =>
+      -- z : CechCocycles F.toModule 𝒰 1, need mk z = 0 in quotient
+      exact (QuotientAddGroup.eq_zero_iff z).mpr <| by
+        -- z ∈ N_succ iff z.val is a coboundary
+        simp only [AddSubgroup.mem_comap, CechCoboundariesSucc, AddMonoidHom.mem_range,
+          cechDifferentialHom, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
+        exact flasque_H1_zero F.toModule 𝒰 z
+  exact Module.finrank_zero_of_subsingleton
+
 end Properties
 
 /-!

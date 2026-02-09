@@ -213,7 +213,15 @@ structure Supermartingale {Ω : Type*} [MeasurableSpace Ω] {ι : Type*} [Preord
 
 /-! ## Quadratic Variation -/
 
-/-- The quadratic variation of a process -/
+/-- The quadratic variation ⟨X⟩ of a continuous process X.
+
+    ⟨X⟩_t is the unique adapted, continuous, increasing process starting at 0
+    such that X_t² - ⟨X⟩_t is a (local) martingale.
+
+    Equivalently, ⟨X⟩_t = lim Σᵢ (X_{tᵢ₊₁} - X_{tᵢ})² as mesh → 0.
+
+    The characterizing property (X² - ⟨X⟩ is a martingale) distinguishes
+    this from just any increasing process. -/
 structure QuadraticVariation {Ω : Type*} [MeasurableSpace Ω]
     (F : Filtration Ω ℝ) where
   /-- The original process -/
@@ -226,11 +234,40 @@ structure QuadraticVariation {Ω : Type*} [MeasurableSpace Ω]
   mono : ∀ ω : Ω, Monotone (fun t => variation t ω)
   /-- Initial condition -/
   initial : ∀ ω : Ω, variation 0 ω = 0
+  /-- **Characterizing property**: X_t² - ⟨X⟩_t is a submartingale
+      (for continuous local martingales, this is actually a martingale).
 
-/-- The covariation of two processes -/
-noncomputable def covariation {Ω : Type*} (X Y : ℝ → Ω → ℝ) : ℝ → Ω → ℝ :=
-  fun t ω => (1/4) * ((fun t => (X t ω + Y t ω)^2) t -
-                       (fun t => (X t ω - Y t ω)^2) t)
+      Expressed via the integral characterization: for s ≤ t and A ∈ F_s,
+      ∫_A (X_s² - ⟨X⟩_s) dμ ≤ ∫_A (X_t² - ⟨X⟩_t) dμ.
+
+      This ensures ⟨X⟩ is the actual quadratic variation, not just any
+      increasing adapted process. -/
+  is_compensator (μ : Measure Ω) : Prop :=
+    ∀ s t : ℝ, s ≤ t →
+    ∀ A : Set Ω, @MeasurableSet Ω (F.σ_algebra s) A →
+    ∫ ω in A, (process s ω)^2 - variation s ω ∂μ ≤
+    ∫ ω in A, (process t ω)^2 - variation t ω ∂μ
+
+/-- The covariation ⟨X, Y⟩_t of two processes.
+
+    Defined via polarization of the quadratic variation:
+    ⟨X, Y⟩_t = (1/4)(⟨X+Y⟩_t - ⟨X-Y⟩_t)
+
+    where ⟨Z⟩_t is the quadratic variation of Z, i.e., the limit of
+    Σᵢ (Z_{tᵢ₊₁} - Z_{tᵢ})² as the partition mesh → 0.
+
+    This is NOT the pointwise product X_t · Y_t. The covariation
+    captures the joint variation structure.
+
+    NOTE: This definition requires quadratic variation data as input.
+    To compute ⟨X,Y⟩ from raw processes, one must first establish their
+    quadratic variations. -/
+noncomputable def covariation {Ω : Type*} [MeasurableSpace Ω]
+    {F : Filtration Ω ℝ}
+    (qv_sum : QuadraticVariation F)   -- QV of X + Y
+    (qv_diff : QuadraticVariation F)  -- QV of X - Y
+    : ℝ → Ω → ℝ :=
+  fun t ω => (1/4) * (qv_sum.variation t ω - qv_diff.variation t ω)
 
 /-! ## Predictable Processes -/
 

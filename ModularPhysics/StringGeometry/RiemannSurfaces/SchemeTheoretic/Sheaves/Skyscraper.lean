@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Cohomology.SheafCohomology
 import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.FlasqueSheaves
+import ModularPhysics.StringGeometry.RiemannSurfaces.SchemeTheoretic.Helpers.SkyscraperModuleConstruction
 
 /-!
 # Skyscraper Sheaves on Algebraic Curves
@@ -86,17 +87,8 @@ For curves over ℂ, κ(p) ≅ ℂ.
     construction (which is a presheaf in a general category C with terminal
     objects). This interface requires showing that the module operations
     are compatible with the presheaf structure. -/
-noncomputable def skyscraperModule (p : C.PointType) : OModule C.toScheme := by
-  -- The mathematical content is standard:
-  -- skyscraper(p, κ(p)) as an O_C-module sheaf
-  -- Sections: k_p(U) = κ(p) if p ∈ U, else 0
-  -- Module action: f · v = evaluation(f)(p) · v
-  --
-  -- Full implementation requires:
-  -- 1. Building PresheafOfModules structure on skyscraper presheaf
-  -- 2. Verifying sheaf condition for modules
-  -- 3. Packaging as SheafOfModules
-  sorry
+noncomputable def skyscraperModule (p : C.PointType) : OModule C.toScheme :=
+  SkyscraperConstruction.constructSkyscraperModule (X := C.toScheme) p
 
 /-- The skyscraper sheaf at p is coherent.
 
@@ -177,6 +169,37 @@ theorem globalSections_dim :
 end SkyscraperSheaf
 
 /-!
+## Skyscraper Sheaves are Flasque
+
+This is the key property that implies H¹ = 0.
+-/
+
+/-- Skyscraper sheaves are flasque.
+
+    **Proof:**
+    For a skyscraper sheaf k_p:
+    - k_p(U) = κ(p) if p ∈ U, else 0 (= terminal object PUnit)
+
+    The restriction map k_p(V) → k_p(U) for U ⊆ V is:
+    - Identity κ(p) → κ(p) if p ∈ U (hence p ∈ V by U ≤ V)
+    - The unique map κ(p) → 0 if p ∉ U but p ∈ V
+    - The zero map 0 → 0 if p ∉ V (hence p ∉ U)
+
+    All these maps are surjective:
+    - Case 1: id : κ(p) → κ(p) is surjective (trivially)
+    - Case 2: κ(p) → 0 is surjective (0 is terminal, unique preimage)
+    - Case 3: 0 → 0 is surjective (trivially)
+
+    **Key infrastructure:**
+    - `skyscraper_restriction_surjective` in SkyscraperInfrastructure.lean
+      proves surjectivity for each case separately. -/
+instance skyscraperModule_isFlasque (p : C.PointType) :
+    IsFlasque (skyscraperModule C p) where
+  restriction_surjective := fun U V hUV => by
+    exact SkyscraperConstruction.skyscraperMap_surjective
+      (X := C.toScheme) p (homOfLE hUV).op
+
+/-!
 ## Cohomology of Skyscraper Sheaves
 
 The key fact for Riemann-Roch: skyscraper sheaves have Euler characteristic 1.
@@ -222,12 +245,10 @@ theorem h0_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointType) :
     - `flasque_H1_zero` : F flasque ⇒ H¹(F) = 0 -/
 theorem h1_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointType) :
     h_i C 1 (skyscraperSheaf C.toAlgebraicCurve p) = 0 := by
-  -- The proof requires:
-  -- 1. k_p is flasque (skyscraperModule_isFlasque)
-  -- 2. Flasque sheaves have H¹ = 0 (flasque_H1_zero)
-  -- 3. The zero module has finrank 0
-  -- This depends on the skyscraperModule construction and flasque_H1_zero
-  sorry
+  -- k_p is flasque (skyscraperModule_isFlasque), so h¹ = 0
+  haveI : IsFlasque (skyscraperSheaf C.toAlgebraicCurve p).toModule :=
+    skyscraperModule_isFlasque C.toAlgebraicCurve p
+  exact flasque_h1_eq_zero C (skyscraperSheaf C.toAlgebraicCurve p)
 
 /-- χ(k_p) = 1.
 
@@ -240,41 +261,5 @@ theorem euler_char_skyscraper (C : ProperCurve) (p : C.toAlgebraicCurve.PointTyp
   unfold EulerChar
   rw [h0_skyscraper C p, h1_skyscraper C p]
   norm_num
-
-/-!
-## Skyscraper Sheaves are Flasque
-
-This is the key property that implies H¹ = 0.
--/
-
-/-- Skyscraper sheaves are flasque.
-
-    **Proof:**
-    For a skyscraper sheaf k_p:
-    - k_p(U) = κ(p) if p ∈ U, else 0 (= terminal object PUnit)
-
-    The restriction map k_p(V) → k_p(U) for U ⊆ V is:
-    - Identity κ(p) → κ(p) if p ∈ U (hence p ∈ V by U ≤ V)
-    - The unique map κ(p) → 0 if p ∉ U but p ∈ V
-    - The zero map 0 → 0 if p ∉ V (hence p ∉ U)
-
-    All these maps are surjective:
-    - Case 1: id : κ(p) → κ(p) is surjective (trivially)
-    - Case 2: κ(p) → 0 is surjective (0 is terminal, unique preimage)
-    - Case 3: 0 → 0 is surjective (trivially)
-
-    **Key infrastructure:**
-    - `skyscraper_restriction_surjective` in SkyscraperInfrastructure.lean
-      proves surjectivity for each case separately. -/
-instance skyscraperModule_isFlasque (p : C.PointType) :
-    IsFlasque (skyscraperModule C p) where
-  restriction_surjective := fun U V hUV => by
-    -- By case analysis on whether p ∈ U
-    -- All cases follow from skyscraper_restriction_surjective
-    -- Case 1: p ∈ U → restriction is id : κ(p) → κ(p), surjective
-    -- Case 2: p ∉ U, p ∈ V → restriction is κ(p) → 0, surjective
-    -- Case 3: p ∉ V → restriction is 0 → 0, surjective
-    -- This depends on the skyscraperModule construction
-    sorry
 
 end RiemannSurfaces.SchemeTheoretic

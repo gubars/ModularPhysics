@@ -156,9 +156,14 @@ variable {E : Type*} [MeasurableSpace E]
 def IndepRV (X : Ω → E) (Y : Ω → E) (μ : Measure Ω) : Prop :=
   ProbabilityTheory.IndepFun X Y μ
 
-/-- A family of random variables is independent -/
+/-- A family of random variables is mutually independent.
+    This is STRONGER than pairwise independence: all finite subcollections
+    must be jointly independent.
+
+    Expressed via σ-algebra independence: the σ-algebras σ(Xᵢ) are
+    mutually independent in the sense of Mathlib's `iIndepFun`. -/
 def IndepFamily {ι : Type*} (X : ι → Ω → E) (μ : Measure Ω) : Prop :=
-  ∀ i j : ι, i ≠ j → IndepRV (X i) (X j) μ
+  ProbabilityTheory.iIndepFun X μ
 
 /-- Independent random variables: E[XY] = E[X]E[Y] -/
 theorem indep_rv_integral_mul {X Y : Ω → ℝ} (h : IndepRV X Y μ)
@@ -167,20 +172,12 @@ theorem indep_rv_integral_mul {X Y : Ω → ℝ} (h : IndepRV X Y μ)
   -- Uses Mathlib's IndepFun.integral_mul_eq_mul_integral
   h.integral_mul_eq_mul_integral hX.aestronglyMeasurable hY.aestronglyMeasurable
 
-/-- Independent of σ-algebra implies conditional expectation equals unconditional.
-
-    For a measurable function `f` that is `m₁`-measurable and independent of `m₂`,
-    we have `E[f|m₂] = E[f]` a.e. This is Mathlib's `condExp_indep_eq`:
-
-    ```
-    theorem condExp_indep_eq (hle₁ : m₁ ≤ m) (hle₂ : m₂ ≤ m) [SigmaFinite (μ.trim hle₂)]
-        (hf : StronglyMeasurable[m₁] f) (hindp : Indep m₁ m₂ μ) :
-        μ[f|m₂] =ᵐ[μ] fun _ => μ[f]
-    ```
-
-    Use `condExp_indep_eq` directly when needed, as wrapping it here causes
-    instance resolution issues with sub-σ-algebra parameters. -/
-theorem condexp_indep_eq_integral_doc : True := trivial
+-- Independent of σ-algebra implies conditional expectation equals unconditional.
+-- For a measurable function `f` that is `m₁`-measurable and independent of `m₂`,
+-- we have `E[f|m₂] = E[f]` a.e. Use Mathlib's `condExp_indep_eq` directly:
+--   condExp_indep_eq (hle₁ : m₁ ≤ m) (hle₂ : m₂ ≤ m) [SigmaFinite (μ.trim hle₂)]
+--       (hf : StronglyMeasurable[m₁] f) (hindp : Indep m₁ m₂ μ) :
+--       μ[f|m₂] =ᵐ[μ] fun _ => μ[f]
 
 /-- Independent increments: for disjoint intervals, the increments are independent -/
 def IndependentIncrements {ι : Type*} [Preorder ι]
